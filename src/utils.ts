@@ -40,7 +40,9 @@ export function normalizeArabic(text: string): string {
 
 export function cleanAreaName(name: string): string {
   if (!name) return "";
-  return name.replace(/مدينة\s+/g, "").trim();
+  let clean = name.replace(/(مدينة|ضاحية)\s+/g, "").trim();
+  clean = clean.replace(/^[أإآ]/, 'ا'); // ignore hamza at the beginning
+  return clean;
 }
 
 export function searchMatch(source: string, query: string): boolean {

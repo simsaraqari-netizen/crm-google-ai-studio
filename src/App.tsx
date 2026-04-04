@@ -1101,22 +1101,19 @@ export default function App() {
 
 
   const availableFilterOptions = useMemo(() => {
-    const governorates = new Set<string>();
-    const areas = new Set<string>();
+    let currentAreas: string[] = [];
+    if (filters.governorate && AREAS[filters.governorate]) {
+      currentAreas = [...AREAS[filters.governorate]].sort();
+    } else {
+      currentAreas = Array.from(new Set(Object.values(AREAS).flat())).sort();
+    }
+
     const types = new Set<string>();
     const purposes = new Set<string>();
     const locations = new Set<string>();
     const marketers = new Set<string>();
 
     properties.forEach(p => {
-      if (p.governorate) governorates.add(p.governorate);
-      
-      if (p.area) {
-        if (!filters.governorate || p.governorate === filters.governorate) {
-          areas.add(p.area);
-        }
-      }
-      
       if (p.type) types.add(p.type);
       if (p.purpose) purposes.add(p.purpose);
       if (p.location) locations.add(p.location);
@@ -1124,8 +1121,8 @@ export default function App() {
     });
 
     return {
-      governorates: Array.from(governorates).sort(),
-      areas: Array.from(areas).sort(),
+      governorates: [...GOVERNORATES],
+      areas: currentAreas,
       types: Array.from(types).sort(),
       purposes: Array.from(purposes).sort(),
       locations: Array.from(locations).sort(),
@@ -1327,33 +1324,49 @@ export default function App() {
             status_label, created_by, created_atStr
           ] = row;
 
+          const cleanVal = (val: string) => val ? val.replace(/resedintal/gi, '').trim() : '';
+          
+          const normalizeGovernorate = (gov: string) => {
+            let g = cleanVal(gov);
+            if (!g) return '';
+            
+            if (g.includes('الرابعة') || g.includes('الرابعه')) {
+              return 'محافظة الفروانية';
+            }
+            
+            if (!g.startsWith('محافظة')) {
+              g = 'محافظة ' + g;
+            }
+            return g;
+          };
+
           const propertyData: any = {
-            name: name || '',
-            governorate: governorate || '',
-            area: area || '',
-            type: type || '',
-            purpose: purpose || '',
-            phone: phone || '',
+            name: cleanVal(name),
+            governorate: normalizeGovernorate(governorate),
+            area: cleanAreaName(cleanVal(area)),
+            type: cleanVal(type),
+            purpose: cleanVal(purpose),
+            phone: cleanVal(phone),
             assigned_employee_id: assigned_employee_id || '',
             assigned_employee_name: assigned_employee_name || '',
             images: imagesStr ? imagesStr.split(',').filter(Boolean) : [],
             links: linksStr ? linksStr.split(',').filter(Boolean) : [],
             location_link: location_link || '',
             is_sold: is_soldStr === 'TRUE' || is_soldStr === 'نعم' || is_soldStr === 'مباع',
-            sector: sector || '',
-            block: block || '',
-            street: street || '',
-            avenue: avenue || '',
-            plot_number: plot_number || '',
-            house_number: house_number || '',
-            location: location || '',
-            details: details || '',
-            status_label: status_label || '',
+            sector: cleanVal(sector),
+            block: cleanVal(block),
+            street: cleanVal(street),
+            avenue: cleanVal(avenue),
+            plot_number: cleanVal(plot_number),
+            house_number: cleanVal(house_number),
+            location: cleanVal(location),
+            details: cleanVal(details),
+            status_label: cleanVal(status_label),
             updated_at: new Date().toISOString()
           };
 
           if (last_comment) {
-            propertyData.last_comment = last_comment;
+            propertyData.last_comment = cleanVal(last_comment);
           }
 
           if (id && id.length > 5) {
