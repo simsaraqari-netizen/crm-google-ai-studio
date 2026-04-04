@@ -1326,12 +1326,20 @@ export default function App() {
 
           const cleanVal = (val: string) => val ? val.replace(/resedintal/gi, '').trim() : '';
           
-          const normalizeGovernorate = (gov: string) => {
+          const normalizeGovernorate = (gov: string, areaName: string) => {
             let g = cleanVal(gov);
             if (!g) return '';
             
             if (g.includes('الرابعة') || g.includes('الرابعه')) {
               return 'محافظة الفروانية';
+            }
+
+            if (g.includes('العاشرة') || g.includes('العاشره')) {
+               let a = cleanAreaName(cleanVal(areaName));
+               if (a && AREAS['محافظة مبارك الكبير']?.some(area => a.includes(area) || area.includes(a))) {
+                 return 'محافظة مبارك الكبير';
+               }
+               return 'محافظة الأحمدي';
             }
             
             if (!g.startsWith('محافظة')) {
@@ -1342,7 +1350,7 @@ export default function App() {
 
           const propertyData: any = {
             name: cleanVal(name),
-            governorate: normalizeGovernorate(governorate),
+            governorate: normalizeGovernorate(governorate, area),
             area: cleanAreaName(cleanVal(area)),
             type: cleanVal(type),
             purpose: cleanVal(purpose),
