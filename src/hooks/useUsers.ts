@@ -7,11 +7,11 @@ export const useUsers = (isSuperAdmin: boolean, selectedCompanyId: string | null
     queryKey: ['users', isSuperAdmin, selectedCompanyId],
     queryFn: async () => {
       if (!isSuperAdmin) return [];
-      let query = supabase.from('users').select('*');
+      let query = supabase.from('user_profiles').select('*');
       if (selectedCompanyId) {
-        query = query.eq('companyId', selectedCompanyId);
+        query = query.eq('company_id', selectedCompanyId);
       }
-      const { data, error } = await query.order('createdAt', { ascending: false });
+      const { data, error } = await query.order('created_at', { ascending: false });
       if (error) throw error;
       return data as UserProfile[];
     },
@@ -19,8 +19,8 @@ export const useUsers = (isSuperAdmin: boolean, selectedCompanyId: string | null
     staleTime: 1000 * 60 * 5,
   });
 
-  const activeUsers = users.filter(u => !u.isDeleted);
-  const deletedUsers = users.filter(u => u.isDeleted);
+  const activeUsers = users.filter(u => !u.is_deleted);
+  const deletedUsers = users.filter(u => u.is_deleted);
 
   return {
     users,
