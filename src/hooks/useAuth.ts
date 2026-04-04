@@ -16,18 +16,18 @@ export const useAuth = () => {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
           const supabaseUser = session.user;
-          const { data: userDoc, error } = await supabase.from('users').select('*').eq('uid', supabaseUser.id).maybeSingle();
+          const { data: userDoc, error } = await supabase.from('user_profiles').select('*').eq('id', supabaseUser.id).maybeSingle();
           
           let userData: UserProfile;
           if (userDoc) {
             userData = userDoc as UserProfile;
-            if (userData.isDeleted) {
+            if (userData.is_deleted) {
               setAuthError('هذا الحساب تم حذفه من قبل الإدارة.');
               await supabase.auth.signOut();
               return;
             }
-            if (userData.forceSignOut) {
-              await supabase.from('users').update({ forceSignOut: false }).eq('uid', supabaseUser.id);
+            if (userData.force_sign_out) {
+              await supabase.from('user_profiles').update({ force_sign_out: false }).eq('id', supabaseUser.id);
               setAuthError('تم تسجيل خروجك من قبل المسؤول.');
               await supabase.auth.signOut();
               return;
@@ -41,30 +41,30 @@ export const useAuth = () => {
                           (userData.phone && SUPER_ADMIN_PHONES.includes(userData.phone));
             if (isSuper && userData.role !== 'super_admin') {
               userData.role = 'super_admin';
-              await supabase.from('users').update({ role: 'super_admin' }).eq('uid', supabaseUser.id);
+              await supabase.from('user_profiles').update({ role: 'super_admin' }).eq('id', supabaseUser.id);
             }
           } else {
-            const { data: userByEmail } = await supabase.from('users').select('*').eq('email', supabaseUser.email).maybeSingle();
+            const { data: userByEmail } = await supabase.from('user_profiles').select('*').eq('email', supabaseUser.email).maybeSingle();
             if (userByEmail) {
-              await supabase.from('users').update({ uid: supabaseUser.id }).eq('id', userByEmail.id);
-              userData = { ...userByEmail, uid: supabaseUser.id } as UserProfile;
+              userData = { ...userByEmail } as UserProfile;
             } else {
               const isSuper = (supabaseUser.email && SUPER_ADMIN_EMAILS.includes(supabaseUser.email)) || 
                             (supabaseUser.user_metadata?.phone && SUPER_ADMIN_PHONES.includes(supabaseUser.user_metadata.phone));
               const role = isSuper ? 'super_admin' : 'pending';
               userData = {
-                uid: supabaseUser.id,
+                id: supabaseUser.id,
                 email: supabaseUser.email || '',
+                display_name: supabaseUser.user_metadata?.full_name || 'User',
                 full_name: supabaseUser.user_metadata?.full_name || 'User',
                 role: role,
-                createdAt: new Date().toISOString()
+                created_at: new Date().toISOString()
               };
-              const { data: insertedData } = await supabase.from('users').insert(userData).select().single();
+              const { data: insertedData } = await supabase.from('user_profiles').insert(userData).select().single();
               if (insertedData) userData = insertedData as UserProfile;
             }
           }
           setUser(userData);
-          if (userData.companyId) setSelectedCompanyId(userData.companyId);
+          if (userData.company_id) setSelectedCompanyId(userData.company_id);
         }
       } catch (error: any) {
         console.error("Auth initialization error:", error);
