@@ -42,6 +42,17 @@ export function cleanAreaName(name: string): string {
   if (!name) return "";
   let clean = name.replace(/(مدينة|ضاحية)\s+/g, "").trim();
   clean = clean.replace(/^[أإآ]/, 'ا'); // ignore hamza at the beginning
+
+  // Abbreviations mapping
+  if (clean === "ج س ع" || clean.includes(" س ع") && clean.includes("ج ")) clean = "جنوب سعد العبدالله";
+  else if (clean === "ج ع م" || clean.includes(" ع م") && clean.includes("ج ")) clean = "جنوب عبدالله المبارك";
+  else if (clean === "ش غ ص" || clean.includes(" غ ص") && clean.includes("ش ")) clean = "شمال غرب صليبيخات";
+  else if (clean === "ج ص الاحمد" || clean === "ج ص ح" || clean.includes(" ص ح") && clean.includes("ج ")) clean = "جنوب صباح الاحمد";
+  else if (clean === "غ ع م" || clean.includes(" ع م") && clean.includes("غ ")) clean = "غرب عبدالله المبارك";
+  else if (clean === "ص الاحمد") clean = "صباح الاحمد";
+
+  if (clean === "شمال غرب الصليبخات" || clean === "شمال غرب صليبخات") clean = "شمال غرب صليبيخات";
+
   return clean;
 }
 
