@@ -326,16 +326,16 @@ function ImageViewer({ images, initialIndex, onClose, is_sold }: any) {
         <X size={32} />
       </button>
 
-      {images.length > 1 && (
+      {(images?.length || 0) > 1 && (
         <>
           <button 
-            onClick={() => setCurrentIndex((prev: number) => (prev === 0 ? images.length - 1 : prev - 1))}
+            onClick={() => setCurrentIndex((prev: number) => (prev === 0 ? (images?.length || 0) - 1 : prev - 1))}
             className="absolute left-6 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-3 bg-white/10 rounded-full transition-all"
           >
             <ChevronLeft size={32} />
           </button>
           <button 
-            onClick={() => setCurrentIndex((prev: number) => (prev === images.length - 1 ? 0 : prev + 1))}
+            onClick={() => setCurrentIndex((prev: number) => (prev === (images?.length || 0) - 1 ? 0 : prev + 1))}
             className="absolute right-6 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-3 bg-white/10 rounded-full transition-all"
           >
             <ChevronRight size={32} />
@@ -367,7 +367,7 @@ function ImageViewer({ images, initialIndex, onClose, is_sold }: any) {
       </div>
 
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/50 text-sm font-bold">
-        {currentIndex + 1} / {images.length}
+        {currentIndex + 1} / {(images?.length || 0)}
       </div>
     </div>
   );
@@ -853,7 +853,7 @@ export default function App() {
 
   // Properties Listener
   useEffect(() => {
-    if (!user) return;
+    if (!user?.id) return;
     
     const fetchProperties = async () => {
       let query = supabase.from('properties').select('*');
@@ -918,7 +918,7 @@ export default function App() {
 
   // Notifications Listener
   useEffect(() => {
-    if (!user) return;
+    if (!user?.id) return;
     
     const fetchNotifications = async () => {
       let query = supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(50);
@@ -955,7 +955,7 @@ export default function App() {
 
   // Favorites Listener
   useEffect(() => {
-    if (!user) return;
+    if (!user?.id) return;
     
     const fetchFavorites = async () => {
       const { data, error } = await supabase
@@ -1056,12 +1056,12 @@ export default function App() {
   };
 
   const handleDeleteAccount = () => {
-    if (!user) return;
+    if (!user?.id) return;
     setAccountDeleteConfirm(true);
   };
 
   const confirmAccountDelete = async () => {
-    if (!user) return;
+    if (!user?.id) return;
     
     setIsAuthenticating(true);
     try {
@@ -1147,8 +1147,8 @@ export default function App() {
 
       return matchesSearch && matchesGov && matchesArea && matchesType && matchesPurpose && matchesLocation && matchesMarketer && matchesStatus;
     }).sort((a, b) => {
-      const dateA = a.created_at?.seconds || 0;
-      const dateB = b.created_at?.seconds || 0;
+      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
       return dateB - dateA;
     });
   }, [properties, deletedProperties, searchQuery, filters, view, favorites, user]);
@@ -3000,7 +3000,7 @@ export default function App() {
   // --- Actions ---
 
   async function toggleFavorite(property_id: string) {
-    if (!user) return;
+    if (!user?.id) return;
     const isFav = favorites.includes(property_id);
     if (isFav) {
       try {
@@ -3155,7 +3155,7 @@ export default function App() {
         if (commentDeleteConfirm.commentId) {
           const { data: commentData } = await supabase.from('comments').select('*').eq('id', commentDeleteConfirm.commentId).single();
           if (commentData?.images && Array.isArray(commentData.images)) {
-            await Promise.all(commentData.images.map(async (img: any) => {
+            await Promise.all(commentData.((images || []).map(async (img: any) => {
               try {
                 const url = typeof img === 'string' ? img : img.url;
                 if (url.includes('storage/v1/object/public/properties/')) {
@@ -3253,14 +3253,14 @@ const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavori
         >
           {property.images?.[0] ? (
             <>
-              {property.images[0].startsWith('data:video/') ? (
+              {(property.images || [])[0].startsWith('data:video/') ? (
                 <video 
-                  src={property.images[0]} 
+                  src={(property.images || [])[0]} 
                   className={`w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
                 />
               ) : (
                 <img 
-                  src={property.images[0]} 
+                  src={(property.images || [])[0]} 
                   alt={generatePropertyTitle(property)} 
                   className={`w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
                   referrerPolicy="no-referrer"
@@ -3309,9 +3309,9 @@ const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavori
             </div>
           )}
 
-          {property.images && property.images.length > 1 && (
+          {property.images && (property.images?.length || 0) > 1 && (
             <div className="absolute bottom-0.5 right-0.5 bg-black/60 text-white text-[7px] px-1 rounded font-bold">
-              +{property.images.length - 1}
+              +{(property.images?.length || 0) - 1}
             </div>
           )}
         </div>
@@ -3577,7 +3577,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []) as File[];
-    if (formData.images.length + files.length > 20) {
+    if (formData.(images?.length || 0) + files.length > 20) {
       toast.error('لا يمكن رفع أكثر من 20 ملفاً');
       return;
     }
@@ -3980,7 +3980,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
           </div>
           
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-            {formData.images.map((img: { url: string, type: 'image' | 'video' }, index: number) => (
+            {formData.((images || []).map((img: { url: string, type: 'image' | 'video' }, index: number) => (
               <motion.div 
                 key={index} 
                 layout
@@ -4005,7 +4005,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
               </motion.div>
             ))}
             
-            {formData.images.length < 20 && (
+            {formData.(images?.length || 0) < 20 && (
               <label htmlFor="image-upload" className={`aspect-square rounded-2xl border-2 border-dashed border-stone-300 flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500 hover:bg-emerald-50 transition-all group ${isUploading ? 'opacity-50 cursor-wait' : ''}`}>
                 <input 
                   id="image-upload"
@@ -4020,7 +4020,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
                   <Upload className="text-stone-400 group-hover:text-emerald-600" size={24} />
                 </div>
                 <span className="text-xs font-bold text-stone-500 mt-2">{isUploading ? 'جاري الرفع...' : 'إضافة صور أو فيديو'}</span>
-                <span className="text-[10px] text-stone-400 mt-1">{formData.images.length}/20</span>
+                <span className="text-[10px] text-stone-400 mt-1">{formData.(images?.length || 0)}/20</span>
               </label>
             )}
           </div>
@@ -4394,15 +4394,15 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
           <div className="relative aspect-square bg-stone-50 group">
              {property.images?.[activeImageIndex] ? (
               <>
-                {property.images[activeImageIndex].startsWith('data:video/') ? (
+                {(property.images || [])[activeImageIndex].startsWith('data:video/') ? (
                   <video 
-                    src={property.images[activeImageIndex]} 
+                    src={(property.images || [])[activeImageIndex]} 
                     controls 
                     className={`w-full h-full object-cover ${property.is_sold ? 'grayscale opacity-60' : ''}`}
                   />
                 ) : (
                   <img 
-                    src={property.images[activeImageIndex]} 
+                    src={(property.images || [])[activeImageIndex]} 
                     alt={generatePropertyTitle(property)} 
                     className={`w-full h-full object-cover cursor-zoom-in ${property.is_sold ? 'grayscale opacity-60' : ''}`}
                     referrerPolicy="no-referrer"
@@ -4430,16 +4430,16 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
               </div>
             )}
             
-            {property.images.length > 1 && (
+            {(property.images?.length || 0) > 1 && (
               <div className="absolute inset-0 flex items-center justify-between p-4 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button 
-                  onClick={() => setActiveImageIndex(prev => (prev === 0 ? property.images.length - 1 : prev - 1))}
+                  onClick={() => setActiveImageIndex(prev => (prev === 0 ? (property.images?.length || 0) - 1 : prev - 1))}
                   className="p-2 bg-white/80 backdrop-blur rounded-full text-stone-800 hover:bg-white transition-all shadow-md"
                 >
                   <ChevronRight size={20} />
                 </button>
                 <button 
-                  onClick={() => setActiveImageIndex(prev => (prev === property.images.length - 1 ? 0 : prev + 1))}
+                  onClick={() => setActiveImageIndex(prev => (prev === (property.images?.length || 0) - 1 ? 0 : prev + 1))}
                   className="p-2 bg-white/80 backdrop-blur rounded-full text-stone-800 hover:bg-white transition-all shadow-md"
                 >
                   <ChevronLeft size={20} />
@@ -4448,7 +4448,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
             )}
 
             <div className="absolute bottom-4 right-4 flex gap-1.5">
-              {property.images.map((_: any, i: number) => (
+              {((property.images || []).map((_: any, i: number) => (
                 <button 
                   key={i}
                   onClick={() => setActiveImageIndex(i)}
@@ -4496,14 +4496,14 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
               </div>
             </div>
 
-            {property.images.length > 1 && (
+            {(property.images?.length || 0) > 1 && (
               <div className="mt-8 pt-6 border-t border-stone-100">
                 <h3 className="text-sm font-bold text-stone-900 mb-4 flex items-center gap-2 justify-center">
                   <ImageIcon size={16} className="text-emerald-600" />
-                  معرض الصور ({property.images.length})
+                  معرض الصور ({(property.images?.length || 0)})
                 </h3>
                 <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                  {property.images.map((img: string, i: number) => (
+                  {((property.images || []).map((img: string, i: number) => (
                     <button 
                       key={i} 
                       onClick={() => {
@@ -4655,9 +4655,9 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                           </div>
                         )}
                         
-                        {(c.images && c.images.length > 0) ? (
+                        {(c.images && c.(images?.length || 0) > 0) ? (
                           <div className="flex flex-wrap gap-2 mt-2">
-                            {c.images.map((img, idx) => (
+                            {c.((images || []).map((img, idx) => (
                               <motion.div
                                 key={idx}
                                 whileHover={{ scale: 1.02 }}
