@@ -732,14 +732,14 @@ export default function App() {
         const { data: userData, error } = await supabase
           .from('user_profiles')
           .select('*')
-          .eq('uid', sbUser.id)
+          .eq('id', sbUser.id)
           .maybeSingle();
 
         if (error) throw error;
 
         if (userData) {
           if (userData.force_sign_out) {
-            await supabase.from('user_profiles').update({ force_sign_out: false }).eq('uid', sbUser.id);
+            await supabase.from('user_profiles').update({ force_sign_out: false }).eq('id', sbUser.id);
             setAuthError('تم تسجيل خروجك من قبل المسؤول.');
             await supabase.auth.signOut();
             setUser(null);
@@ -754,7 +754,7 @@ export default function App() {
 
           // Check super admin emails
           if (SUPER_ADMIN_EMAILS.includes(sbUser.email || '') && userData.role !== 'super_admin') {
-            await supabase.from('user_profiles').update({ role: 'super_admin' }).eq('uid', sbUser.id);
+            await supabase.from('user_profiles').update({ role: 'super_admin' }).eq('id', sbUser.id);
             userData.role = 'super_admin';
           }
 
@@ -1068,7 +1068,7 @@ export default function App() {
       // With Supabase, we usually delete the user profile and let a trigger handle auth deletion 
       // or we use the admin API if we have permissions.
       // For now, let's delete the profile.
-      await supabase.from('user_profiles').delete().eq('uid', user.uid);
+      await supabase.from('user_profiles').delete().eq('id', user.uid);
       
       await supabase.auth.signOut();
       toast.success("تم حذف الحساب بنجاح. يمكنك الآن إعادة التسجيل.");
@@ -2763,7 +2763,7 @@ export default function App() {
                                           phone: editUserPhone.trim(),
                                           email: editUserEmail.trim()
                                         })
-                                        .eq('uid', emp.uid);
+                                        .eq('id', emp.uid);
                                       if (error) throw error;
 
                                       // Update Password if provided
@@ -3205,16 +3205,16 @@ export default function App() {
         if (error) throw error;
       } else if (userActionConfirm.user_id) {
         if (userActionConfirm.action === 'delete') {
-          const { error } = await supabase.from('user_profiles').delete().eq('uid', userActionConfirm.user_id);
+          const { error } = await supabase.from('user_profiles').delete().eq('id', userActionConfirm.user_id);
           if (error) throw error;
         } else if (userActionConfirm.action === 'approve') {
-          const { error } = await supabase.from('user_profiles').update({ role: 'employee' }).eq('uid', userActionConfirm.user_id);
+          const { error } = await supabase.from('user_profiles').update({ role: 'employee' }).eq('id', userActionConfirm.user_id);
           if (error) throw error;
         } else if (userActionConfirm.action === 'reject') {
-          const { error } = await supabase.from('user_profiles').update({ role: 'rejected' }).eq('uid', userActionConfirm.user_id);
+          const { error } = await supabase.from('user_profiles').update({ role: 'rejected' }).eq('id', userActionConfirm.user_id);
           if (error) throw error;
         } else if (userActionConfirm.action === 'change-role') {
-          const { error } = await supabase.from('user_profiles').update({ role: userActionConfirm.extraData.newRole }).eq('uid', userActionConfirm.user_id);
+          const { error } = await supabase.from('user_profiles').update({ role: userActionConfirm.extraData.newRole }).eq('id', userActionConfirm.user_id);
           if (error) throw error;
         }
       }

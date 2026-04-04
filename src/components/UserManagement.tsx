@@ -288,7 +288,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                                 full_name: editUserName.trim(),
                                 phone: editUserPhone.trim(),
                                 email: editUserEmail.trim()
-                              }).eq('uid', emp.uid);
+                              }).eq('id', emp.uid);
 
                               // Update Password if provided
                               if (editUserPassword.trim()) {
