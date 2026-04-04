@@ -79,13 +79,13 @@ export const useProperties = (user: any, isSuperAdmin: boolean, selectedCompanyI
   };
 };
 
-export function useDeletedProperties(isAdmin: boolean, companyId?: string | null) {
+export function useDeletedProperties(isAdmin: boolean, company_id?: string | null) {
   return useQuery({
-    queryKey: ['deletedProperties', companyId],
+    queryKey: ['deletedProperties', company_id],
     queryFn: async () => {
       let query = supabase.from('properties').select('*').eq('is_deleted', true);
-      if (companyId) {
-        query = query.eq('company_id', companyId);
+      if (company_id) {
+        query = query.eq('company_id', company_id);
       }
       const { data, error } = await query;
       if (error) throw error;

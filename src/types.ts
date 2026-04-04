@@ -48,7 +48,7 @@ export interface Comment {
   user_name: string;
   text: string;
   images?: string[];
-  imageUrl?: string;
+  image_url?: string;
   user_phone?: string;
   created_at: any;
   is_deleted?: boolean;
@@ -56,16 +56,16 @@ export interface Comment {
 }
 
 export interface UserProfile {
-  uid: string;
-  id?: string;
+  id: string;
   email: string;
   full_name: string;
+  display_name?: string;
   role: 'super_admin' | 'admin' | 'employee' | 'pending' | 'rejected';
   company_id?: string;
   created_at?: string;
   force_sign_out?: boolean;
   phone?: string;
-  employeeId?: string;
+  employee_id?: string;
   is_deleted?: boolean;
   deleted_at?: any;
 }

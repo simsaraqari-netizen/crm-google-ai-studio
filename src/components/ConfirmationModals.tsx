@@ -23,7 +23,7 @@ export const ConfirmationModals = ({
       <ConfirmModal
         isOpen={deleteConfirm.isOpen}
         onConfirm={confirmDelete}
-        onCancel={() => setDeleteConfirm({ isOpen: false, propertyId: null })}
+        onCancel={() => setDeleteConfirm({ isOpen: false, property_id: null })}
         title="تأكيد الحذف"
         message="هل أنت متأكد من رغبتك في حذف هذا العقار نهائياً؟ لا يمكن التراجع عن هذا الإجراء."
         confirmText="تأكيد الحذف"
@@ -32,7 +32,7 @@ export const ConfirmationModals = ({
       <ConfirmModal
         isOpen={commentDeleteConfirm.isOpen}
         onConfirm={confirmCommentDelete}
-        onCancel={() => setCommentDeleteConfirm({ isOpen: false, commentId: null, propertyId: null })}
+        onCancel={() => setCommentDeleteConfirm({ isOpen: false, commentId: null, property_id: null })}
         title="تأكيد حذف التعليق"
         message="هل أنت متأكد من حذف هذا التعليق؟"
         confirmText="تأكيد الحذف"
@@ -41,7 +41,7 @@ export const ConfirmationModals = ({
       <ConfirmModal
         isOpen={userActionConfirm.isOpen}
         onConfirm={confirmUserAction}
-        onCancel={() => setUserActionConfirm({ isOpen: false, userId: null, action: null })}
+        onCancel={() => setUserActionConfirm({ isOpen: false, user_id: null, action: null })}
         title={
           userActionConfirm.action === 'approve' ? "تأكيد الموافقة" :
           userActionConfirm.action === 'reject' ? "تأكيد الرفض" :
@@ -80,7 +80,7 @@ export const ConfirmationModals = ({
       <ConfirmModal
         isOpen={companyActionConfirm.isOpen}
         onConfirm={confirmCompanyDelete}
-        onCancel={() => setCompanyActionConfirm({ isOpen: false, companyId: null, companyName: null })}
+        onCancel={() => setCompanyActionConfirm({ isOpen: false, company_id: null, companyName: null })}
         title="تأكيد حذف الشركة"
         message={`هل أنت متأكد من حذف حساب الشركة ${companyActionConfirm.companyName} عموماً؟ سيؤدي ذلك لحذف الشركة وجميع المستخدمين والعقارات التابعة لها نهائياً. لا يمكن التراجع عن هذا الإجراء.`}
         confirmText="تأكيد الحذف"

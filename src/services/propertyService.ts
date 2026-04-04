@@ -31,8 +31,8 @@ export const propertyService = {
     if (error) throw error;
   },
 
-  async getPropertiesByCompanyId(companyId: string): Promise<Property[]> {
-    const { data, error } = await supabase.from('properties').select('*').eq('companyId', companyId);
+  async getPropertiesByCompanyId(company_id: string): Promise<Property[]> {
+    const { data, error } = await supabase.from('properties').select('*').eq('company_id', company_id);
     if (error) throw error;
     return data || [];
   },

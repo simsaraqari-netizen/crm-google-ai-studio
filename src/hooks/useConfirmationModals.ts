@@ -1,33 +1,33 @@
 import { useState } from 'react';
 
 export const useConfirmationModals = () => {
-  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; propertyId: string | null }>({
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; property_id: string | null }>({
     isOpen: false,
-    propertyId: null
+    property_id: null
   });
-  const [commentDeleteConfirm, setCommentDeleteConfirm] = useState<{ isOpen: boolean; commentId: string | null; propertyId: string | null }>({
+  const [commentDeleteConfirm, setCommentDeleteConfirm] = useState<{ isOpen: boolean; commentId: string | null; property_id: string | null }>({
     isOpen: false,
     commentId: null,
-    propertyId: null
+    property_id: null
   });
   const [userActionConfirm, setUserActionConfirm] = useState<{ 
     isOpen: boolean; 
-    userId: string | null; 
+    user_id: string | null; 
     action: 'delete' | 'bulk-delete' | 'approve' | 'reject' | 'change-role' | null;
     extraData?: any;
   }>({
     isOpen: false,
-    userId: null,
+    user_id: null,
     action: null
   });
   const [accountDeleteConfirm, setAccountDeleteConfirm] = useState(false);
   const [companyActionConfirm, setCompanyActionConfirm] = useState<{
     isOpen: boolean;
-    companyId: string | null;
+    company_id: string | null;
     companyName: string | null;
   }>({
     isOpen: false,
-    companyId: null,
+    company_id: null,
     companyName: null
   });
 

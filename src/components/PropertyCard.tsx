@@ -237,7 +237,7 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
                   const shareUrl = `${window.location.origin}?property_id=${property.id}`;
                   if (navigator.share) {
                     navigator.share({
-                      title: property.title || 'عقار',
+                      title: property.name || 'عقار',
                       text: property.details,
                       url: shareUrl,
                     }).catch(console.error);

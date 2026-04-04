@@ -400,7 +400,7 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
             onClick={() => {
               setFormData({
                 ...formData,
-                assigned_employee_id: user?.uid || '',
+                assigned_employee_id: user?.id || '',
                 assigned_employee_name: user?.full_name || ''
               });
             }}

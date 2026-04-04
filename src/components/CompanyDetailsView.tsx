@@ -17,7 +17,7 @@ export function CompanyDetailsView({
   setView
 }: CompanyDetailsViewProps) {
   const company = companies.find(c => c.id === selectedCompanyId);
-  const companyUsers = users.filter(u => u.companyId === selectedCompanyId);
+  const companyUsers = users.filter(u => u.company_id === selectedCompanyId);
   const admins = companyUsers.filter(u => u.role === 'admin');
   const employees = companyUsers.filter(u => u.role !== 'admin');
 
@@ -42,7 +42,7 @@ export function CompanyDetailsView({
               {company?.name || 'تفاصيل الشركة'}
             </h2>
             <p className="text-sm text-stone-500 font-mono mt-1">
-              كود الشركة: {company?.companyId || selectedCompanyId}
+              كود الشركة: {company?.company_id || selectedCompanyId}
             </p>
           </div>
         </div>

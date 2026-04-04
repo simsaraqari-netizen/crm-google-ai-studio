@@ -50,11 +50,11 @@ export const ManageCompaniesView: React.FC<ManageCompaniesViewProps> = ({
     e.preventDefault();
     const form = e.currentTarget;
     const name = (form.elements.namedItem('companyName') as HTMLInputElement).value.trim();
-    const companyId = (form.elements.namedItem('companyId') as HTMLInputElement).value.trim();
+    const company_id = (form.elements.namedItem('company_id') as HTMLInputElement).value.trim();
     const address = (form.elements.namedItem('companyAddress') as HTMLInputElement).value.trim();
     const phone = (form.elements.namedItem('companyPhone') as HTMLInputElement).value.trim();
     
-    if (!/^[0-9]{4}$/.test(companyId)) {
+    if (!/^[0-9]{4}$/.test(company_id)) {
       toast.error('يجب أن يكون كود الشركة مكوناً من 4 أرقام');
       return;
     }
@@ -62,15 +62,15 @@ export const ManageCompaniesView: React.FC<ManageCompaniesViewProps> = ({
     try {
       const { error } = await supabase.from('companies').insert({
         name,
-        companyId,
+        company_id,
         address,
         phone,
         createdAt: new Date().toISOString()
       });
       
       if (error) {
-        if (error.message.includes('companyId') || error.message.includes('company id') || error.message.includes('column')) {
-          throw new Error('عمود companyId غير موجود في جدول companies في Supabase. يرجى إضافته كعمود من نوع text.');
+        if (error.message.includes('company_id') || error.message.includes('company id') || error.message.includes('column')) {
+          throw new Error('عمود company_id غير موجود في جدول companies في Supabase. يرجى إضافته كعمود من نوع text.');
         }
         throw error;
       }
@@ -89,9 +89,9 @@ export const ManageCompaniesView: React.FC<ManageCompaniesViewProps> = ({
 
     const form = e.currentTarget;
     const name = (form.elements.namedItem('name') as HTMLInputElement).value.trim();
-    const companyId = (form.elements.namedItem('companyId') as HTMLInputElement).value.trim();
+    const company_id = (form.elements.namedItem('company_id') as HTMLInputElement).value.trim();
     
-    if (!/^[0-9]{4}$/.test(companyId)) {
+    if (!/^[0-9]{4}$/.test(company_id)) {
       toast.error('يجب أن يكون كود الشركة مكوناً من 4 أرقام');
       return;
     }
@@ -99,12 +99,12 @@ export const ManageCompaniesView: React.FC<ManageCompaniesViewProps> = ({
     try {
       const { error } = await supabase.from('companies').update({
         name,
-        companyId
+        company_id
       }).eq('id', editingCompany.id);
       
       if (error) {
-        if (error.message.includes('companyId') || error.message.includes('company id') || error.message.includes('column')) {
-          throw new Error('عمود companyId غير موجود في جدول companies في Supabase. يرجى إضافته كعمود من نوع text.');
+        if (error.message.includes('company_id') || error.message.includes('company id') || error.message.includes('column')) {
+          throw new Error('عمود company_id غير موجود في جدول companies في Supabase. يرجى إضافته كعمود من نوع text.');
         }
         throw error;
       }
@@ -137,7 +137,7 @@ export const ManageCompaniesView: React.FC<ManageCompaniesViewProps> = ({
           username,
           password,
           role,
-          companyId: targetCompanyForUser.id,
+          company_id: targetCompanyForUser.id,
           companyName: targetCompanyForUser.name
         })
       });
@@ -191,7 +191,7 @@ export const ManageCompaniesView: React.FC<ManageCompaniesViewProps> = ({
             </div>
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider px-1">كود الشركة (4 أرقام)</label>
-              <input name="companyId" placeholder="مثال: 1234" maxLength={4} minLength={4} pattern="[0-9]{4}" inputMode="numeric" title="يجب أن يتكون من 4 أرقام" className="w-full p-2.5 rounded-xl bg-stone-50/50 border border-stone-200 outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-sm font-mono" required />
+              <input name="company_id" placeholder="مثال: 1234" maxLength={4} minLength={4} pattern="[0-9]{4}" inputMode="numeric" title="يجب أن يتكون من 4 أرقام" className="w-full p-2.5 rounded-xl bg-stone-50/50 border border-stone-200 outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-sm font-mono" required />
             </div>
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider px-1">رقم الهاتف (اختياري)</label>
@@ -288,7 +288,7 @@ export const ManageCompaniesView: React.FC<ManageCompaniesViewProps> = ({
                       onClick={() => {
                         setCompanyActionConfirm({
                           isOpen: true,
-                          companyId: company.id,
+                          company_id: company.id,
                           companyName: company.name
                         });
                       }}
@@ -334,7 +334,7 @@ export const ManageCompaniesView: React.FC<ManageCompaniesViewProps> = ({
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-stone-500 mr-1">كود الشركة (ID)</label>
-                  <input name="companyId" defaultValue={editingCompany.companyId || editingCompany.id.substring(0, 4)} placeholder="كود الشركة (4 أرقام)" maxLength={4} minLength={4} pattern="[0-9]{4}" inputMode="numeric" title="يجب أن يتكون من 4 أرقام" className="w-full p-3.5 rounded-xl bg-stone-50 border border-stone-200 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all text-sm font-mono" required />
+                  <input name="company_id" defaultValue={editingCompany.company_id || editingCompany.id.substring(0, 4)} placeholder="كود الشركة (4 أرقام)" maxLength={4} minLength={4} pattern="[0-9]{4}" inputMode="numeric" title="يجب أن يتكون من 4 أرقام" className="w-full p-3.5 rounded-xl bg-stone-50 border border-stone-200 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all text-sm font-mono" required />
                 </div>
                 <div className="flex gap-3 pt-4 sticky bottom-0 bg-white pb-2">
                   <button type="button" onClick={() => setIsEditingCompany(false)} className="flex-1 py-3.5 rounded-xl border border-stone-200 text-stone-600 font-bold hover:bg-stone-50 transition-all active:scale-[0.98]">إلغاء</button>

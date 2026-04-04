@@ -127,7 +127,7 @@ interface Comment {
   user_name: string;
   text: string;
   images?: string[];
-  imageUrl?: string;
+  image_url?: string;
   user_phone?: string;
   created_at: any;
 }
@@ -135,7 +135,7 @@ interface Comment {
 interface UserProfile {
   uid: string;
   email: string;
-  displayName: string;
+  display_name: string;
   role: 'super_admin' | 'admin' | 'employee' | 'pending' | 'rejected';
   company_id?: string;
   created_at?: string;
@@ -589,7 +589,7 @@ export default function App() {
           handleError(error, OperationType.GET, 'users');
           return;
         }
-        setEmployees(data.filter(u => u.uid !== user?.uid) as UserProfile[]);
+        setEmployees(data.filter(u => u.uid !== user?.id) as UserProfile[]);
       };
 
       fetchEmployees();
@@ -606,7 +606,7 @@ export default function App() {
         supabase.removeChannel(subscription);
       };
     }
-  }, [isAdmin, isSuperAdmin, selectedCompanyId, user?.company_id, user?.uid]);
+  }, [isAdmin, isSuperAdmin, selectedCompanyId, user?.company_id, user?.id]);
 
   const [visibleCount, setVisibleCount] = useState(50);
   const [previewImages, setPreviewImages] = useState<string[]>([]);
@@ -769,7 +769,7 @@ export default function App() {
           const newProfile = {
             uid: sbUser.id,
             email: sbUser.email || '',
-            displayName: sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'User',
+            display_name: sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'User',
             role: role,
             created_at: new Date().toISOString()
           };
@@ -780,7 +780,7 @@ export default function App() {
             await supabase.from('notifications').insert({
               type: 'new-user',
               title: 'طلب انضمام جديد',
-              message: `المستخدم ${newProfile.displayName} يطلب الانضمام للنظام`,
+              message: `المستخدم ${newProfile.display_name} يطلب الانضمام للنظام`,
               user_id: sbUser.id,
               read: false
             });
@@ -1012,7 +1012,7 @@ export default function App() {
           const newProfile = {
             uid: sbUser.id,
             email: generatedEmail,
-            displayName: username,
+            display_name: username,
             role: role,
             created_at: new Date().toISOString()
           };
@@ -1121,13 +1121,13 @@ export default function App() {
     const sourceProperties = view === 'trash' ? deletedProperties : properties;
     return sourceProperties.filter(p => {
       // View specific filtering
-      if (view === 'my-listings' && p.created_by !== user?.uid) return false;
+      if (view === 'my-listings' && p.created_by !== user?.id) return false;
       if (view === 'my-favorites' && !favorites.includes(p.id)) return false;
       if (view === 'user-listings' && selectedMarketerId && p.assigned_employee_id !== selectedMarketerId) return false;
       if (view === 'pending-properties' && p.status !== 'pending') return false;
       
       // Approval status filtering - REMOVED to allow all users to see all properties
-      // if (!isAdmin && view !== 'pending-properties' && p.status !== 'approved' && p.created_by !== user?.uid) return false;
+      // if (!isAdmin && view !== 'pending-properties' && p.status !== 'approved' && p.created_by !== user?.id) return false;
 
       const matchesSearch = 
         searchMatch(p.name, searchQuery) || 
@@ -1346,14 +1346,14 @@ export default function App() {
               await supabase.from('properties').insert({
                 ...propertyData,
                 created_at: created_atStr ? new Date(created_atStr).toISOString() : new Date().toISOString(),
-                created_by: created_by || user?.uid
+                created_by: created_by || user?.id
               });
             }
           } else {
             await supabase.from('properties').insert({
               ...propertyData,
               created_at: created_atStr ? new Date(created_atStr).toISOString() : new Date().toISOString(),
-              created_by: created_by || user?.uid
+              created_by: created_by || user?.id
             });
           }
         }
@@ -1514,7 +1514,7 @@ export default function App() {
                     <UserIcon size={20} />
                   </div>
                   <div>
-                    <p className="font-bold text-stone-900">{user.displayName}</p>
+                    <p className="font-bold text-stone-900">{user.display_name}</p>
                     <p className="text-xs text-stone-500">
                       {isSuperAdmin ? 'مدير النظام العام' : user.role === 'admin' ? 'مدير الشركة' : user.role === 'pending' ? 'قيد المراجعة' : 'موظف'}
                     </p>
@@ -1804,7 +1804,7 @@ export default function App() {
               )}
             </div>
             <div className="text-left hidden sm:block">
-              <p className="text-sm font-semibold">{user.displayName}</p>
+              <p className="text-sm font-semibold">{user.display_name}</p>
               <p className="text-xs text-stone-500">{user.role === 'admin' ? 'مدير النظام' : user.role === 'pending' ? 'قيد المراجعة' : 'موظف'}</p>
             </div>
           </div>
@@ -2020,7 +2020,7 @@ export default function App() {
                 <h2 className="text-2xl font-bold serif text-center">
                   {view === 'pending-properties' ? `عقارات قيد المراجعة (${filteredProperties.length})` : view === 'trash' ? `سلة المحذوفات (${filteredProperties.length})` : (searchQuery || filters.governorate || filters.area || filters.type || filters.purpose || filters.location || filters.marketer || filters.status
                     ? `نتائج البحث (${filteredProperties.length})` 
-                    : `${view === 'list' ? 'كل العقارات' : view === 'my-listings' ? 'إعلاناتي' : view === 'my-favorites' ? 'إعلاناتي المفضلة' : `عقارات ${employees.find(emp => emp.uid === selectedMarketerId)?.displayName || 'المستخدم'}`} (${filteredProperties.length})`)}
+                    : `${view === 'list' ? 'كل العقارات' : view === 'my-listings' ? 'إعلاناتي' : view === 'my-favorites' ? 'إعلاناتي المفضلة' : `عقارات ${employees.find(emp => emp.uid === selectedMarketerId)?.display_name || 'المستخدم'}`} (${filteredProperties.length})`)}
                 </h2>
               </div>
 
@@ -2759,7 +2759,7 @@ export default function App() {
                                       const { error } = await supabase
                                         .from('user_profiles')
                                         .update({ 
-                                          displayName: editUserName.trim(),
+                                          display_name: editUserName.trim(),
                                           phone: editUserPhone.trim(),
                                           email: editUserEmail.trim()
                                         })
@@ -2813,7 +2813,7 @@ export default function App() {
                           ) : (
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
-                                <h3 className="text-sm font-bold text-stone-800 truncate">{emp.displayName}</h3>
+                                <h3 className="text-sm font-bold text-stone-800 truncate">{emp.display_name}</h3>
                                 <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
                                   emp.role === 'admin' ? 'bg-purple-100 text-purple-600' :
                                   emp.role === 'employee' ? 'bg-blue-100 text-blue-600' :
@@ -2838,13 +2838,13 @@ export default function App() {
                           {emp.role === 'pending' && (
                             <div className="flex items-center gap-1.5">
                               <button 
-                                onClick={() => setUserActionConfirm({ isOpen: true, user_id: emp.uid, action: 'approve', extraData: { displayName: emp.displayName } })}
+                                onClick={() => setUserActionConfirm({ isOpen: true, user_id: emp.uid, action: 'approve', extraData: { display_name: emp.display_name } })}
                                 className="px-3 py-1.5 bg-emerald-600 text-white text-[10px] font-bold rounded-lg hover:bg-emerald-700 transition-all shadow-sm"
                               >
                                 موافقة
                               </button>
                               <button 
-                                onClick={() => setUserActionConfirm({ isOpen: true, user_id: emp.uid, action: 'reject', extraData: { displayName: emp.displayName } })}
+                                onClick={() => setUserActionConfirm({ isOpen: true, user_id: emp.uid, action: 'reject', extraData: { display_name: emp.display_name } })}
                                 className="px-3 py-1.5 bg-red-50 text-red-600 text-[10px] font-bold rounded-lg hover:bg-red-100 transition-all"
                               >
                                 رفض
@@ -2856,7 +2856,7 @@ export default function App() {
                             <div className="relative">
                               <select
                                 value={emp.role}
-                                onChange={(e) => setUserActionConfirm({ isOpen: true, user_id: emp.uid, action: 'change-role', extraData: { newRole: e.target.value, displayName: emp.displayName } })}
+                                onChange={(e) => setUserActionConfirm({ isOpen: true, user_id: emp.uid, action: 'change-role', extraData: { newRole: e.target.value, display_name: emp.display_name } })}
                                 className="text-[10px] p-1.5 pr-6 rounded-lg border border-stone-200 bg-stone-50/50 outline-none focus:ring-2 focus:ring-emerald-500 appearance-none font-bold text-stone-600"
                               >
                                 <option value="employee">موظف (إضافة وعرض العقارات)</option>
@@ -2872,7 +2872,7 @@ export default function App() {
                           <button 
                             onClick={() => {
                               setEditingUser(emp);
-                              setEditUserName(emp.displayName);
+                              setEditUserName(emp.display_name);
                               setEditUserPhone(emp.phone || '');
                               setEditUserEmail(emp.email || '');
                               setEditUserPassword('');
@@ -2883,7 +2883,7 @@ export default function App() {
                             تعديل
                           </button>
                           <button 
-                            onClick={() => setUserActionConfirm({ isOpen: true, user_id: emp.uid, action: 'delete', extraData: { displayName: emp.displayName } })}
+                            onClick={() => setUserActionConfirm({ isOpen: true, user_id: emp.uid, action: 'delete', extraData: { display_name: emp.display_name } })}
                             className="flex items-center gap-1 px-3 py-1.5 text-stone-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all text-xs font-bold"
                           >
                             <Trash2 size={14} />
@@ -2953,10 +2953,10 @@ export default function App() {
           }
           message={
             userActionConfirm.action === 'bulk-delete' ? "⚠️ تحذير: هل أنت متأكد من حذف جميع الحسابات المسجلة؟ سيتم مسح صلاحياتهم وبياناتهم من قاعدة البيانات." :
-            userActionConfirm.action === 'approve' ? `هل أنت متأكد من الموافقة على المستخدم ${userActionConfirm.extraData?.displayName || ''}؟` :
-            userActionConfirm.action === 'reject' ? `هل أنت متأكد من رفض المستخدم ${userActionConfirm.extraData?.displayName || ''}؟` :
-            userActionConfirm.action === 'change-role' ? `هل أنت متأكد من تغيير صلاحية ${userActionConfirm.extraData?.displayName} إلى ${userActionConfirm.extraData?.newRole === 'admin' ? 'مدير نظام' : 'مستخدم'}؟` :
-            `هل أنت متأكد من رغبتك في حذف ${userActionConfirm.extraData?.displayName || 'هذا المستخدم'} نهائياً؟ لا يمكن التراجع عن هذا الإجراء.`
+            userActionConfirm.action === 'approve' ? `هل أنت متأكد من الموافقة على المستخدم ${userActionConfirm.extraData?.display_name || ''}؟` :
+            userActionConfirm.action === 'reject' ? `هل أنت متأكد من رفض المستخدم ${userActionConfirm.extraData?.display_name || ''}؟` :
+            userActionConfirm.action === 'change-role' ? `هل أنت متأكد من تغيير صلاحية ${userActionConfirm.extraData?.display_name} إلى ${userActionConfirm.extraData?.newRole === 'admin' ? 'مدير نظام' : 'مستخدم'}؟` :
+            `هل أنت متأكد من رغبتك في حذف ${userActionConfirm.extraData?.display_name || 'هذا المستخدم'} نهائياً؟ لا يمكن التراجع عن هذا الإجراء.`
           }
           onConfirm={confirmUserAction}
           onCancel={() => setUserActionConfirm({ isOpen: false, user_id: null, action: null })}
@@ -3453,7 +3453,6 @@ const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavori
                 const shareUrl = `${window.location.origin}?property_id=${property.id}`;
                 if (navigator.share) {
                   navigator.share({
-                    title: property.title || 'عقار',
                     text: property.details,
                     url: shareUrl,
                   }).catch(console.error);
@@ -3654,7 +3653,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
       if (empName && !empId) {
         try {
           const { data: newEmp, error: empError } = await supabase.from('user_profiles').insert({
-            displayName: empName,
+            display_name: empName,
             role: 'employee',
             company_id: isSuperAdmin ? selectedCompanyId : user?.company_id,
             created_at: new Date().toISOString()
@@ -3679,7 +3678,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
         is_sold: formData.is_sold,
         updated_at: new Date().toISOString(),
         created_at: property ? property.created_at : new Date().toISOString(),
-        created_by: property ? property.created_by : (user?.uid),
+        created_by: property ? property.created_by : (user?.id),
         status: isAdmin ? (property?.status || 'approved') : 'pending'
       };
 
@@ -3702,7 +3701,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
             const interestedUserIds = favoritesData.map(d => d.user_id);
             
             for (const recipient_id of interestedUserIds) {
-              if (recipient_id === user?.uid) continue;
+              if (recipient_id === user?.id) continue;
               
               let title = 'تحديث في عقار يهمك';
               let message = `تم تحديث بيانات العقار: ${generatePropertyTitle(property)}`;
@@ -3723,7 +3722,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
                 title,
                 message,
                 recipient_id,
-                user_id: user?.uid,
+                user_id: user?.id,
                 property_id: property.id,
                 read: false,
                 created_at: new Date().toISOString()
@@ -3935,11 +3934,11 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
           <SearchableFilter 
             label="المستخدم / الموظف المسؤول"
             placeholder="ابحث عن مستخدم أو اكتب اسماً جديداً..."
-            options={employees.map(emp => emp.displayName)}
+            options={employees.map(emp => emp.display_name)}
             value={formData.assigned_employee_name}
             creatable={true}
             onChange={(val) => {
-              const emp = employees.find(e => e.displayName === val);
+              const emp = employees.find(e => e.display_name === val);
               setFormData({
                 ...formData,
                 assigned_employee_id: emp ? emp.uid : '',
@@ -3953,8 +3952,8 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
             onClick={() => {
               setFormData({
                 ...formData,
-                assigned_employee_id: user?.uid || '',
-                assigned_employee_name: user?.displayName || ''
+                assigned_employee_id: user?.id || '',
+                assigned_employee_name: user?.display_name || ''
               });
             }}
             className="text-xs text-emerald-600 hover:underline mt-1"
@@ -4164,7 +4163,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
       const { error: commentError } = await supabase.from('comments').insert({
         property_id: property.id,
         user_id: user.id,
-        user_name: user.displayName,
+        user_name: user.display_name,
         user_phone: user.phone || '',
         text: newComment,
         images: commentImages,
@@ -4191,7 +4190,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
         await supabase.from('notifications').insert({
           type: 'new-comment',
           title: 'تعليق جديد على عقار يهمك',
-          message: `أضاف ${user.displayName} تعليقاً جديداً على العقار: ${generatePropertyTitle(property)}`,
+          message: `أضاف ${user.display_name} تعليقاً جديداً على العقار: ${generatePropertyTitle(property)}`,
           recipient_id,
           user_id: user.id,
           property_id: property.id,
@@ -4666,22 +4665,22 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                               </motion.div>
                             ))}
                           </div>
-                        ) : c.imageUrl ? (
+                        ) : c.image_url ? (
                           <div className="mt-2">
                             <motion.div
                               whileHover={{ scale: 1.02 }}
                               whileTap={{ scale: 0.98 }}
                               onClick={() => {
-                                setViewerImages([c.imageUrl!]);
+                                setViewerImages([c.image_url!]);
                                 setViewerIndex(0);
                                 setShowViewer(true);
                               }}
                               className="relative w-24 h-24 rounded-lg overflow-hidden border border-stone-200 cursor-pointer shadow-sm"
                             >
-                              {c.imageUrl.startsWith('data:video/') ? (
-                                <video src={c.imageUrl} className="w-full h-full object-cover" />
+                              {c.image_url.startsWith('data:video/') ? (
+                                <video src={c.image_url} className="w-full h-full object-cover" />
                               ) : (
-                                <img src={c.imageUrl} alt="" className="w-full h-full object-cover" />
+                                <img src={c.image_url} alt="" className="w-full h-full object-cover" />
                               )}
                             </motion.div>
                           </div>

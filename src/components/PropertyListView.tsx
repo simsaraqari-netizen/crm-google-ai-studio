@@ -42,7 +42,7 @@ interface PropertyListViewProps {
   restoreProperty: (id: string) => void;
   permanentDeleteProperty: (id: string) => void;
   handleFilterChange: (key: keyof FilterOptions, value: string) => void;
-  handleUserClick: (userId: string) => void;
+  handleUserClick: (user_id: string) => void;
   normalizeDigits: (str: string) => string;
   isSearchFocused: boolean;
   setIsSearchFocused: React.Dispatch<React.SetStateAction<boolean>>;

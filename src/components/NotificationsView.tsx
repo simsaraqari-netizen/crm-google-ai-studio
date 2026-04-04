@@ -36,8 +36,8 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
     
     if (n.type === 'new-user') {
       setView('manage-marketers');
-    } else if (n.propertyId) {
-      const prop = properties.find(p => p.id === n.propertyId);
+    } else if (n.property_id) {
+      const prop = properties.find(p => p.id === n.property_id);
       if (prop) {
         setSelectedProperty(prop);
         setView('details');
@@ -97,7 +97,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-stone-900">{n.title}</p>
                     <p className="text-sm text-stone-500 mt-1">{n.message}</p>
-                    <p className="text-xs text-stone-500 mt-2">{formatRelativeDate(n.createdAt)}</p>
+                    <p className="text-xs text-stone-500 mt-2">{formatRelativeDate(n.created_at)}</p>
                   </div>
                 </div>
               </div>

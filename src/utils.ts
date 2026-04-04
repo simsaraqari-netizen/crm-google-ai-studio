@@ -83,8 +83,8 @@ export function generatePropertyTitle(property: any): string {
   if (property.sector) addressParts.push(property.sector);
   if (property.block) addressParts.push(`ق ${property.block}`);
   if (property.street) addressParts.push(`ش ${property.street}`);
-  if (property.plotNumber) addressParts.push(`قسيمة ${property.plotNumber}`);
-  if (property.houseNumber) addressParts.push(`م ${property.houseNumber}`);
+  if (property.plot_number) addressParts.push(`قسيمة ${property.plot_number}`);
+  if (property.house_number) addressParts.push(`م ${property.house_number}`);
   if (property.location) addressParts.push(`موقع ${property.location}`);
   
   if (addressParts.length > 0) {

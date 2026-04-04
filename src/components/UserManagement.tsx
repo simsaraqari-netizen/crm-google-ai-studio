@@ -100,9 +100,9 @@ export const UserManagement: React.FC<UserManagementProps> = ({
               const email = (form.elements.namedItem('email') as HTMLInputElement).value;
               
               try {
-                const companyId = isSuperAdmin ? (form.elements.namedItem('companyId') as HTMLSelectElement).value : user?.companyId;
+                const company_id = isSuperAdmin ? (form.elements.namedItem('company_id') as HTMLSelectElement).value : user?.company_id;
                 
-                if (isSuperAdmin && !companyId) {
+                if (isSuperAdmin && !company_id) {
                   toast.error('يرجى اختيار شركة أولاً');
                   return;
                 }
@@ -131,9 +131,9 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                     userData: {
                       full_name: username,
                       role: role,
-                      companyId: companyId,
+                      company_id: company_id,
                       phone: phone || '',
-                      createdAt: new Date().toISOString()
+                      created_at: new Date().toISOString()
                     }
                   })
                 });
@@ -162,7 +162,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
             {isSuperAdmin && (
               <div className="space-y-1 md:col-span-2">
                 <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider px-1">الشركة</label>
-                <select name="companyId" className="w-full p-3 rounded-xl bg-stone-50/50 border border-stone-200 outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-sm appearance-none" required>
+                <select name="company_id" className="w-full p-3 rounded-xl bg-stone-50/50 border border-stone-200 outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-sm appearance-none" required>
                   <option value="">اختر الشركة...</option>
                   {companies.map(c => (
                     <option key={c.id} value={c.id}>{c.name}</option>
@@ -213,7 +213,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
             <h3 className="font-bold text-stone-900">قائمة المستخدمين ({employees.length})</h3>
             <button
               onClick={() => {
-                setUserActionConfirm({ isOpen: true, userId: null, action: 'bulk-delete' });
+                setUserActionConfirm({ isOpen: true, user_id: null, action: 'bulk-delete' });
               }}
               className="text-xs text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors font-bold"
             >
@@ -223,13 +223,13 @@ export const UserManagement: React.FC<UserManagementProps> = ({
           
           <div className="grid grid-cols-1 gap-3">
             {employees.map(emp => (
-              <div key={emp.uid} className="ios-glass p-4 rounded-2xl border border-white/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm group hover:shadow-md transition-all">
+              <div key={emp.id} className="ios-glass p-4 rounded-2xl border border-white/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm group hover:shadow-md transition-all">
                 <div className="flex items-center gap-4 flex-1">
                   <div className="w-10 h-10 bg-stone-100 rounded-xl flex items-center justify-center text-stone-400 group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-colors shrink-0">
                     <UserIcon size={20} />
                   </div>
                   
-                  {editingUser?.uid === emp.uid ? (
+                  {editingUser?.id === emp.id ? (
                     <div className="flex flex-col gap-3 flex-1 bg-white/30 p-3 rounded-xl border border-white/40">
                       <div className="space-y-2">
                         <div className="flex flex-col gap-1">
@@ -288,7 +288,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                                 full_name: editUserName.trim(),
                                 phone: editUserPhone.trim(),
                                 email: editUserEmail.trim()
-                              }).eq('id', emp.uid);
+                              }).eq('id', emp.id);
 
                               // Update Password if provided
                               if (editUserPassword.trim()) {
@@ -333,12 +333,12 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                         </span>
                         {isSuperAdmin && (
                           <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-stone-100 text-stone-600">
-                            {companies.find(c => c.id === emp.companyId)?.name || 'بدون شركة'}
+                            {companies.find(c => c.id === emp.company_id)?.name || 'بدون شركة'}
                           </span>
                         )}
                       </div>
                       <p className={`text-stone-500 truncate mt-0.5 ${emp.email?.endsWith('@simsaraqari.com') ? 'text-[7px] leading-tight tracking-tighter' : 'text-[11px]'}`}>
-                        {emp.phone || 'بدون هاتف'} • {emp.email} • {formatRelativeDate(emp.createdAt)}
+                        {emp.phone || 'بدون هاتف'} • {emp.email} • {formatRelativeDate(emp.created_at)}
                       </p>
                     </div>
                   )}
@@ -348,13 +348,13 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                   {emp.role === 'pending' && (
                     <div className="flex items-center gap-1.5">
                       <button 
-                        onClick={() => setUserActionConfirm({ isOpen: true, userId: emp.uid, action: 'approve', extraData: { full_name: emp.full_name } })}
+                        onClick={() => setUserActionConfirm({ isOpen: true, user_id: emp.id, action: 'approve', extraData: { full_name: emp.full_name } })}
                         className="px-3 py-1.5 bg-emerald-600 text-white text-[10px] font-bold rounded-lg hover:bg-emerald-700 transition-all shadow-sm"
                       >
                         موافقة
                       </button>
                       <button 
-                        onClick={() => setUserActionConfirm({ isOpen: true, userId: emp.uid, action: 'reject', extraData: { full_name: emp.full_name } })}
+                        onClick={() => setUserActionConfirm({ isOpen: true, user_id: emp.id, action: 'reject', extraData: { full_name: emp.full_name } })}
                         className="px-3 py-1.5 bg-red-50 text-red-600 text-[10px] font-bold rounded-lg hover:bg-red-100 transition-all"
                       >
                         رفض
@@ -362,11 +362,11 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                     </div>
                   )}
                   
-                  {emp.role !== 'pending' && emp.uid !== user?.uid && (
+                  {emp.role !== 'pending' && emp.id !== user?.id && (
                     <div className="relative">
                       <select
                         value={emp.role}
-                        onChange={(e) => setUserActionConfirm({ isOpen: true, userId: emp.uid, action: 'change-role', extraData: { newRole: e.target.value, full_name: emp.full_name } })}
+                        onChange={(e) => setUserActionConfirm({ isOpen: true, user_id: emp.id, action: 'change-role', extraData: { newRole: e.target.value, full_name: emp.full_name } })}
                         className="text-[10px] p-1.5 pr-6 rounded-lg border border-stone-200 bg-stone-50/50 outline-none focus:ring-2 focus:ring-emerald-500 appearance-none font-bold text-stone-600"
                       >
                         <option value="employee">موظف (إضافة وعرض العقارات)</option>
@@ -377,7 +377,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                   )}
                 </div>
               
-              {emp.uid !== user?.uid && (
+              {emp.id !== user?.id && (
                 <div className="flex items-center justify-end gap-2 mt-2 pt-2 border-t border-stone-100">
                   <button 
                     onClick={() => {
@@ -393,7 +393,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                     تعديل
                   </button>
                   <button 
-                    onClick={() => setUserActionConfirm({ isOpen: true, userId: emp.uid, action: 'delete', extraData: { full_name: emp.full_name } })}
+                    onClick={() => setUserActionConfirm({ isOpen: true, user_id: emp.id, action: 'delete', extraData: { full_name: emp.full_name } })}
                     className="flex items-center gap-1 px-3 py-1.5 text-stone-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all text-xs font-bold"
                   >
                     <Trash2 size={14} />

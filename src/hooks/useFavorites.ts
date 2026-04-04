@@ -21,15 +21,15 @@ export const useFavorites = (user: any) => {
     fetchFavorites();
   }, [user?.id]);
 
-  const toggleFavorite = async (propertyId: string) => {
+  const toggleFavorite = async (property_id: string) => {
     if (!user?.id) return;
-    const isFavorite = favorites.includes(propertyId);
+    const isFavorite = favorites.includes(property_id);
     if (isFavorite) {
-      const { error } = await supabase.from('favorites').delete().eq('user_id', user.id).eq('property_id', propertyId);
-      if (!error) setFavorites(prev => prev.filter(id => id !== propertyId));
+      const { error } = await supabase.from('favorites').delete().eq('user_id', user.id).eq('property_id', property_id);
+      if (!error) setFavorites(prev => prev.filter(id => id !== property_id));
     } else {
-      const { error } = await supabase.from('favorites').insert({ user_id: user.id, property_id: propertyId });
-      if (!error) setFavorites(prev => [...prev, propertyId]);
+      const { error } = await supabase.from('favorites').insert({ user_id: user.id, property_id: property_id });
+      if (!error) setFavorites(prev => [...prev, property_id]);
     }
   };
 
