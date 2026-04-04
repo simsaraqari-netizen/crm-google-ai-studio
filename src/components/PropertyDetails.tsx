@@ -78,7 +78,7 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
     try {
       await supabase.from('comments').insert({
         propertyId: property.id,
-        userId: user.uid,
+        userId: user.id,
         userName: user.full_name,
         userPhone: user.phone || '',
         text: newComment,
@@ -96,14 +96,14 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
       const interestedUserIds = (favorites || []).map(d => d.userId);
       
       for (const recipientId of interestedUserIds) {
-        if (recipientId === user.uid) continue; // Don't notify the commenter
+        if (recipientId === user.id) continue; // Don't notify the commenter
         
         await supabase.from('notifications').insert({
           type: 'new-comment',
           title: 'تعليق جديد على عقار يهمك',
           message: `أضاف ${user.full_name} تعليقاً جديداً على العقار: ${generatePropertyTitle(property)}`,
           recipientId,
-          userId: user.uid,
+          userId: user.id,
           propertyId: property.id,
           read: false,
           createdAt: new Date().toISOString()
@@ -441,7 +441,7 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
             ) : (
               comments.map((c) => (
                 <div key={c.id} className="flex flex-col items-start w-full">
-                  <div className={`w-full p-4 rounded-xl shadow-sm ${c.userId === user.uid ? 'bg-emerald-50 border border-emerald-100' : 'bg-stone-50 border border-stone-100'}`}>
+                  <div className={`w-full p-4 rounded-xl shadow-sm ${c.userId === user.id ? 'bg-emerald-50 border border-emerald-100' : 'bg-stone-50 border border-stone-100'}`}>
                     <div className="flex items-center justify-between gap-4 mb-2">
                       <p className="text-sm font-bold text-stone-900">{c.userName}</p>
                       {c.userPhone && (
@@ -460,7 +460,7 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                           {formatDateTime(c.createdAt) || 'جاري التحميل...'}
                         </p>
                         <div className="flex items-center gap-2">
-                          {(c.userId === user.uid || isAdmin) && (
+                          {(c.userId === user.id || isAdmin) && (
                             <button 
                               onClick={() => {
                                 setEditingCommentId(c.id);

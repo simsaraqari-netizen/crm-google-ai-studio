@@ -9,7 +9,7 @@ export const useProperties = (user: any, isSuperAdmin: boolean, selectedCompanyI
   const queryClient = useQueryClient();
 
   const { data: queryProperties, isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['properties', user?.uid, isSuperAdmin, selectedCompanyId, filters, debouncedSearchQuery, view, visibleCount],
+    queryKey: ['properties', user?.id, isSuperAdmin, selectedCompanyId, filters, debouncedSearchQuery, view, visibleCount],
     queryFn: async () => {
       if (!user) return [];
       
@@ -17,25 +17,25 @@ export const useProperties = (user: any, isSuperAdmin: boolean, selectedCompanyI
       
       if (isSuperAdmin) {
         if (selectedCompanyId) {
-          query = query.eq('companyId', selectedCompanyId);
+          query = query.eq('company_id', selectedCompanyId);
         }
-      } else if (user.companyId) {
-        query = query.eq('companyId', user.companyId);
+      } else if (user.company_id) {
+        query = query.eq('company_id', user.company_id);
       } else {
         return [];
       }
 
       // Server-side filtering
-      if (view === 'my-listings') query = query.eq('createdBy', user.uid);
+      if (view === 'my-listings') query = query.eq('created_by', user.id);
       if (view === 'pending-properties') query = query.eq('status', 'pending');
       if (view === 'trash') {
-        query = query.or('status.eq.deleted,isDeleted.eq.true');
+        query = query.or('status.eq.deleted,is_deleted.eq.true');
       } else {
-        query = query.neq('status', 'deleted').eq('isDeleted', false);
+        query = query.neq('status', 'deleted').eq('is_deleted', false);
       }
 
-      if (filters.status === 'sold') query = query.eq('isSold', true);
-      if (filters.status === 'available') query = query.eq('isSold', false);
+      if (filters.status === 'sold') query = query.eq('is_sold', true);
+      if (filters.status === 'available') query = query.eq('is_sold', false);
       if (filters.governorate) query = query.eq('governorate', filters.governorate);
       if (filters.type) query = query.eq('type', filters.type);
       if (filters.purpose) query = query.eq('purpose', filters.purpose);
@@ -45,7 +45,7 @@ export const useProperties = (user: any, isSuperAdmin: boolean, selectedCompanyI
         query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%,area.ilike.%${search}%`);
       }
       
-      const { data, error, count } = await query.order('createdAt', { ascending: false }).range(0, visibleCount - 1);
+      const { data, error, count } = await query.order('created_at', { ascending: false }).range(0, visibleCount - 1);
       if (error) throw error;
       
       if (count !== null) {
@@ -83,9 +83,9 @@ export function useDeletedProperties(isAdmin: boolean, companyId?: string | null
   return useQuery({
     queryKey: ['deletedProperties', companyId],
     queryFn: async () => {
-      let query = supabase.from('properties').select('*').eq('isDeleted', true);
+      let query = supabase.from('properties').select('*').eq('is_deleted', true);
       if (companyId) {
-        query = query.eq('companyId', companyId);
+        query = query.eq('company_id', companyId);
       }
       const { data, error } = await query;
       if (error) throw error;

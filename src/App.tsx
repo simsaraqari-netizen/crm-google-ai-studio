@@ -928,7 +928,7 @@ export default function App() {
       } else if (user.role === 'admin') {
         query = query.eq('company_id', user.company_id);
       } else {
-        query = query.eq('recipient_id', user.uid);
+        query = query.eq('recipient_id', user.id);
       }
 
       const { data, error } = await query;
@@ -961,7 +961,7 @@ export default function App() {
       const { data, error } = await supabase
         .from('favorites')
         .select('property_id')
-        .eq('user_id', user.uid);
+        .eq('user_id', user.id);
       
       if (error) {
         console.error("Favorites error:", error);
@@ -974,7 +974,7 @@ export default function App() {
 
     const subscription = supabase
       .channel('favorites_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'favorites', filter: `user_id=eq.${user.uid}` }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'favorites', filter: `user_id=eq.${user.id}` }, () => {
         fetchFavorites();
       })
       .subscribe();
@@ -1068,7 +1068,7 @@ export default function App() {
       // With Supabase, we usually delete the user profile and let a trigger handle auth deletion 
       // or we use the admin API if we have permissions.
       // For now, let's delete the profile.
-      await supabase.from('user_profiles').delete().eq('id', user.uid);
+      await supabase.from('user_profiles').delete().eq('id', user.id);
       
       await supabase.auth.signOut();
       toast.success("تم حذف الحساب بنجاح. يمكنك الآن إعادة التسجيل.");
@@ -2852,7 +2852,7 @@ export default function App() {
                             </div>
                           )}
                           
-                          {emp.role !== 'pending' && emp.uid !== user.uid && (
+                          {emp.role !== 'pending' && emp.uid !== user.id && (
                             <div className="relative">
                               <select
                                 value={emp.role}
@@ -2867,7 +2867,7 @@ export default function App() {
                           )}
                         </div>
                       
-                      {emp.uid !== user.uid && (
+                      {emp.uid !== user.id && (
                         <div className="flex items-center justify-end gap-2 mt-2 pt-2 border-t border-stone-100">
                           <button 
                             onClick={() => {
@@ -3007,7 +3007,7 @@ export default function App() {
         const { error } = await supabase
           .from('favorites')
           .delete()
-          .eq('user_id', user.uid)
+          .eq('user_id', user.id)
           .eq('property_id', property_id);
         if (error) throw error;
       } catch (error) {
@@ -3016,7 +3016,7 @@ export default function App() {
     } else {
       try {
         const { error } = await supabase.from('favorites').insert({
-          user_id: user.uid,
+          user_id: user.id,
           property_id,
           created_at: new Date().toISOString()
         });
@@ -4163,7 +4163,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
     try {
       const { error: commentError } = await supabase.from('comments').insert({
         property_id: property.id,
-        user_id: user.uid,
+        user_id: user.id,
         user_name: user.displayName,
         user_phone: user.phone || '',
         text: newComment,
@@ -4186,14 +4186,14 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
       const interestedUserIds = (favoritesData || []).map(d => d.user_id);
       
       for (const recipient_id of interestedUserIds) {
-        if (recipient_id === user.uid) continue; // Don't notify the commenter
+        if (recipient_id === user.id) continue; // Don't notify the commenter
         
         await supabase.from('notifications').insert({
           type: 'new-comment',
           title: 'تعليق جديد على عقار يهمك',
           message: `أضاف ${user.displayName} تعليقاً جديداً على العقار: ${generatePropertyTitle(property)}`,
           recipient_id,
-          user_id: user.uid,
+          user_id: user.id,
           property_id: property.id,
           read: false,
           created_at: new Date().toISOString()
@@ -4536,7 +4536,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
             ) : (
               comments.map((c) => (
                 <div key={c.id} className="flex flex-col items-start w-full">
-                  <div className={`w-full p-4 rounded-xl shadow-sm ${c.user_id === user.uid ? 'bg-emerald-50 border border-emerald-100' : 'bg-stone-50 border border-stone-100'}`}>
+                  <div className={`w-full p-4 rounded-xl shadow-sm ${c.user_id === user.id ? 'bg-emerald-50 border border-emerald-100' : 'bg-stone-50 border border-stone-100'}`}>
                     <div className="flex items-center justify-between gap-4 mb-2">
                       <p className="text-sm font-bold text-stone-900">{c.user_name}</p>
                       {c.user_phone && (
@@ -4555,7 +4555,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                           {formatDateTime(c.created_at) || 'جاري التحميل...'}
                         </p>
                         <div className="flex items-center gap-2">
-                          {(c.user_id === user.uid || isAdmin) && (
+                          {(c.user_id === user.id || isAdmin) && (
                             <button 
                               onClick={() => {
                                 setEditingCommentId(c.id);

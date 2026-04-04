@@ -96,7 +96,7 @@ export function CompanyDetailsView({
               </thead>
               <tbody className="divide-y divide-stone-100">
                 {companyUsers.map(user => (
-                  <tr key={user.uid} className="bg-white hover:bg-stone-50/50 transition-colors">
+                  <tr key={user.id} className="bg-white hover:bg-stone-50/50 transition-colors">
                     <td className="px-6 py-4 font-bold text-stone-900 flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-500">
                         <UserIcon size={14} />
