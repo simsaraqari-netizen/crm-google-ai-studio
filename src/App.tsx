@@ -872,27 +872,46 @@ export default function App() {
     if (!user?.id) return;
     
     const fetchProperties = async () => {
-      let query = supabase.from('properties').select('*');
-      
-      if (isSuperAdmin) {
-        if (selectedCompanyId) {
-          query = query.eq('company_id', selectedCompanyId);
+      let allData: any[] = [];
+      let from = 0;
+      let step = 1000;
+      let fetchMore = true;
+
+      while (fetchMore) {
+        let query = supabase.from('properties').select('*');
+        
+        if (isSuperAdmin) {
+          if (selectedCompanyId) {
+            query = query.eq('company_id', selectedCompanyId);
+          }
+        } else if (user.company_id) {
+          query = query.eq('company_id', user.company_id);
+        } else {
+          setProperties([]);
+          return;
         }
-      } else if (user.company_id) {
-        query = query.eq('company_id', user.company_id);
-      } else {
-        setProperties([]);
-        return;
+
+        const { data, error } = await query
+          .order('created_at', { ascending: false })
+          .range(from, from + step - 1);
+        
+        if (error) {
+          console.error("Properties error:", error);
+          break;
+        }
+
+        if (data && data.length > 0) {
+          allData = [...allData, ...data];
+          from += step;
+          if (data.length < step) {
+            fetchMore = false; // We fetched less than 1000, so we reached the end
+          }
+        } else {
+          fetchMore = false; // No data returned
+        }
       }
 
-      const { data, error } = await query.order('created_at', { ascending: false });
-      
-      if (error) {
-        console.error("Properties error:", error);
-        return;
-      }
-
-      const allProps = data.map(p => ({
+      const allProps = allData.map(p => ({
         ...p,
         location: p.location === 'شارع واحد | سد' ? 'شارع واحد' : p.location
       })) as Property[];
