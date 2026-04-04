@@ -262,7 +262,7 @@ export const PropertyListView: React.FC<PropertyListViewProps> = ({
         <h2 className="text-2xl font-bold serif text-center flex-1">
           {view === 'pending-properties' ? `عقارات قيد المراجعة (${filteredProperties.length})` : (searchQuery || filters.governorate || filters.area || filters.type || filters.purpose || filters.location || filters.marketer || filters.status
             ? `نتائج البحث (${filteredProperties.length})` 
-            : `${view === 'list' ? 'كل العقارات' : view === 'my-listings' ? 'إعلاناتي' : view === 'my-favorites' ? 'إعلاناتي المفضلة' : `عقارات ${employees.find(emp => emp.uid === selectedMarketerId)?.full_name || 'المستخدم'}`} (${filteredProperties.length})`)}
+            : `${view === 'list' ? 'كل العقارات' : view === 'my-listings' ? 'إعلاناتي' : view === 'my-favorites' ? 'إعلاناتي المفضلة' : `عقارات ${employees.find(emp => emp.id === selectedMarketerId)?.full_name || 'المستخدم'}`} (${filteredProperties.length})`)}
         </h2>
         <button 
           onClick={() => fetchProperties(false)}

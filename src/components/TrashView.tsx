@@ -209,7 +209,7 @@ export function TrashView({
                   </div>
                 ) : (
                   deletedUsers.map(u => (
-                    <div key={u.uid} className="flex items-center justify-between p-4 bg-stone-50 rounded-xl border border-stone-100">
+                    <div key={u.id} className="flex items-center justify-between p-4 bg-stone-50 rounded-xl border border-stone-100">
                       <div>
                         <h3 className="font-bold text-lg">{u.full_name || 'مستخدم بدون اسم'}</h3>
                         <p className="text-sm text-stone-500">{u.email}</p>
@@ -221,14 +221,14 @@ export function TrashView({
                       </div>
                       <div className="flex gap-2">
                         <button
-                          onClick={() => restoreUser(u.uid)}
+                          onClick={() => restoreUser(u.id)}
                           className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
                           title="استعادة"
                         >
                           <RefreshCw size={20} />
                         </button>
                         <button
-                          onClick={() => permanentDeleteUser(u.uid)}
+                          onClick={() => permanentDeleteUser(u.id)}
                           className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           title="حذف نهائي"
                         >

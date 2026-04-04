@@ -389,7 +389,7 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
               const emp = employees.find(e => e.full_name === val);
               setFormData({
                 ...formData,
-                assigned_employee_id: emp ? emp.uid : '',
+                assigned_employee_id: emp ? emp.id : '',
                 assigned_employee_name: val
               });
             }}

@@ -133,7 +133,7 @@ interface Comment {
 }
 
 interface UserProfile {
-  uid: string;
+  id: string;
   email: string;
   display_name: string;
   role: 'super_admin' | 'admin' | 'employee' | 'pending' | 'rejected';
@@ -589,7 +589,7 @@ export default function App() {
           handleError(error, OperationType.GET, 'users');
           return;
         }
-        setEmployees(data.filter(u => u.uid !== user?.id) as UserProfile[]);
+        setEmployees(data.filter(u => u.id !== user?.id) as UserProfile[]);
       };
 
       fetchEmployees();
@@ -767,7 +767,7 @@ export default function App() {
           const isSuper = SUPER_ADMIN_EMAILS.includes(sbUser.email || '');
           const role = isSuper ? 'super_admin' : 'pending';
           const newProfile = {
-            uid: sbUser.id,
+            id: sbUser.id,
             email: sbUser.email || '',
             display_name: sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'User',
             role: role,
@@ -1010,7 +1010,7 @@ export default function App() {
           const isSuper = SUPER_ADMIN_EMAILS.includes(generatedEmail);
           const role = isSuper ? 'super_admin' : 'pending';
           const newProfile = {
-            uid: sbUser.id,
+            id: sbUser.id,
             email: generatedEmail,
             display_name: username,
             role: role,
@@ -2020,7 +2020,7 @@ export default function App() {
                 <h2 className="text-2xl font-bold serif text-center">
                   {view === 'pending-properties' ? `عقارات قيد المراجعة (${filteredProperties.length})` : view === 'trash' ? `سلة المحذوفات (${filteredProperties.length})` : (searchQuery || filters.governorate || filters.area || filters.type || filters.purpose || filters.location || filters.marketer || filters.status
                     ? `نتائج البحث (${filteredProperties.length})` 
-                    : `${view === 'list' ? 'كل العقارات' : view === 'my-listings' ? 'إعلاناتي' : view === 'my-favorites' ? 'إعلاناتي المفضلة' : `عقارات ${employees.find(emp => emp.uid === selectedMarketerId)?.display_name || 'المستخدم'}`} (${filteredProperties.length})`)}
+                    : `${view === 'list' ? 'كل العقارات' : view === 'my-listings' ? 'إعلاناتي' : view === 'my-favorites' ? 'إعلاناتي المفضلة' : `عقارات ${employees.find(emp => emp.id === selectedMarketerId)?.display_name || 'المستخدم'}`} (${filteredProperties.length})`)}
                 </h2>
               </div>
 
@@ -2700,13 +2700,13 @@ export default function App() {
                   
                   <div className="grid grid-cols-1 gap-3">
                     {employees.map(emp => (
-                      <div key={emp.uid} className="ios-glass p-4 rounded-2xl border border-white/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm group hover:shadow-md transition-all">
+                      <div key={emp.id} className="ios-glass p-4 rounded-2xl border border-white/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm group hover:shadow-md transition-all">
                         <div className="flex items-center gap-4 flex-1">
                           <div className="w-10 h-10 bg-stone-100 rounded-xl flex items-center justify-center text-stone-400 group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-colors shrink-0">
                             <UserIcon size={20} />
                           </div>
                           
-                          {editingUser?.uid === emp.uid ? (
+                          {editingUser?.id === emp.id ? (
                             <div className="flex flex-col gap-3 flex-1 bg-white/30 p-3 rounded-xl border border-white/40">
                               <div className="space-y-2">
                                 <div className="flex flex-col gap-1">
@@ -2763,7 +2763,7 @@ export default function App() {
                                           phone: editUserPhone.trim(),
                                           email: editUserEmail.trim()
                                         })
-                                        .eq('id', emp.uid);
+                                        .eq('id', emp.id);
                                       if (error) throw error;
 
                                       // Update Password if provided
@@ -2781,7 +2781,7 @@ export default function App() {
                                             'Authorization': `Bearer ${token}`
                                           },
                                           body: JSON.stringify({
-                                            targetUid: emp.uid,
+                                            target_id: emp.id,
                                             newPassword: editUserPassword.trim()
                                           })
                                         });
@@ -2838,13 +2838,13 @@ export default function App() {
                           {emp.role === 'pending' && (
                             <div className="flex items-center gap-1.5">
                               <button 
-                                onClick={() => setUserActionConfirm({ isOpen: true, user_id: emp.uid, action: 'approve', extraData: { display_name: emp.display_name } })}
+                                onClick={() => setUserActionConfirm({ isOpen: true, user_id: emp.id, action: 'approve', extraData: { display_name: emp.display_name } })}
                                 className="px-3 py-1.5 bg-emerald-600 text-white text-[10px] font-bold rounded-lg hover:bg-emerald-700 transition-all shadow-sm"
                               >
                                 موافقة
                               </button>
                               <button 
-                                onClick={() => setUserActionConfirm({ isOpen: true, user_id: emp.uid, action: 'reject', extraData: { display_name: emp.display_name } })}
+                                onClick={() => setUserActionConfirm({ isOpen: true, user_id: emp.id, action: 'reject', extraData: { display_name: emp.display_name } })}
                                 className="px-3 py-1.5 bg-red-50 text-red-600 text-[10px] font-bold rounded-lg hover:bg-red-100 transition-all"
                               >
                                 رفض
@@ -2852,11 +2852,11 @@ export default function App() {
                             </div>
                           )}
                           
-                          {emp.role !== 'pending' && emp.uid !== user.id && (
+                          {emp.role !== 'pending' && emp.id !== user.id && (
                             <div className="relative">
                               <select
                                 value={emp.role}
-                                onChange={(e) => setUserActionConfirm({ isOpen: true, user_id: emp.uid, action: 'change-role', extraData: { newRole: e.target.value, display_name: emp.display_name } })}
+                                onChange={(e) => setUserActionConfirm({ isOpen: true, user_id: emp.id, action: 'change-role', extraData: { newRole: e.target.value, display_name: emp.display_name } })}
                                 className="text-[10px] p-1.5 pr-6 rounded-lg border border-stone-200 bg-stone-50/50 outline-none focus:ring-2 focus:ring-emerald-500 appearance-none font-bold text-stone-600"
                               >
                                 <option value="employee">موظف (إضافة وعرض العقارات)</option>
@@ -2867,7 +2867,7 @@ export default function App() {
                           )}
                         </div>
                       
-                      {emp.uid !== user.id && (
+                      {emp.id !== user.id && (
                         <div className="flex items-center justify-end gap-2 mt-2 pt-2 border-t border-stone-100">
                           <button 
                             onClick={() => {
@@ -2883,7 +2883,7 @@ export default function App() {
                             تعديل
                           </button>
                           <button 
-                            onClick={() => setUserActionConfirm({ isOpen: true, user_id: emp.uid, action: 'delete', extraData: { display_name: emp.display_name } })}
+                            onClick={() => setUserActionConfirm({ isOpen: true, user_id: emp.id, action: 'delete', extraData: { display_name: emp.display_name } })}
                             className="flex items-center gap-1 px-3 py-1.5 text-stone-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all text-xs font-bold"
                           >
                             <Trash2 size={14} />
@@ -3661,7 +3661,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
 
           if (empError) throw empError;
           if (newEmp) {
-            empId = newEmp.uid;
+            empId = newEmp.id;
           }
         } catch (error) {
           handleError(error, OperationType.CREATE, 'users');
@@ -3941,7 +3941,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
               const emp = employees.find(e => e.display_name === val);
               setFormData({
                 ...formData,
-                assigned_employee_id: emp ? emp.uid : '',
+                assigned_employee_id: emp ? emp.id : '',
                 assigned_employee_name: val
               });
             }}
