@@ -4119,18 +4119,26 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
   const [editCommentText, setEditCommentText] = useState('');
 
   useEffect(() => {
+    if (!property?.id) {
+      setComments([]);
+      return;
+    }
+
     const fetchComments = async () => {
-      if (!property?.id) return;
-      const { data, error } = await supabase
-        .from('comments')
-        .select('*')
-        .eq('property_id', property.id)
-        .order('created_at', { ascending: false });
-      
-      if (error) {
-        console.error("Error fetching comments:", error);
-      } else {
-        setComments(data as Comment[]);
+      try {
+        const { data, error } = await supabase
+          .from('comments')
+          .select('*')
+          .eq('property_id', property.id)
+          .order('created_at', { ascending: false });
+        
+        if (error) {
+          console.error("Error fetching comments:", error);
+        } else {
+          setComments(data as Comment[]);
+        }
+      } catch (err) {
+        console.error("Unexpected error fetching comments:", err);
       }
     };
 
