@@ -597,7 +597,7 @@ export default function App() {
       // Real-time subscription for users
       const subscription = supabase
         .channel('users_changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'user_profiles' }, () => {
           fetchEmployees();
         })
         .subscribe();
@@ -3542,6 +3542,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
   const [employees, setEmployees] = useState<UserProfile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
+  useEffect(() => {
     const fetchEmployees = async () => {
       const targetCompanyId = property?.company_id || selectedCompanyId || user?.company_id;
       if (!targetCompanyId) return;
@@ -3564,7 +3565,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
     
     const channel = supabase
       .channel('employees-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_profiles' }, () => {
         fetchEmployees();
       })
       .subscribe();
@@ -3572,6 +3573,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
     return () => {
       supabase.removeChannel(channel);
     };
+  }, [property?.company_id, selectedCompanyId, user?.company_id]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []) as File[];
@@ -3653,7 +3655,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
       if (empName && !empId) {
         try {
           const { data: newEmp, error: empError } = await supabase.from('user_profiles').insert({
-            display_name: empName,
+            full_name: empName,
             role: 'employee',
             company_id: isSuperAdmin ? selectedCompanyId : user?.company_id,
             created_at: new Date().toISOString()
@@ -4116,8 +4118,9 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editCommentText, setEditCommentText] = useState('');
 
+  useEffect(() => {
     const fetchComments = async () => {
-      if (!property.id) return;
+      if (!property?.id) return;
       const { data, error } = await supabase
         .from('comments')
         .select('*')
@@ -4148,6 +4151,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
     return () => {
       supabase.removeChannel(channel);
     };
+  }, [property?.id]);
 
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
