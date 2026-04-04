@@ -110,10 +110,10 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
         }
         
         const filePath = `properties/${Date.now()}_${file.name}`;
-        const { data, error } = await supabase.storage.from('properties').upload(filePath, fileToUpload);
+        const { data, error } = await supabase.storage.from('properties_media').upload(filePath, fileToUpload);
         if (error) throw error;
         
-        const { data: { publicUrl } } = supabase.storage.from('properties').getPublicUrl(filePath);
+        const { data: { publicUrl } } = supabase.storage.from('properties_media').getPublicUrl(filePath);
         newImages.push({ url: publicUrl, type: file.type.startsWith('video/') ? 'video' : 'image' });
       }
       setFormData({ ...formData, images: newImages });

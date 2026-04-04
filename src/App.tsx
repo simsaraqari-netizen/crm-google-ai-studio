@@ -3219,9 +3219,9 @@ export default function App() {
             await Promise.all((commentData.images || []).map(async (img: any) => {
               try {
                 const url = typeof img === 'string' ? img : img.url;
-                if (url.includes('storage/v1/object/public/properties/')) {
-                  const path = url.split('storage/v1/object/public/properties/')[1];
-                  if (path) await supabase.storage.from('properties').remove([path]);
+                if (url.includes('storage/v1/object/public/properties_media/')) {
+                  const path = url.split('storage/v1/object/public/properties_media/')[1];
+                  if (path) await supabase.storage.from('properties_media').remove([path]);
                 }
               } catch (e) {
                 console.error("Error deleting file:", e);

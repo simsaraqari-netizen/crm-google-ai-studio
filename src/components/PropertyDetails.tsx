@@ -165,10 +165,10 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
         }
         
         const filePath = `comments/${Date.now()}_${file.name}`;
-        const { data, error } = await supabase.storage.from('comments').upload(filePath, fileToUpload);
+        const { data, error } = await supabase.storage.from('properties_media').upload(filePath, fileToUpload);
         if (error) throw error;
         
-        const { data: { publicUrl } } = supabase.storage.from('comments').getPublicUrl(filePath);
+        const { data: { publicUrl } } = supabase.storage.from('properties_media').getPublicUrl(filePath);
         newImages.push({ url: publicUrl, type: file.type.startsWith('video/') ? 'video' : 'image' });
       }
       setCommentImages(newImages);
@@ -643,7 +643,7 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                     <input 
                       type="text"
                       placeholder="رابط الصورة/الفيديو..."
-                      className="p-2 text-sm border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                      className="p-2 text-sm border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all w-32 sm:w-48"
                       onBlur={(e) => {
                         if (e.target.value) {
                           insertAtCursor(`[رابط](${e.target.value})`);
