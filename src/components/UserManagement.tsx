@@ -109,7 +109,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                 const generatedEmail = email || usernameToEmail(username);
                 
                 // Check if user already exists
-                const { data } = await supabase.from('users').select('*').eq('email', generatedEmail);
+                const { data } = await supabase.from('user_profiles').select('*').eq('email', generatedEmail);
                 
                 if (data && data.length > 0) {
                   toast.error('هذا الاسم مستخدم بالفعل في النظام (سواء في شركتك، أو شركة أخرى، أو في سلة المحذوفات). الرجاء إضافة رقم أو تغيير الاسم قليلاً.');
@@ -284,7 +284,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                             if (!editUserName.trim()) return;
                             try {
                               // Update Firestore data
-                              await supabase.from('users').update({ 
+                              await supabase.from('user_profiles').update({ 
                                 full_name: editUserName.trim(),
                                 phone: editUserPhone.trim(),
                                 email: editUserEmail.trim()

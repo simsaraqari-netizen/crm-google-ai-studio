@@ -730,7 +730,7 @@ export default function App() {
       const sbUser = session.user;
       try {
         const { data: userData, error } = await supabase
-          .from('users')
+          .from('user_profiles')
           .select('*')
           .eq('uid', sbUser.id)
           .maybeSingle();
@@ -2757,7 +2757,7 @@ export default function App() {
                                     try {
                                       // Update Firestore data
                                       const { error } = await supabase
-                                        .from('users')
+                                        .from('user_profiles')
                                         .update({ 
                                           displayName: editUserName.trim(),
                                           phone: editUserPhone.trim(),
@@ -3548,7 +3548,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
       if (!targetCompanyId) return;
 
       let query = supabase
-        .from('users')
+        .from('user_profiles')
         .select('*')
         .eq('role', 'employee')
         .eq('company_id', targetCompanyId);
