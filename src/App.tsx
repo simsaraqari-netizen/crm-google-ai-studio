@@ -326,7 +326,7 @@ function ImageViewer({ images, initialIndex, onClose, is_sold }: any) {
         <X size={32} />
       </button>
 
-      {(images?.length || 0) > 1 && (
+      {images?.length > 1 && (
         <>
           <button 
             onClick={() => setCurrentIndex((prev: number) => (prev === 0 ? (images?.length || 0) - 1 : prev - 1))}
@@ -344,7 +344,7 @@ function ImageViewer({ images, initialIndex, onClose, is_sold }: any) {
       )}
 
         <div className="max-w-5xl w-full h-full flex items-center justify-center relative">
-        {images[currentIndex]?.startsWith('data:video/') ? (
+        {images?.[currentIndex]?.startsWith('data:video/') ? (
           <video 
             src={images[currentIndex]} 
             controls 
@@ -353,7 +353,7 @@ function ImageViewer({ images, initialIndex, onClose, is_sold }: any) {
           />
         ) : (
           <img 
-            src={images[currentIndex]} 
+            src={images?.[currentIndex]} 
             className={`max-w-full max-h-full object-contain rounded-lg shadow-2xl ${is_sold ? 'grayscale opacity-60' : ''}`} 
             referrerPolicy="no-referrer"
             alt=""
@@ -367,7 +367,7 @@ function ImageViewer({ images, initialIndex, onClose, is_sold }: any) {
       </div>
 
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/50 text-sm font-bold">
-        {currentIndex + 1} / {(images?.length || 0)}
+        {currentIndex + 1} / {images?.length || 0}
       </div>
     </div>
   );
@@ -555,6 +555,8 @@ export default function App() {
     status: '' // '', 'available', 'sold'
   });
 
+  const lastProcessedSessionId = useRef<string | null>(null);
+
   const searchSuggestions = useMemo(() => {
     if (!searchQuery.trim()) return [];
     const query = normalizeArabic(searchQuery);
@@ -702,31 +704,35 @@ export default function App() {
 
   // Reset visible count when filters or search change
   useEffect(() => {
-    setVisibleCount(50);
-  }, [searchQuery, filters, view]);
+    console.log("App state updated:", { 
+      view, 
+      hasUser: !!user, 
+      hasSelectedProperty: !!selectedProperty,
+      selectedPropertyId: selectedProperty?.id 
+    });
+  }, [view, user, selectedProperty]);
 
   // Auth Listener
   useEffect(() => {
     console.log("Setting up Supabase Auth Listener...");
     
-    // Initial session check
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      handleSession(session);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth Event:", event);
-      handleSession(session);
-    });
-
     const handleSession = async (session: any) => {
+      // Prevent redundant processing if session hasn't changed
+      if (session?.user?.id === lastProcessedSessionId.current && user) {
+        console.log("Session already processed, skipping...");
+        return;
+      }
+      lastProcessedSessionId.current = session?.user?.id || null;
+
       if (!session) {
+        console.log("No active session found.");
         setUser(null);
         setSelectedCompanyId(null);
         setLoading(false);
         return;
       }
 
+      console.log("Processing session for user:", session.user.id);
       const sbUser = session.user;
       try {
         const { data: userData, error } = await supabase
@@ -752,7 +758,6 @@ export default function App() {
             return;
           }
 
-          // Check super admin emails
           if (SUPER_ADMIN_EMAILS.includes(sbUser.email || '') && userData.role !== 'super_admin') {
             await supabase.from('user_profiles').update({ role: 'super_admin' }).eq('id', sbUser.id);
             userData.role = 'super_admin';
@@ -763,7 +768,7 @@ export default function App() {
             setSelectedCompanyId(userData.company_id);
           }
         } else {
-          // Create new profile
+          console.log("Creating new profile for user:", sbUser.id);
           const isSuper = SUPER_ADMIN_EMAILS.includes(sbUser.email || '');
           const role = isSuper ? 'super_admin' : 'pending';
           const newProfile = {
@@ -788,7 +793,7 @@ export default function App() {
           setUser(newProfile as UserProfile);
         }
       } catch (err: any) {
-        console.error("Auth error:", err);
+        console.error("Auth error details:", err);
         setAuthError(`خطأ في الوصول لقاعدة البيانات: ${err.message}`);
         setUser(null);
       } finally {
@@ -796,8 +801,19 @@ export default function App() {
       }
     };
 
+    // Initial session check
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      handleSession(session);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth Event Triggered:", event);
+      handleSession(session);
+    });
+
     return () => subscription.unsubscribe();
-  }, []);
+  }, [user]); // user dependency is safe now due to lastProcessedSessionId ref gating
+
 
   // Companies Listener (for Super Admin)
   useEffect(() => {
@@ -2901,34 +2917,39 @@ export default function App() {
 
           {view === 'details' && selectedProperty && (
             <div className="px-4 py-8">
-              <PropertyDetails 
-                property={selectedProperty}
-                user={user}
-                onBack={() => window.history.back()}
-                isAdmin={isAdmin}
-                isFavorite={favorites.includes(selectedProperty.id)}
-                onFavorite={() => toggleFavorite(selectedProperty.id)}
-                onEdit={() => {
-                  setSelectedProperty(selectedProperty);
-                  setView('edit');
-                }}
-                onDelete={() => setDeleteConfirm({ isOpen: true, property_id: selectedProperty.id })}
-                onRestore={() => restoreProperty(selectedProperty.id)}
-                onPermanentDelete={() => permanentDeleteProperty(selectedProperty.id)}
-                onDeleteComment={(commentId: string) => setCommentDeleteConfirm({ isOpen: true, commentId, property_id: selectedProperty.id })}
-                onUserClick={(user_id: string) => {
-                  setSelectedMarketerId(user_id);
-                  setPrevView(view as any);
-                  setView('user-listings');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                onFilter={(key: string, value: string) => {
-                  setFilters(prev => ({ ...prev, [key]: value }));
-                  setSearchQuery('');
-                  setView('list');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-              />
+              <ErrorBoundary>
+                <PropertyDetails 
+                  property={selectedProperty}
+                  user={user}
+                  onBack={() => {
+                    setView('list');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  isAdmin={isAdmin}
+                  isFavorite={favorites.includes(selectedProperty?.id)}
+                  onFavorite={() => toggleFavorite(selectedProperty?.id)}
+                  onEdit={() => {
+                    setSelectedProperty(selectedProperty);
+                    setView('edit');
+                  }}
+                  onDelete={() => setDeleteConfirm({ isOpen: true, property_id: selectedProperty?.id })}
+                  onRestore={() => restoreProperty(selectedProperty?.id)}
+                  onPermanentDelete={() => permanentDeleteProperty(selectedProperty?.id)}
+                  onDeleteComment={(commentId: string) => setCommentDeleteConfirm({ isOpen: true, commentId, property_id: selectedProperty?.id })}
+                  onUserClick={(user_id: string) => {
+                    setSelectedMarketerId(user_id);
+                    setPrevView(view as any);
+                    setView('user-listings');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  onFilter={(key: string, value: string) => {
+                    setFilters(prev => ({ ...prev, [key]: value }));
+                    setSearchQuery('');
+                    setView('list');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                />
+              </ErrorBoundary>
             </div>
           )}
         </AnimatePresence>
@@ -3155,7 +3176,7 @@ export default function App() {
         if (commentDeleteConfirm.commentId) {
           const { data: commentData } = await supabase.from('comments').select('*').eq('id', commentDeleteConfirm.commentId).single();
           if (commentData?.images && Array.isArray(commentData.images)) {
-            await Promise.all(commentData.((images || []).map(async (img: any) => {
+            await Promise.all((commentData.images || []).map(async (img: any) => {
               try {
                 const url = typeof img === 'string' ? img : img.url;
                 if (url.includes('storage/v1/object/public/properties/')) {
@@ -3309,9 +3330,9 @@ const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavori
             </div>
           )}
 
-          {property.images && (property.images?.length || 0) > 1 && (
+          {property.images && property.images.length > 1 && (
             <div className="absolute bottom-0.5 right-0.5 bg-black/60 text-white text-[7px] px-1 rounded font-bold">
-              +{(property.images?.length || 0) - 1}
+              +{property.images.length - 1}
             </div>
           )}
         </div>
@@ -3577,7 +3598,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []) as File[];
-    if (formData.(images?.length || 0) + files.length > 20) {
+    if ((formData.images?.length || 0) + files.length > 20) {
       toast.error('لا يمكن رفع أكثر من 20 ملفاً');
       return;
     }
@@ -3980,7 +4001,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
           </div>
           
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-            {formData.((images || []).map((img: { url: string, type: 'image' | 'video' }, index: number) => (
+            {(formData.images || []).map((img: { url: string, type: 'image' | 'video' }, index: number) => (
               <motion.div 
                 key={index} 
                 layout
@@ -4005,7 +4026,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
               </motion.div>
             ))}
             
-            {formData.(images?.length || 0) < 20 && (
+            {(formData.images?.length || 0) < 20 && (
               <label htmlFor="image-upload" className={`aspect-square rounded-2xl border-2 border-dashed border-stone-300 flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500 hover:bg-emerald-50 transition-all group ${isUploading ? 'opacity-50 cursor-wait' : ''}`}>
                 <input 
                   id="image-upload"
@@ -4020,7 +4041,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
                   <Upload className="text-stone-400 group-hover:text-emerald-600" size={24} />
                 </div>
                 <span className="text-xs font-bold text-stone-500 mt-2">{isUploading ? 'جاري الرفع...' : 'إضافة صور أو فيديو'}</span>
-                <span className="text-[10px] text-stone-400 mt-1">{formData.(images?.length || 0)}/20</span>
+                <span className="text-[10px] text-stone-400 mt-1">{(formData.images?.length || 0)}/20</span>
               </label>
             )}
           </div>
@@ -4107,6 +4128,13 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
 });
 
 const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, isAdmin, isFavorite, onFavorite, onEdit, onDelete, onRestore, onPermanentDelete, onDeleteComment, onUserClick, onFilter }: any) {
+  console.log("Component PropertyDetails Rendering:", { 
+    propertyID: property?.id, 
+    hasImages: !!property?.images, 
+    imagesCount: property?.images?.length,
+    userRole: user?.role
+  });
+
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [commentImages, setCommentImages] = useState<Array<{ url: string, type: 'image' | 'video' }>>([]);
@@ -4448,7 +4476,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
             )}
 
             <div className="absolute bottom-4 right-4 flex gap-1.5">
-              {((property.images || []).map((_: any, i: number) => (
+              {(property.images || []).map((_: any, i: number) => (
                 <button 
                   key={i}
                   onClick={() => setActiveImageIndex(i)}
@@ -4503,7 +4531,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                   معرض الصور ({(property.images?.length || 0)})
                 </h3>
                 <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                  {((property.images || []).map((img: string, i: number) => (
+                  {(property.images || []).map((img: string, i: number) => (
                     <button 
                       key={i} 
                       onClick={() => {
@@ -4655,9 +4683,9 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                           </div>
                         )}
                         
-                        {(c.images && c.(images?.length || 0) > 0) ? (
+                        {(c.images && (c.images?.length || 0) > 0) ? (
                           <div className="flex flex-wrap gap-2 mt-2">
-                            {c.((images || []).map((img, idx) => (
+                            {(c.images || []).map((img, idx) => (
                               <motion.div
                                 key={idx}
                                 whileHover={{ scale: 1.02 }}

@@ -9,37 +9,33 @@ export const useAuth = () => {
   const [authError, setAuthError] = useState<string | null>(null);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
 
+  const lastSessionId = useRef<string | null>(null);
+
   useEffect(() => {
-    const initAuth = async () => {
+    const initAuth = async (session: any) => {
+      if (session?.user?.id === lastSessionId.current && user) return;
+      lastSessionId.current = session?.user?.id || null;
+      
       setLoading(true);
       try {
-        const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
           const supabaseUser = session.user;
-          const { data: userDoc, error } = await supabase.from('user_profiles').select('*').eq('id', supabaseUser.id).maybeSingle();
+          const { data: userDoc } = await supabase.from('user_profiles').select('*').eq('id', supabaseUser.id).maybeSingle();
           
           let userData: UserProfile;
           if (userDoc) {
             userData = userDoc as UserProfile;
-            if (userData.is_deleted) {
-              setAuthError('هذا الحساب تم حذفه من قبل الإدارة.');
+            if (userData.is_deleted || userData.force_sign_out || userData.role === 'rejected') {
+              setAuthError(userData.is_deleted ? 'هذا الحساب تم حذفه من قبل الإدارة.' : 
+                           userData.force_sign_out ? 'تم تسجيل خروجك من قبل المسؤول.' : 
+                           'تم رفض حسابك من قبل الإدارة.');
+              if (userData.force_sign_out) await supabase.from('user_profiles').update({ force_sign_out: false }).eq('id', supabaseUser.id);
               await supabase.auth.signOut();
               return;
             }
-            if (userData.force_sign_out) {
-              await supabase.from('user_profiles').update({ force_sign_out: false }).eq('id', supabaseUser.id);
-              setAuthError('تم تسجيل خروجك من قبل المسؤول.');
-              await supabase.auth.signOut();
-              return;
-            }
-            if (userData.role === 'rejected') {
-              setAuthError('تم رفض حسابك من قبل الإدارة.');
-              await supabase.auth.signOut();
-              return;
-            }
-            const isSuper = (supabaseUser.email && SUPER_ADMIN_EMAILS.includes(supabaseUser.email)) || 
-                          (userData.phone && SUPER_ADMIN_PHONES.includes(userData.phone));
-            if (isSuper && userData.role !== 'super_admin') {
+            if (((supabaseUser.email && SUPER_ADMIN_EMAILS.includes(supabaseUser.email)) || 
+                 (userData.phone && SUPER_ADMIN_PHONES.includes(userData.phone))) && 
+                userData.role !== 'super_admin') {
               userData.role = 'super_admin';
               await supabase.from('user_profiles').update({ role: 'super_admin' }).eq('id', supabaseUser.id);
             }
@@ -50,13 +46,12 @@ export const useAuth = () => {
             } else {
               const isSuper = (supabaseUser.email && SUPER_ADMIN_EMAILS.includes(supabaseUser.email)) || 
                             (supabaseUser.user_metadata?.phone && SUPER_ADMIN_PHONES.includes(supabaseUser.user_metadata.phone));
-              const role = isSuper ? 'super_admin' : 'pending';
               userData = {
                 id: supabaseUser.id,
                 email: supabaseUser.email || '',
                 display_name: supabaseUser.user_metadata?.full_name || 'User',
                 full_name: supabaseUser.user_metadata?.full_name || 'User',
-                role: role,
+                role: isSuper ? 'super_admin' : 'pending',
                 created_at: new Date().toISOString()
               };
               const { data: insertedData } = await supabase.from('user_profiles').insert(userData).select().single();
@@ -65,6 +60,9 @@ export const useAuth = () => {
           }
           setUser(userData);
           if (userData.company_id) setSelectedCompanyId(userData.company_id);
+        } else {
+          setUser(null);
+          setSelectedCompanyId(null);
         }
       } catch (error: any) {
         console.error("Auth initialization error:", error);
@@ -74,17 +72,10 @@ export const useAuth = () => {
       }
     };
 
-    initAuth();
+    supabase.auth.getSession().then(({ data: { session } }) => initAuth(session));
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!session) {
-        setUser(null);
-        setSelectedCompanyId(null);
-        setLoading(false);
-        return;
-      }
-      // Re-init if session changes
-      initAuth();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      initAuth(session);
     });
 
     return () => subscription.unsubscribe();
