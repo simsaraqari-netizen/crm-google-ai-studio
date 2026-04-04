@@ -5,6 +5,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { createClient } from '@supabase/supabase-js';
 import { readSheet, writeToSheet, createSheet } from "./src/services/googleSheetsService.ts";
+import { initializeCronJobs } from "./src/services/cronService.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -17,6 +18,9 @@ const supabaseAdmin = createClient(
 async function startServer() {
   const app = express();
   const PORT = 3000;
+
+  // Initialize background automated tasks
+  initializeCronJobs();
 
   app.use(express.json());
 
