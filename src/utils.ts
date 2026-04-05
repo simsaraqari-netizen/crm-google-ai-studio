@@ -90,7 +90,8 @@ export function inferPurpose(text: string): string {
   const t = normalizeArabic(text);
   if (t.includes('بدل') || t.includes('بدا') || t.includes('بيدل') || t.includes('يدل')) return 'بدل';
   if (t.includes('شرا') || t.includes('مشتري') || t.includes('يبي') || t.includes('مطلوب')) return 'شراء';
-  if (t.includes('ايجار') || t.includes('مستاجر') || t.includes('تأجير') || t.includes('يبحث عن ايجار')) return 'ايجار';
+  if (t.includes('مستاجر') || t.includes('يستاجر') || t.includes('يبحث عن ايجار') || t.includes('استئجار') || t.includes('استاجار')) return 'استئجار';
+  if (t.includes('ايجار') || t.includes('تأجير') || t.includes('تاجير')) return 'ايجار';
   if (t.includes('بيع') || t.includes('للبيع')) return 'بيع';
   return '';
 }
@@ -121,7 +122,7 @@ export function searchMatch(source: string, query: string): boolean {
 
 export function cleanPropertyName(name: string): string {
   if (!name) return "";
-  const regex = /(شراي|شراء|شتراي|يشتري|مشترين|مشتري|يبي|بيع|للبيع|بدل|للبدل|ايجار|للايجار|استثماري|تجاري|مطلوب)/g;
+  const regex = /(شراي|شراء|شتراي|يشتري|مشترين|مشتري|يبي|بيع|للبيع|بدل|للبدل|ايجار|للايجار|استئجار|للاستئجار|مستاجرين|مستأجرين|مستاجر|مستأجر|استثماري|تجاري|مطلوب)/g;
   return name.replace(regex, ' ').replace(/\s+/g, ' ').trim();
 }
 
@@ -141,13 +142,11 @@ export function generatePropertyTitle(property: any): string {
     if (p === 'بيع' || p === 'للبيع') p = 'للبيع';
     else if (p === 'إيجار' || p === 'ايجار') p = 'للايجار';
     else if (p === 'بدل' || p === 'للبدل') p = 'للبدل';
-    else if (p === 'شراء' || p === 'شراي' || p.includes('مشترين') || p.includes('مشتري')) p = 'شراي'; // Change to شراي in title as requested or requested "شراء"?
-    // The user said: اجعل كل كلمات مشترين غيرها الى شراء, but 'شراء' was already being converted to 'شراي' in the title. Let's make the text output 'شراء' or 'شراي'? "شراي" sounds more conversational. I'll output "شراء" if the user wants it specifically, let's just make it "شراء" as requested.
-    // Wait, the user said "اجعلها شراء".
-    else if (p === 'مستأجر') p = 'مستأجر';
-    else if (!p.startsWith('ل') && p !== 'شراء' && p !== 'شراي') p = 'ل' + p;
+    else if (p === 'استئجار' || p.includes('مستاجر') || p.includes('مستأجر')) p = 'استئجار';
+    else if (p === 'شراء' || p === 'شراي' || p.includes('مشترين') || p.includes('مشتري')) p = 'شراء';
+    else if (!p.startsWith('ل') && p !== 'شراء' && p !== 'شراي' && p !== 'استئجار') p = 'ل' + p;
     
-    if (p === 'شراي') p = 'شراء'; // Output "شراء" for all buyer intents according to request: واجعل كل كلمات مشترين غيرها الي شراء
+    if (p === 'شراي') p = 'شراء';
     parts.push(p);
   }
   
