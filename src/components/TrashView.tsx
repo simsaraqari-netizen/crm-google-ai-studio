@@ -167,9 +167,9 @@ export function TrashView({
                       <div>
                         <h3 className="font-bold text-lg">{company.name}</h3>
                         <p className="text-sm text-stone-500">كود الشركة: {company.company_id}</p>
-                        {company.deletedAt && (
+                        {company.deleted_at && (
                           <p className="text-xs text-red-500 mt-1">
-                            تاريخ الحذف: {new Date(company.deletedAt).toLocaleDateString('ar-EG')}
+                            تاريخ الحذف: {new Date(company.deleted_at).toLocaleDateString('ar-EG')}
                           </p>
                         )}
                       </div>
@@ -213,9 +213,9 @@ export function TrashView({
                       <div>
                         <h3 className="font-bold text-lg">{u.full_name || 'مستخدم بدون اسم'}</h3>
                         <p className="text-sm text-stone-500">{u.email}</p>
-                        {u.deletedAt && (
+                        {u.deleted_at && (
                           <p className="text-xs text-red-500 mt-1">
-                            تاريخ الحذف: {new Date(u.deletedAt).toLocaleDateString('ar-EG')}
+                            تاريخ الحذف: {new Date(u.deleted_at).toLocaleDateString('ar-EG')}
                           </p>
                         )}
                       </div>
@@ -259,9 +259,9 @@ export function TrashView({
                       <div>
                         <p className="text-stone-800">{comment.text}</p>
                         <p className="text-sm text-stone-500 mt-1">بواسطة: {comment.user_name}</p>
-                        {comment.deletedAt && (
+                        {comment.deleted_at && (
                           <p className="text-xs text-red-500 mt-1">
-                            تاريخ الحذف: {new Date(comment.deletedAt).toLocaleDateString('ar-EG')}
+                            تاريخ الحذف: {new Date(comment.deleted_at).toLocaleDateString('ar-EG')}
                           </p>
                         )}
                       </div>

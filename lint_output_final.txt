@@ -1,0 +1,27 @@
+
+> react-example@0.0.0 lint
+> tsc --noEmit
+
+clean_db.ts(75,45): error TS2339: Property 'purpose' does not exist on type '{}'.
+clean_db.ts(76,39): error TS2339: Property 'type' does not exist on type '{}'.
+clean_db.ts(77,45): error TS2339: Property 'governorate' does not exist on type '{}'.
+clean_db.ts(78,39): error TS2339: Property 'area' does not exist on type '{}'.
+clean_db.ts(81,64): error TS2339: Property 'governorate' does not exist on type '{}'.
+clean_db.ts(81,110): error TS2339: Property 'type' does not exist on type '{}'.
+clean_db.ts(81,145): error TS2339: Property 'purpose' does not exist on type '{}'.
+src/components/PropertyForm.tsx(46,100): error TS2304: Cannot find name 'isImageVideo'.
+src/components/TrashView.tsx(170,34): error TS2551: Property 'deletedAt' does not exist on type 'Company'. Did you mean 'deleted_at'?
+src/components/TrashView.tsx(172,60): error TS2551: Property 'deletedAt' does not exist on type 'Company'. Did you mean 'deleted_at'?
+src/components/TrashView.tsx(216,28): error TS2551: Property 'deletedAt' does not exist on type 'UserProfile'. Did you mean 'deleted_at'?
+src/components/TrashView.tsx(218,54): error TS2551: Property 'deletedAt' does not exist on type 'UserProfile'. Did you mean 'deleted_at'?
+src/components/TrashView.tsx(262,34): error TS2551: Property 'deletedAt' does not exist on type 'Comment'. Did you mean 'deleted_at'?
+src/components/TrashView.tsx(264,60): error TS2551: Property 'deletedAt' does not exist on type 'Comment'. Did you mean 'deleted_at'?
+src/firebase.ts(1,31): error TS2307: Cannot find module 'firebase/app' or its corresponding type declarations.
+src/firebase.ts(11,8): error TS2307: Cannot find module 'firebase/auth' or its corresponding type declarations.
+src/firebase.ts(12,30): error TS2307: Cannot find module 'firebase/firestore' or its corresponding type declarations.
+src/firebase.ts(13,28): error TS2307: Cannot find module 'firebase/storage' or its corresponding type declarations.
+npm notice
+npm notice New minor version of npm available! 11.11.0 -> 11.12.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.12.1
+npm notice To update run: npm install -g npm@11.12.1
+npm notice

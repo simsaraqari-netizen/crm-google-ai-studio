@@ -173,7 +173,9 @@ export const initializeCronJobs = () => {
 
       await writeToSheet(spreadsheetId, range, writeData);
       console.log('[CRON] Sync process completed successfully!');
-      
+    } catch (e: any) {
+      console.error('[CRON] Error during synchronization:', e);
+    }
   });
 
   // ---------------------------------------------------------

@@ -178,6 +178,8 @@ interface Notification {
 const SUPER_ADMIN_EMAILS = ["simsaraqari@gmail.com", "mostafasoliman550@gmail.com"];
 
 export default function App() {
+  const lastProcessedSessionId = useRef<string | null>(null);
+  const isPopState = useRef(false);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
@@ -288,8 +290,26 @@ export default function App() {
     commentId: null,
     property_id: null
   });
+  const [companyActionConfirm, setCompanyActionConfirm] = useState<{ 
+    isOpen: boolean; 
+    company: Company | null; 
+    action: 'delete' | 'edit' | null 
+  }>({
+    isOpen: false,
+    company: null,
+    action: null
+  });
+  const [permanentDeleteConfirmState, setPermanentDeleteConfirmState] = useState<{ isOpen: boolean; property_id: string | null }>({
+    isOpen: false,
+    property_id: null
+  });
 
-  const [activeSearchQuery, setActiveSearchQuery] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isDetailedFiltersOpen, setIsDetailedFiltersOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+  const [editUserName, setEditUserName] = useState('');
+  const [editUserPhone, setEditUserPhone] = useState('');
+  const [editUserEmail, setEditUserEmail] = useState('');
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false);
 
   // Sync state from URL on load
@@ -2135,10 +2155,7 @@ export default function App() {
                           <div className="flex items-center gap-2">
                             <button 
                               onClick={() => {
-                                if (confirm(`هل أنت متأكد من تعديل بيانات شركة ${company.name}؟`)) {
-                                  setEditingCompany(company);
-                                  setIsEditingCompany(true);
-                                }
+                                setCompanyActionConfirm({ isOpen: true, company, action: 'edit' });
                               }}
                               className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
                               title="تعديل"
@@ -2146,16 +2163,8 @@ export default function App() {
                               <Edit size={16} />
                             </button>
                             <button 
-                              onClick={async () => {
-                                if (confirm(`هل أنت متأكد من حذف شركة ${company.name}؟ سيؤدي ذلك لحذف جميع بياناتها.`)) {
-                                  try {
-                                    const { error } = await supabase.from('companies').delete().eq('id', company.id);
-                                    if (error) throw error;
-                                    toast.success('تم حذف الشركة');
-                                  } catch (err: any) {
-                                    toast.error('خطأ: ' + err.message);
-                                  }
-                                }
+                              onClick={() => {
+                                setCompanyActionConfirm({ isOpen: true, company, action: 'delete' });
                               }}
                               className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
                               title="حذف"
@@ -2712,7 +2721,7 @@ export default function App() {
                   }}
                   onDelete={() => setDeleteConfirm({ isOpen: true, property_id: selectedProperty?.id })}
                   onRestore={() => restoreProperty(selectedProperty?.id)}
-                  onPermanentDelete={() => permanentDeleteProperty(selectedProperty?.id)}
+                  onPermanentDelete={() => setPermanentDeleteConfirmState({ isOpen: true, property_id: selectedProperty?.id })}
                   onDeleteComment={(commentId: string) => setCommentDeleteConfirm({ isOpen: true, commentId, property_id: selectedProperty?.id })}
                   onUserClick={(user_id: string) => {
                     setSelectedMarketerId(user_id);
@@ -2876,14 +2885,12 @@ export default function App() {
       toast.error("حدث خطأ أثناء محاولة استعادة العقار");
     }
   }
-
   async function permanentDeleteProperty(id: string) {
     if (!isAdmin) {
       toast.error("ليس لديك صلاحية لحذف العقارات نهائياً");
       return;
     }
-    if (window.confirm('هل أنت متأكد من حذف هذا العقار نهائياً؟ لا يمكن التراجع عن هذا الإجراء.')) {
-      try {
+    try {
         const { data: propertyData, error: fetchError } = await supabase.from('properties').select('images').eq('id', id).single();
         if (fetchError) throw fetchError;
         
@@ -2912,7 +2919,6 @@ export default function App() {
         console.error("Error permanently deleting property:", error);
         toast.error("حدث خطأ أثناء محاولة حذف العقار نهائياً");
       }
-    }
   }
 
   async function deleteProperty(id: string) {
@@ -3022,5 +3028,24 @@ export default function App() {
       console.error("Error performing user action:", err);
       toast.error("حدث خطأ أثناء تنفيذ الإجراء");
     }
+  }
+
+  async function confirmCompanyAction() {
+    if (!companyActionConfirm.company) return;
+    
+    if (companyActionConfirm.action === 'delete') {
+      try {
+        const { error } = await supabase.from('companies').delete().eq('id', companyActionConfirm.company.id);
+        if (error) throw error;
+        toast.success('تم حذف الشركة');
+      } catch (err: any) {
+        toast.error('خطأ: ' + err.message);
+      }
+    } else if (companyActionConfirm.action === 'edit') {
+      setEditingCompany(companyActionConfirm.company);
+      setIsEditingCompany(true);
+    }
+    
+    setCompanyActionConfirm({ isOpen: false, company: null, action: null });
   }
 }
