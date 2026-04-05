@@ -56,13 +56,14 @@ export function cleanAreaName(name: string): string {
 
   // Abbreviations mapping
   if (clean === "ج س ع" || clean.includes(" س ع") && clean.includes("ج ")) clean = "جنوب سعد العبدالله";
-  else if (clean === "ج ع م" || clean.includes(" ع م") && clean.includes("ج ")) clean = "جنوب عبدالله المبارك";
+  else if (clean === "ج ع م" || clean === "ج ع" || (clean.includes(" ع م") || clean.includes(" ع")) && clean.includes("ج ")) clean = "جنوب عبدالله المبارك";
   else if (clean === "ش غ ص" || clean.includes(" غ ص") && clean.includes("ش ")) clean = "شمال غرب صليبيخات";
   else if (clean === "ج ص الاحمد" || clean === "ج ص ح" || clean.includes(" ص ح") && clean.includes("ج ")) clean = "جنوب صباح الاحمد";
-  else if (clean === "غ ع م" || clean.includes(" ع م") && clean.includes("غ ")) clean = "غرب عبدالله المبارك";
+  else if (clean === "غ ع م" || clean === "غ ع" || (clean.includes(" ع م") || clean.includes(" ع")) && clean.includes("غ ")) clean = "غرب عبدالله المبارك";
   else if (clean === "غرب") clean = "غرب عبدالله المبارك";
   else if (clean === "جنوب") clean = "جنوب عبدالله المبارك";
   else if (clean === "ص الاحمد") clean = "صباح الاحمد";
+  else if (clean === "م") clean = "المطلاع";
 
   if (clean === "شمال غرب الصليبخات" || clean === "شمال غرب صليبخات") clean = "شمال غرب صليبيخات";
 
@@ -129,9 +130,15 @@ export function inferType(text: string): string {
 }
 
 export function searchMatch(source: string, query: string): boolean {
+  if (!query) return true;
   const normalizedSource = normalizeArabic(source.toLowerCase());
   const normalizedQuery = normalizeArabic(query.toLowerCase());
-  return normalizedSource.includes(normalizedQuery);
+  
+  const queryParts = normalizedQuery.split(/\s+/).filter(Boolean);
+  // Extract all tokens from source (Arabic characters, English characters, and digits)
+  const sourceTokens: string[] = normalizedSource.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF0-9a-zA-Z]+/g) || [];
+  
+  return queryParts.every(part => sourceTokens.includes(part));
 }
 
 export function cleanPropertyName(name: string): string {

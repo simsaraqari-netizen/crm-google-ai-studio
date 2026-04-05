@@ -62,7 +62,9 @@ import {
   usernameToEmail, 
   extractSpreadsheetId,
   formatRelativeDate,
-  formatDateTime
+  formatDateTime,
+  isImageVideo,
+  getImageUrl
 } from './utils';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -98,13 +100,14 @@ interface Property {
   images: string[];
   location_link?: string;
   is_sold?: boolean;
+  description?: string;
   sector?: string;
   block?: string;
   street?: string;
   avenue?: string;
   plot_number?: string;
   house_number?: string;
-  location: string;
+  location?: string;
   price?: string;
   details?: string;
   last_comment?: string;
@@ -569,9 +572,27 @@ export default function App() {
     const suggestions = new Set<string>();
     
     properties.forEach(p => {
-      if (normalizeArabic(p.name).includes(query)) suggestions.add(p.name);
-      if (normalizeArabic(p.phone).includes(query)) suggestions.add(p.phone);
-      if (normalizeArabic(p.area).includes(query)) suggestions.add(p.area);
+      const pName = p.name || '';
+      const pPhone = p.phone || '';
+      const pArea = p.area || '';
+      const pGov = p.governorate || '';
+      const pType = p.type || '';
+      const pPurpose = p.purpose || '';
+      const pLocation = p.location || '';
+      const pPlot = p.plot_number || '';
+      const pHouse = p.house_number || '';
+      const pSector = p.sector || '';
+
+      if (normalizeArabic(pName).includes(query)) suggestions.add(pName);
+      if (normalizeArabic(pPhone).includes(query)) suggestions.add(pPhone);
+      if (normalizeArabic(pArea).includes(query)) suggestions.add(pArea);
+      if (normalizeArabic(pGov).includes(query)) suggestions.add(pGov);
+      if (normalizeArabic(pType).includes(query)) suggestions.add(pType);
+      if (normalizeArabic(pPurpose).includes(query)) suggestions.add(pPurpose);
+      if (pLocation && normalizeArabic(pLocation).includes(query)) suggestions.add(pLocation);
+      if (pPlot && normalizeArabic(pPlot).includes(query)) suggestions.add(pPlot);
+      if (pHouse && normalizeArabic(pHouse).includes(query)) suggestions.add(pHouse);
+      if (pSector && normalizeArabic(pSector).includes(query)) suggestions.add(pSector);
       if (p.assigned_employee_name && normalizeArabic(p.assigned_employee_name).includes(query)) suggestions.add(p.assigned_employee_name);
     });
     
@@ -1164,8 +1185,16 @@ export default function App() {
       const searchDigitCount = (searchQuery.match(/\d/g) || []).length;
       const matchesSearch = 
         searchMatch(p.name, searchQuery) || 
-        (searchDigitCount >= 6 && searchMatch(p.phone, searchQuery)) || 
+        (searchDigitCount >= 4 && searchMatch(p.phone, searchQuery)) || 
         searchMatch(p.area, searchQuery) || 
+        searchMatch(p.governorate, searchQuery) || 
+        searchMatch(p.type, searchQuery) || 
+        searchMatch(p.purpose, searchQuery) || 
+        searchMatch(p.location || '', searchQuery) || 
+        searchMatch(p.plot_number || '', searchQuery) || 
+        searchMatch(p.house_number || '', searchQuery) || 
+        searchMatch(p.sector || '', searchQuery) || 
+        searchMatch(p.description || '', searchQuery) || 
         searchMatch(p.assigned_employee_name || '', searchQuery);
       
       const matchesGov = !filters.governorate || p.governorate === filters.governorate;
