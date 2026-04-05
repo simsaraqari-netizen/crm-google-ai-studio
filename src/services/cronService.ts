@@ -174,8 +174,68 @@ export const initializeCronJobs = () => {
       await writeToSheet(spreadsheetId, range, writeData);
       console.log('[CRON] Sync process completed successfully!');
       
-    } catch (e: any) {
-      console.error('[CRON] Error during synchronization:', e);
+  });
+
+  // ---------------------------------------------------------
+  // 30-DAY PROPERTY CLEANUP JOB
+  // Runs daily at 2:00 AM '0 2 * * *'
+  // ---------------------------------------------------------
+  cron.schedule('0 2 * * *', async () => {
+    console.log('[CRON] Starting 30-day deleted property cleanup...');
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    try {
+      // 1. Fetch properties marked as deleted more than 30 days ago
+      const { data: propertiesToDelete, error: fetchError } = await supabaseAdmin
+        .from('properties')
+        .select('id, images')
+        .eq('is_deleted', true)
+        .lt('updated_at', thirtyDaysAgo.toISOString());
+
+      if (fetchError) throw fetchError;
+
+      if (propertiesToDelete && propertiesToDelete.length > 0) {
+        console.log(`[CRON] Found ${propertiesToDelete.length} properties to permanently delete.`);
+
+        for (const prop of propertiesToDelete) {
+          // A. Delete images from storage if they exist
+          if (prop.images && prop.images.length > 0) {
+            const imagePaths = prop.images
+              .map((url: string) => {
+                const parts = url.split('/storage/v1/object/public/property-images/');
+                return parts.length > 1 ? parts[1] : null;
+              })
+              .filter(Boolean) as string[];
+
+            if (imagePaths.length > 0) {
+              const { error: storageError } = await supabaseAdmin.storage
+                .from('property-images')
+                .remove(imagePaths);
+              
+              if (storageError) {
+                console.error(`[CRON] Error deleting images for property ${prop.id}:`, storageError);
+              }
+            }
+          }
+
+          // B. Delete from database
+          const { error: deleteError } = await supabaseAdmin
+            .from('properties')
+            .delete()
+            .eq('id', prop.id);
+
+          if (deleteError) {
+            console.error(`[CRON] Error deleting property ${prop.id} from DB:`, deleteError);
+          } else {
+            console.log(`[CRON] Successfully deleted property ${prop.id} permanently.`);
+          }
+        }
+      } else {
+        console.log('[CRON] No properties found for cleanup.');
+      }
+    } catch (err) {
+      console.error('[CRON] Critical error during 30-day cleanup:', err);
     }
   });
 };
