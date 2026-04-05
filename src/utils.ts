@@ -102,10 +102,10 @@ export function inferGovernorate(areaName: string, currentGov: string = ""): str
 export function inferPurpose(text: string): string {
   if (!text) return '';
   const t = normalizeArabic(text);
-  if (t.includes('بدل') || t.includes('بدا') || t.includes('بيدل') || t.includes('يدل')) return 'بدل';
-  if (t.includes('شرا') || t.includes('مشتري') || t.includes('يبي') || t.includes('مطلوب')) return 'شراء';
+  if (t.includes('بدل') || t.includes('للبدل') || t.includes('بدا') || t.includes('بيدل') || t.includes('يدل')) return 'بدل';
+  if (t.includes('شرا') || t.includes('مشتري') || t.includes('يبي') || t.includes('مطلوب') || t.includes('للشراء')) return 'شراء';
   if (t.includes('مستاجر') || t.includes('يستاجر') || t.includes('يبحث عن ايجار') || t.includes('استئجار') || t.includes('استاجار')) return 'استئجار';
-  if (t.includes('ايجار') || t.includes('تأجير') || t.includes('تاجير')) return 'ايجار';
+  if (t.includes('ايجار') || t.includes('تأجير') || t.includes('تاجير') || t.includes('للايجار')) return 'ايجار';
   if (t.includes('بيع') || t.includes('للبيع')) return 'بيع';
   return '';
 }
@@ -113,10 +113,11 @@ export function inferPurpose(text: string): string {
 export function inferType(text: string): string {
   if (!text) return '';
   const t = normalizeArabic(text);
+  // Specific check for "طلب"
   if (t.includes('طلب')) return 'طلب';
   if (t.includes('ارض')) return 'ارض';
-  if (t.includes('قسيمه') || t.includes('قسيمة') || t.includes('مبنيه')) return 'قسيمة مبنية';
-  if (t.includes('بيت') || t.includes('حكومي') || t.includes('حكومى')) return 'بيت حكومي';
+  if (t.includes('قسيمه') || t.includes('قسيمة') || t.includes('مبنيه') || t.includes('مبنية')) return 'قسيمة مبنية';
+  if (t.includes('بيت حكومي') || t.includes('بيت حكومى') || t.includes('بيت')) return 'بيت حكومي';
   if (t.includes('شقه') || t.includes('شقة')) return 'شقة';
   if (t.includes('عماره') || t.includes('عمارة')) return 'عمارة';
   if (t.includes('استثماري') || t.includes('استثمار')) return 'استثماري';

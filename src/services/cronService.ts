@@ -55,8 +55,19 @@ export const initializeCronJobs = () => {
           const cName = cleanVal(name);
           const cArea = cleanAreaName(cleanVal(area));
 
-          const newPurpose = inferPurpose(cPurpose) || inferPurpose(cType) || inferPurpose(cName);
-          const newType = inferType(cType) || inferType(cPurpose) || inferType(cName);
+          // Smart inference: only use inference if the current value is empty or invalid
+          let newPurpose = cPurpose;
+          let newType = cType;
+
+          // If the values are swapped or missing, try to infer
+          if (!newPurpose || !inferPurpose(newPurpose)) {
+            newPurpose = inferPurpose(cPurpose) || inferPurpose(cType) || inferPurpose(cName);
+          }
+          
+          if (!newType || !inferType(newType)) {
+            newType = inferType(cType) || inferType(cPurpose) || inferType(cName);
+          }
+
           const newGov = inferGovernorate(cArea, cleanVal(governorate));
 
           const propertyData: any = {
@@ -205,14 +216,14 @@ export const initializeCronJobs = () => {
           if (prop.images && prop.images.length > 0) {
             const imagePaths = prop.images
               .map((url: string) => {
-                const parts = url.split('/storage/v1/object/public/property-images/');
+                const parts = url.split('/storage/v1/object/public/properties_media/');
                 return parts.length > 1 ? parts[1] : null;
               })
               .filter(Boolean) as string[];
 
             if (imagePaths.length > 0) {
               const { error: storageError } = await supabaseAdmin.storage
-                .from('property-images')
+                .from('properties_media')
                 .remove(imagePaths);
               
               if (storageError) {
