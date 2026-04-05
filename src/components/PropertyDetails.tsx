@@ -85,7 +85,7 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
       await supabase.from('comments').insert({
         property_id: property.id,
         user_id: user.id,
-        user_name: user.full_name,
+        user_name: user.full_name || user.display_name || 'مستخدم',
         user_phone: user.phone || '',
         text: newComment,
         images: commentImages,
@@ -109,7 +109,7 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
         await supabase.from('notifications').insert({
           type: 'new-comment',
           title: 'تعليق جديد على عقار يهمك',
-          message: `أضاف ${user.full_name} تعليقاً جديداً على العقار: ${generatePropertyTitle(property)}`,
+          message: `أضاف ${user.full_name || user.display_name || 'مستخدم'} تعليقاً جديداً على العقار: ${generatePropertyTitle(property)}`,
           recipient_id,
           user_id: user.id,
           property_id: property.id,
@@ -359,16 +359,16 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
               </div>
             )}
             
-            {property.images.length > 1 && (
+            {(property.images || []).length > 1 && (
               <div className="absolute inset-0 flex items-center justify-between p-4 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button 
-                  onClick={() => setActiveImageIndex(prev => (prev === 0 ? property.images.length - 1 : prev - 1))}
+                  onClick={() => setActiveImageIndex(prev => (prev === 0 ? (property.images || []).length - 1 : prev - 1))}
                   className="p-2 bg-white rounded-full text-stone-800 hover:bg-stone-50 transition-all shadow-md"
                 >
                   <ChevronRight size={20} />
                 </button>
                 <button 
-                  onClick={() => setActiveImageIndex(prev => (prev === property.images.length - 1 ? 0 : prev + 1))}
+                  onClick={() => setActiveImageIndex(prev => (prev === (property.images || []).length - 1 ? 0 : prev + 1))}
                   className="p-2 bg-white rounded-full text-stone-800 hover:bg-stone-50 transition-all shadow-md"
                 >
                   <ChevronLeft size={20} />
@@ -377,7 +377,7 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
             )}
 
             <div className="absolute bottom-4 right-4 flex gap-1.5">
-              {property.images.map((_: any, i: number) => (
+              {(property.images || []).map((_: any, i: number) => (
                 <button 
                   key={i}
                   onClick={() => setActiveImageIndex(i)}
@@ -425,7 +425,7 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
               </div>
             </div>
 
-            {property.images.length > 1 && (
+            {(property.images || []).length > 1 && (
               <div className="mt-8 pt-6 border-t border-stone-100">
                 <h3 className="text-sm font-bold text-stone-900 mb-4 flex items-center gap-2 justify-center">
                   <ImageIcon size={16} className="text-emerald-600" />
@@ -557,8 +557,8 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                                 
                                 // Update last comment on property card if this was the latest
                                 const sorted = [...comments].sort((a, b) => {
-                                  const timeA = a.created_at?.toMillis ? a.created_at.toMillis() : 0;
-                                  const timeB = b.created_at?.toMillis ? b.created_at.toMillis() : 0;
+                                  const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+                                  const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
                                   return timeB - timeA;
                                 });
                                 if (c.id === sorted[0]?.id) {
