@@ -48,7 +48,7 @@ export const initializeCronJobs = () => {
             status_label, created_by, created_atStr
           ] = row;
 
-          const cleanVal = (val: string) => val ? val.replace(/resedintal/gi, '').trim() : '';
+          const cleanVal = (val: string) => val ? val.replace(/resedintal|residental|residential/gi, '').trim() : '';
           
           const normalizeGovernorate = (gov: string, areaName: string) => {
             let g = cleanVal(gov);
