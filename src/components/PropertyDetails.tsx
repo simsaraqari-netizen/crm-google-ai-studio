@@ -750,7 +750,7 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
             <div className="flex flex-col items-start gap-2">
               <div className="flex items-center gap-2" dir="ltr">
                 <a
-                  href={`https://wa.me/${(property.assigned_employee_phone || property.phone).replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`السلام عليكم، بخصوص هذا العقار: ${window.location.href}`)}`}
+                  href={`https://wa.me/${(property.assigned_employee_phone || property.phone || '').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`السلام عليكم، بخصوص هذا العقار: ${window.location.href}`)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-8 h-8 flex items-center justify-center text-green-600 bg-stone-50 border border-stone-100 hover:bg-green-50 rounded-full transition-colors shadow-sm"
@@ -759,7 +759,7 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                   <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
                 </a>
                 <a 
-                  href={`tel:${property.assigned_employee_phone || property.phone}`}
+                  href={`tel:${property.assigned_employee_phone || property.phone || ''}`}
                   className="w-8 h-8 flex items-center justify-center text-emerald-600 bg-stone-50 border border-stone-100 hover:bg-emerald-50 rounded-full transition-colors shadow-sm"
                   title="اتصال"
                 >

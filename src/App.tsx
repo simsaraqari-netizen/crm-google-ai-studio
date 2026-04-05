@@ -913,7 +913,7 @@ export default function App() {
       const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
       return dateB - dateA;
     });
-  }, [properties, deletedProperties, searchQuery, filters, view, favorites, user]);
+  }, [properties, deletedProperties, activeSearchQuery, filters, view, favorites, user, selectedMarketerId, deletedProperties]);
 
   if (loading) {
     return (
@@ -1664,10 +1664,8 @@ export default function App() {
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {
                                 e.preventDefault();
-                                if (searchSuggestions.length > 0) {
-                                  setSearchQuery(searchSuggestions[0]);
-                                }
                                 setIsSearchFocused(false);
+                                handleSearch();
                               }
                             }}
                           />
@@ -3006,7 +3004,7 @@ export default function App() {
     }
     try {
       if (userActionConfirm.action === 'bulk-delete') {
-        const { error } = await supabase.from('user_profiles').delete().neq('role', 'superadmin');
+        const { error } = await supabase.from('user_profiles').delete().neq('role', 'super_admin');
         if (error) throw error;
       } else if (userActionConfirm.user_id) {
         if (userActionConfirm.action === 'delete') {
