@@ -56,6 +56,63 @@ export function cleanAreaName(name: string): string {
   return clean;
 }
 
+export function inferGovernorate(areaName: string, currentGov: string = ""): string {
+  if (!areaName && !currentGov) return "محافظة غير محددة";
+  
+  const nArea = normalizeArabic(cleanAreaName(areaName));
+  const nGov = normalizeArabic(currentGov);
+
+  // Import AREAS here to avoid circular dependency issues at top-level
+  const { AREAS } = require('./constants');
+  
+  if (nArea) {
+    for (const gov of Object.keys(AREAS)) {
+      if (AREAS[gov].some((x: string) => normalizeArabic(x).includes(nArea) || nArea.includes(normalizeArabic(x)))) {
+        return gov;
+      }
+    }
+  }
+
+  // Fallback to text matching on currentGov
+  if (nGov.includes('عاصمه') || nGov.includes('عاصمة')) return 'محافظة العاصمة';
+  if (nGov.includes('حولي')) return 'محافظة حولي';
+  if (nGov.includes('فروانيه') || nGov.includes('فروانية') || nGov.includes('رابعه') || nGov.includes('رابعة')) return 'محافظة الفروانية';
+  if (nGov.includes('مبارك')) return 'محافظة مبارك الكبير';
+  if (nGov.includes('احمدي') || nGov.includes('عاشره') || nGov.includes('عاشرة')) return 'محافظة الأحمدي';
+  if (nGov.includes('جهراء')) return 'محافظة الجهراء';
+
+  return 'محافظة غير محددة';
+}
+
+
+export function inferPurpose(text: string): string {
+  if (!text) return '';
+  const t = normalizeArabic(text);
+  if (t.includes('بدل') || t.includes('بدا') || t.includes('بيدل') || t.includes('يدل')) return 'بدل';
+  if (t.includes('شرا') || t.includes('مشتري') || t.includes('يبي') || t.includes('مطلوب')) return 'شراء';
+  if (t.includes('ايجار') || t.includes('مستاجر') || t.includes('تأجير') || t.includes('يبحث عن ايجار')) return 'ايجار';
+  if (t.includes('بيع') || t.includes('للبيع')) return 'بيع';
+  return '';
+}
+
+export function inferType(text: string): string {
+  if (!text) return '';
+  const t = normalizeArabic(text);
+  if (t.includes('طلب')) return 'طلب';
+  if (t.includes('ارض')) return 'ارض';
+  if (t.includes('قسيمه') || t.includes('قسيمة') || t.includes('مبنيه')) return 'قسيمة مبنية';
+  if (t.includes('بيت') || t.includes('حكومي') || t.includes('حكومى')) return 'بيت حكومي';
+  if (t.includes('شقه') || t.includes('شقة')) return 'شقة';
+  if (t.includes('عماره') || t.includes('عمارة')) return 'عمارة';
+  if (t.includes('استثماري') || t.includes('استثمار')) return 'استثماري';
+  if (t.includes('تجاري') || t.includes('تجار')) return 'تجاري';
+  if (t.includes('صناعي') || t.includes('صناعيه') || t.includes('حرفي')) return 'صناعي';
+  if (t.includes('مخزن') || t.includes('مخازن')) return 'مخازن';
+  if (t.includes('مزرعه') || t.includes('مزرعة')) return 'مزرعة';
+  if (t.includes('شاليه') || t.includes('شالية')) return 'شالية';
+  return '';
+}
+
 export function searchMatch(source: string, query: string): boolean {
   const normalizedSource = normalizeArabic(source.toLowerCase());
   const normalizedQuery = normalizeArabic(query.toLowerCase());

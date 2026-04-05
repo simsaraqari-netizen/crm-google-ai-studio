@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import { createClient } from '@supabase/supabase-js';
 import { readSheet, writeToSheet } from './googleSheetsService.ts';
-import { cleanAreaName } from '../utils.ts';
+import { cleanAreaName, inferGovernorate, inferPurpose, inferType } from '../utils.ts';
 import { AREAS } from '../constants.ts';
 
 const supabaseAdmin = createClient(
@@ -49,31 +49,22 @@ export const initializeCronJobs = () => {
           ] = row;
 
           const cleanVal = (val: string) => val ? val.replace(/resedintal|residental|residential/gi, '').trim() : '';
-          
-          const normalizeGovernorate = (gov: string, areaName: string) => {
-            let g = cleanVal(gov);
-            if (!g) return '';
-            
-            if (g.includes('الرابعة') || g.includes('الرابعه')) return 'محافظة الفروانية (المنطقة الرابعة)';
 
-            if (g.includes('العاشرة') || g.includes('العاشره')) {
-               let a = cleanAreaName(cleanVal(areaName));
-               if (a && AREAS['محافظة مبارك الكبير']?.some(x => a.includes(x) || x.includes(a))) {
-                 return 'محافظة مبارك الكبير';
-               }
-               return 'محافظة الأحمدي (المنطقة العاشرة)';
-            }
-            
-            if (!g.startsWith('محافظة')) g = 'محافظة ' + g;
-            return g;
-          };
+          const cPurpose = cleanVal(purpose);
+          const cType = cleanVal(type);
+          const cName = cleanVal(name);
+          const cArea = cleanAreaName(cleanVal(area));
+
+          const newPurpose = inferPurpose(cPurpose) || inferPurpose(cType) || inferPurpose(cName);
+          const newType = inferType(cType) || inferType(cPurpose) || inferType(cName);
+          const newGov = inferGovernorate(cArea, cleanVal(governorate));
 
           const propertyData: any = {
-            name: cleanVal(name),
-            governorate: normalizeGovernorate(governorate, area),
-            area: cleanAreaName(cleanVal(area)),
-            type: cleanVal(type),
-            purpose: cleanVal(purpose),
+            name: cName,
+            governorate: newGov,
+            area: cArea,
+            type: newType,
+            purpose: newPurpose,
             phone: cleanVal(phone),
             assigned_employee_id: assigned_employee_id || null,
             assigned_employee_name: assigned_employee_name || '',

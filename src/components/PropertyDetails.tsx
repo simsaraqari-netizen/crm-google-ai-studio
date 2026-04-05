@@ -46,23 +46,6 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editCommentText, setEditCommentText] = useState('');
 
-  const insertAtCursor = (textToInsert: string) => {
-    const textarea = document.getElementById('comment-textarea') as HTMLTextAreaElement;
-    if (textarea) {
-      const startPos = textarea.selectionStart;
-      const endPos = textarea.selectionEnd;
-      const text = newComment;
-      const newText = text.substring(0, startPos) + textToInsert + text.substring(endPos);
-      setNewComment(newText);
-      setTimeout(() => {
-        textarea.focus();
-        textarea.setSelectionRange(startPos + textToInsert.length, startPos + textToInsert.length);
-      }, 0);
-    } else {
-      setNewComment(prev => prev + ' ' + textToInsert);
-    }
-  };
-
   useEffect(() => {
     if (!property.id) return;
     async function fetchComments() {
@@ -175,23 +158,29 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
       const newImages = [...commentImages];
       for (const file of files) {
         let fileToUpload: Blob;
+        let fileType = file.type;
         if (file.type.startsWith('image/')) {
           fileToUpload = await compressImage(file);
+          fileType = 'image/jpeg';
         } else {
           fileToUpload = file;
         }
         
-        const filePath = `comments/${Date.now()}_${file.name}`;
-        const { data, error } = await supabase.storage.from('properties_media').upload(filePath, fileToUpload);
-        if (error) throw error;
+        const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '') || 'file';
+        const filePath = `comments/${Date.now()}_${safeName}`;
+        const { data, error } = await supabase.storage.from('properties_media').upload(filePath, fileToUpload, { contentType: fileType });
+        if (error) {
+          console.error("Supabase Storage Error:", error);
+          throw new Error(error.message || "فشل الرفع للخادم");
+        }
         
         const { data: { publicUrl } } = supabase.storage.from('properties_media').getPublicUrl(filePath);
         newImages.push({ url: publicUrl, type: file.type.startsWith('video/') ? 'video' : 'image' });
       }
       setCommentImages(newImages);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Comment media upload error:", error);
-      toast.error("حدث خطأ أثناء رفع الملفات");
+      toast.error("خطأ الرفع: " + (error.message || "حدث خطأ أثناء رفع الملفات"));
     } finally {
       setIsUploading(false);
       if (e.target) e.target.value = '';

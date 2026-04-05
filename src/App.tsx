@@ -53,6 +53,9 @@ import { GOVERNORATES, AREAS, PROPERTY_TYPES, PURPOSES, LOCATIONS } from './cons
 import { 
   normalizeArabic, 
   cleanAreaName, 
+  inferGovernorate,
+  inferPurpose,
+  inferType,
   searchMatch, 
   normalizeDigits, 
   generatePropertyTitle, 
@@ -1337,36 +1340,23 @@ export default function App() {
             status_label, created_by, created_atStr
           ] = row;
 
-          const cleanVal = (val: string) => val ? val.replace(/resedintal/gi, '').trim() : '';
-          
-          const normalizeGovernorate = (gov: string, areaName: string) => {
-            let g = cleanVal(gov);
-            if (!g) return '';
-            
-            if (g.includes('الرابعة') || g.includes('الرابعه')) {
-              return 'محافظة الفروانية';
-            }
+          const cleanVal = (val: string) => val ? val.replace(/resedintal|residental|residential/gi, '').trim() : '';
 
-            if (g.includes('العاشرة') || g.includes('العاشره')) {
-               let a = cleanAreaName(cleanVal(areaName));
-               if (a && AREAS['محافظة مبارك الكبير']?.some(area => a.includes(area) || area.includes(a))) {
-                 return 'محافظة مبارك الكبير';
-               }
-               return 'محافظة الأحمدي';
-            }
-            
-            if (!g.startsWith('محافظة')) {
-              g = 'محافظة ' + g;
-            }
-            return g;
-          };
+          const cPurpose = cleanVal(purpose);
+          const cType = cleanVal(type);
+          const cName = cleanVal(name);
+          const cArea = cleanAreaName(cleanVal(area));
+
+          const newPurpose = inferPurpose(cPurpose) || inferPurpose(cType) || inferPurpose(cName);
+          const newType = inferType(cType) || inferType(cPurpose) || inferType(cName);
+          const newGov = inferGovernorate(cArea, cleanVal(governorate));
 
           const propertyData: any = {
-            name: cleanVal(name),
-            governorate: normalizeGovernorate(governorate, area),
-            area: cleanAreaName(cleanVal(area)),
-            type: cleanVal(type),
-            purpose: cleanVal(purpose),
+            name: cName,
+            governorate: newGov,
+            area: cArea,
+            type: newType,
+            purpose: newPurpose,
             phone: cleanVal(phone),
             assigned_employee_id: assigned_employee_id || '',
             assigned_employee_name: assigned_employee_name || '',

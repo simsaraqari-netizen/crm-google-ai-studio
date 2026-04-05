@@ -103,23 +103,29 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
       const newImages = [...formData.images];
       for (const file of files) {
         let fileToUpload: Blob;
+        let fileType = file.type;
         if (file.type.startsWith('image/')) {
           fileToUpload = await compressImage(file);
+          fileType = 'image/jpeg';
         } else {
           fileToUpload = file;
         }
         
-        const filePath = `properties/${Date.now()}_${file.name}`;
-        const { data, error } = await supabase.storage.from('properties_media').upload(filePath, fileToUpload);
-        if (error) throw error;
+        const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '') || 'file';
+        const filePath = `properties/${Date.now()}_${safeName}`;
+        const { data, error } = await supabase.storage.from('properties_media').upload(filePath, fileToUpload, { contentType: fileType });
+        if (error) {
+          console.error("Supabase Storage Error:", error);
+          throw new Error(error.message || "فشل الرفع للخادم");
+        }
         
         const { data: { publicUrl } } = supabase.storage.from('properties_media').getPublicUrl(filePath);
         newImages.push({ url: publicUrl, type: file.type.startsWith('video/') ? 'video' : 'image' });
       }
       setFormData({ ...formData, images: newImages });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Upload error:", error);
-      toast.error("حدث خطأ أثناء رفع الملفات");
+      toast.error("خطأ الرفع: " + (error.message || "حدث خطأ أثناء رفع الملفات"));
     } finally {
       setIsUploading(false);
       if (e.target) e.target.value = '';
