@@ -1,3 +1,9 @@
+export interface PropertyImage {
+  url: string;
+  type: 'image' | 'video';
+  comment?: string;
+}
+
 export interface Property {
   id: string;
   name: string;
@@ -9,7 +15,9 @@ export interface Property {
   company_id: string;
   assigned_employee_id?: string;
   assigned_employee_name?: string;
-  images: string[];
+  assigned_employee_phone?: string;
+  assigned_employee?: { phone: string };
+  images: (string | PropertyImage)[];
   location_link?: string;
   is_sold?: boolean;
   sector?: string;
@@ -47,7 +55,7 @@ export interface Comment {
   user_id: string;
   user_name: string;
   text: string;
-  images?: string[];
+  images?: PropertyImage[];
   image_url?: string;
   user_phone?: string;
   created_at: any;

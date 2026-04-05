@@ -1645,7 +1645,7 @@ export default function App() {
                     >
                       <div className="flex items-center gap-4">
                         <UserIcon size={20} />
-                        <span className="font-bold text-md">المستخدمين</span>
+                        <span className="font-bold text-md">الموظفين</span>
                       </div>
                       {employees.filter(e => e.role === 'pending').length > 0 && (
                         <span className="w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
@@ -2016,7 +2016,7 @@ export default function App() {
                   />
 
                   <SearchableFilter 
-                    placeholder="ابحث بالمستخدم..."
+                    placeholder="ابحث بالموظف..."
                     options={availableFilterOptions.marketers}
                     value={filters.marketer}
                     onChange={(val) => setFilters({...filters, marketer: val})}
@@ -2372,7 +2372,7 @@ export default function App() {
                             className="flex-1 px-3 py-2 bg-blue-50 text-blue-600 text-[11px] font-bold rounded-xl hover:bg-blue-100 transition-all flex items-center justify-center gap-2"
                           >
                             <UserPlus size={14} />
-                            إضافة مستخدم
+                            إضافة موظف
                           </button>
                           <button 
                             onClick={() => {
@@ -2521,7 +2521,7 @@ export default function App() {
                             <UserPlus size={20} className="text-emerald-600" />
                           </div>
                           <div className="flex flex-col">
-                            <span className="text-lg">إضافة مستخدم جديد</span>
+                            <span className="text-lg">إضافة موظف جديد</span>
                             <span className="text-xs text-stone-400 font-normal">شركة {targetCompanyForUser.name}</span>
                           </div>
                         </h3>
@@ -2635,7 +2635,7 @@ export default function App() {
                     <ChevronRight size={24} />
                   </button>
                   <div>
-                    <h2 className="text-2xl font-bold tracking-tight">إدارة المستخدمين</h2>
+                    <h2 className="text-2xl font-bold tracking-tight">إدارة الموظفين</h2>
                     <p className="text-sm text-stone-500">إدارة جميع الحسابات والصلحيات في النظام</p>
                   </div>
                 </div>

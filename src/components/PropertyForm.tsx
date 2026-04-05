@@ -43,7 +43,7 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
     assigned_employee_id: property?.assigned_employee_id || '',
     assigned_employee_name: property?.assigned_employee_name || '',
     assigned_employee_phone: property?.assigned_employee_phone || '',
-    images: (property?.images || []).map((img: any) => typeof img === 'string' ? { url: img, type: img.startsWith('data:video/') ? 'video' : 'image' } : img),
+    images: (property?.images || []).map((img: any) => typeof img === 'string' ? { url: img, type: img.startsWith('data:video/') ? 'video' : 'image', comment: '' } : img),
     location_link: property?.location_link || '',
     is_sold: property?.is_sold || false,
     sector: property?.sector || '',
@@ -120,7 +120,7 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
         }
         
         const { data: { publicUrl } } = supabase.storage.from('properties_media').getPublicUrl(filePath);
-        newImages.push({ url: publicUrl, type: file.type.startsWith('video/') ? 'video' : 'image' });
+        newImages.push({ url: publicUrl, type: file.type.startsWith('video/') ? 'video' : 'image', comment: '' });
       }
       setFormData({ ...formData, images: newImages });
     } catch (error: any) {
@@ -130,6 +130,12 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
       setIsUploading(false);
       if (e.target) e.target.value = '';
     }
+  };
+
+  const updateImageComment = (index: number, comment: string) => {
+    const newImages = [...formData.images];
+    newImages[index] = { ...newImages[index], comment };
+    setFormData({ ...formData, images: newImages });
   };
 
   const removeImage = (index: number) => {
@@ -167,7 +173,6 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
       let empId = formData.assigned_employee_id;
       let empName = formData.assigned_employee_name;
 
-      // If we have a name but no ID, it means it's a new marketer
       if (empName && !empId) {
         try {
           const { data: newUser, error: userError } = await supabase.from('user_profiles').insert({
@@ -200,8 +205,6 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
       try {
         if (property) {
           await supabase.from('properties').update(data).eq('id', property.id);
-          
-          // Notify interested users
           await notifyFavoriteUsers(property.id, property, data);
         } else {
           await supabase.from('properties').insert(data);
@@ -239,7 +242,6 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
       </div>
 
       <form onSubmit={handleSubmit} className="p-6 space-y-6">
-        {/* Company Selection */}
         <div className="space-y-2">
           <label className="text-sm font-bold text-stone-700">الشركة</label>
           {isSuperAdmin ? (
@@ -264,7 +266,6 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
           )}
         </div>
 
-        {/* Section 1: Client Info */}
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="relative">
@@ -290,7 +291,6 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
           </div>
         </div>
 
-        {/* Section 2: Location Info */}
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <SearchableFilter 
@@ -373,7 +373,6 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
           </div>
         </div>
 
-        {/* Section 3: Property Details */}
         <div className="space-y-6">
           <textarea 
             rows={3}
@@ -384,10 +383,9 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
           />
         </div>
 
-        {/* Section 4: Company and Marketer */}
         <div className="space-y-6">
           <SearchableFilter 
-            placeholder="المستخدم / الموظف المسؤول"
+            placeholder="الموظف المسؤول"
             options={employees.map(emp => emp.full_name)}
             value={formData.assigned_employee_name}
             creatable={true}
@@ -424,7 +422,6 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
           />
         </div>
 
-        {/* Section 5: Media */}
         <div className="space-y-6">
           <div className="flex items-center gap-2 text-emerald-600 border-b border-emerald-100 pb-2">
             <ImageIcon size={20} />
@@ -432,7 +429,7 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
           </div>
           
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-            {formData.images.map((img: { url: string, type: 'image' | 'video' }, index: number) => (
+            {formData.images.map((img: { url: string, type: 'image' | 'video', comment?: string }, index: number) => (
               <motion.div 
                 key={index} 
                 layout
@@ -445,14 +442,24 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
                 ) : (
                   <img loading="lazy" src={img.url} alt="" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
                 )}
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <div className="absolute top-2 left-2 flex gap-1">
                   <button 
                     type="button"
                     onClick={() => removeImage(index)}
-                    className="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transform hover:scale-110 transition-all"
+                    className="bg-red-500/80 backdrop-blur-sm text-white p-2 rounded-lg hover:bg-red-600 transition-all shadow-lg"
                   >
-                    <Trash2 size={18} />
+                    <Trash2 size={16} />
                   </button>
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/60 backdrop-blur-md border-t border-white/10">
+                  <input 
+                    type="text" 
+                    placeholder="أضف تعليقاً..."
+                    className="w-full bg-transparent text-white text-[10px] font-bold outline-none placeholder:text-white/50 text-center"
+                    value={img.comment || ''}
+                    onChange={(e) => updateImageComment(index, e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                  />
                 </div>
               </motion.div>
             ))}

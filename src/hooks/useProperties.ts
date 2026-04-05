@@ -13,7 +13,7 @@ export const useProperties = (user: any, isSuperAdmin: boolean, selectedCompanyI
     queryFn: async () => {
       if (!user) return [];
       
-      let query = supabase.from('properties').select('*', { count: 'exact' });
+      let query = supabase.from('properties').select('*, assigned_employee:user_profiles!properties_assigned_employee_id_fkey(phone)', { count: 'exact' });
       
       if (isSuperAdmin) {
         if (selectedCompanyId) {

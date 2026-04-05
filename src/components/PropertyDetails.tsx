@@ -146,7 +146,7 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
     }, 0);
   };
 
-  const whatsappUrl = `https://wa.me/${(property.assigned_employee_phone || property.phone || '').replace(/\+/g, '').replace(/\s/g, '')}`;
+  const whatsappUrl = `https://wa.me/${(property.assigned_employee?.phone || property.assigned_employee_phone || property.phone || '').replace(/[^0-9]/g, '')}`;
 
   const handleCommentImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []) as File[];
@@ -295,26 +295,46 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
           <div className="relative aspect-square bg-stone-50 group">
              {property.images?.[activeImageIndex] ? (
               <>
-                {property.images[activeImageIndex].startsWith('data:video/') ? (
-                  <video 
-                    src={property.images[activeImageIndex]} 
-                    controls 
-                    className={`w-full h-full object-cover ${property.is_sold ? 'grayscale opacity-60' : ''}`}
-                  />
-                ) : (
-                  <img 
-                    loading="lazy"
-                    src={property.images[activeImageIndex]} 
-                    alt={generatePropertyTitle(property)} 
-                    className={`w-full h-full object-cover cursor-zoom-in ${property.is_sold ? 'grayscale opacity-60' : ''}`}
-                    referrerPolicy="no-referrer"
-                    onClick={() => {
-                      setViewerImages(property.images);
-                      setViewerIndex(activeImageIndex);
-                      setShowViewer(true);
-                    }}
-                  />
-                )}
+                 {(() => {
+                   const img = property.images[activeImageIndex];
+                   const url = typeof img === 'string' ? img : img.url;
+                   const isVideo = typeof img === 'string' ? img.startsWith('data:video/') : img.type === 'video';
+                   const comment = typeof img === 'string' ? null : img.comment;
+                   
+                   return (
+                     <>
+                       {isVideo ? (
+                         <video 
+                           src={url} 
+                           controls 
+                           className={`w-full h-full object-cover ${property.is_sold ? 'grayscale opacity-60' : ''}`}
+                         />
+                       ) : (
+                         <div className="relative w-full h-full">
+                           <img 
+                             loading="lazy"
+                             src={url} 
+                             alt={generatePropertyTitle(property)} 
+                             className={`w-full h-full object-cover cursor-zoom-in ${property.is_sold ? 'grayscale opacity-60' : ''}`}
+                             referrerPolicy="no-referrer"
+                             onClick={() => {
+                               setViewerImages(property.images.map(i => typeof i === 'string' ? i : i.url));
+                               setViewerIndex(activeImageIndex);
+                               setShowViewer(true);
+                             }}
+                           />
+                           {comment && (
+                             <div className="absolute bottom-4 right-4 left-4 p-3 bg-black/60 backdrop-blur-md rounded-xl border border-white/20">
+                               <p className="text-white text-xs font-bold text-center leading-relaxed">
+                                 {comment}
+                               </p>
+                             </div>
+                           )}
+                         </div>
+                       )}
+                     </>
+                   );
+                 })()}
                 {property.is_sold && (
                   <div className="absolute inset-0 flex items-center justify-center bg-stone-700/80 backdrop-blur-sm pointer-events-none z-10">
                     <span className="text-white font-black text-4xl tracking-wider transform -rotate-12 border-4 border-white px-6 py-2 rounded-xl shadow-2xl">مباع</span>
@@ -380,10 +400,10 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
               
               <div className="flex flex-col md:flex-row gap-3 w-full">
                 <a 
-                  href={`tel:${property.assigned_employee_phone || property.phone || ''}`}
+                  href={`tel:${(property.assigned_employee?.phone || property.assigned_employee_phone || property.phone || '').replace(/[^0-9]/g, '')}`}
                   className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-xl hover:bg-emerald-700 transition-all font-bold text-sm shadow-sm"
                 >
-                  <span>{property.assigned_employee_phone || property.phone || ''}</span>
+                  <span>{property.assigned_employee?.phone || property.assigned_employee_phone || property.phone || ''}</span>
                   <Phone size={16} />
                 </a>
                 <a 
@@ -405,21 +425,30 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                   معرض الصور ({property.images.length})
                 </h3>
                 <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                  {property.images.map((img: string, i: number) => (
+                  {property.images.map((img: any, i: number) => (
                     <button 
                       key={i} 
                       onClick={() => {
-                        setViewerImages(property.images);
+                        setViewerImages(property.images.map((item: any) => typeof item === 'string' ? item : item.url));
                         setViewerIndex(i);
                         setShowViewer(true);
                       }}
                       className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${i === activeImageIndex ? 'border-emerald-500 scale-95' : 'border-transparent hover:border-stone-300'}`}
                     >
-                      {img.startsWith('data:video/') ? (
-                        <video src={img} className="w-full h-full object-cover" />
-                      ) : (
-                        <img loading="lazy" src={img} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" />
-                      )}
+                      {(() => {
+                        const url = typeof img === 'string' ? img : img.url;
+                        const isVideo = typeof img === 'string' ? img.startsWith('data:video/') : img.type === 'video';
+                        return isVideo ? (
+                          <div className="w-full h-full bg-stone-100 flex items-center justify-center">
+                            <video src={url} className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                              <span className="text-[10px] font-black text-white bg-black/40 px-1.5 py-0.5 rounded-md backdrop-blur-sm">VIDEO</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <img loading="lazy" src={url} alt="" className="w-full h-full object-cover" />
+                        );
+                      })()}
                     </button>
                   ))}
                 </div>
@@ -565,38 +594,23 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                                 whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.98 }}
                                 onClick={() => {
-                                  setViewerImages(c.images!);
+                                  setViewerImages(c.images!.map(i => typeof i === 'string' ? i : i.url));
                                   setViewerIndex(idx);
                                   setShowViewer(true);
                                 }}
                                 className="relative w-16 h-16 rounded-lg overflow-hidden border border-stone-200 cursor-pointer shadow-sm"
                               >
-                                {img.startsWith('data:video/') ? (
-                                  <video src={img} className="w-full h-full object-cover" />
-                                ) : (
-                                  <img loading="lazy" src={img} alt="" className="w-full h-full object-cover" />
-                                )}
+                                {(() => {
+                                  const url = typeof img === 'string' ? img : img.url;
+                                  const isVideo = typeof img === 'string' ? img.startsWith('data:video/') : img.type === 'video';
+                                  return isVideo ? (
+                                    <video src={url} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <img loading="lazy" src={url} alt="" className="w-full h-full object-cover" />
+                                  );
+                                })()}
                               </motion.div>
                             ))}
-                          </div>
-                        ) : c.image_url ? (
-                          <div className="mt-2">
-                            <motion.div
-                              whileHover={{ scale: 1.02 }}
-                              whileTap={{ scale: 0.98 }}
-                              onClick={() => {
-                                setViewerImages([c.image_url!]);
-                                setViewerIndex(0);
-                                setShowViewer(true);
-                              }}
-                              className="relative w-16 h-16 rounded-lg overflow-hidden border border-stone-200 cursor-pointer shadow-sm"
-                            >
-                              {c.image_url.startsWith('data:video/') ? (
-                                <video src={c.image_url} className="w-full h-full object-cover" />
-                              ) : (
-                                <img loading="lazy" src={c.image_url} alt="" className="w-full h-full object-cover" />
-                              )}
-                            </motion.div>
                           </div>
                         ) : null}
                       </div>
@@ -700,7 +714,7 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
             </form>
           ) : (
             <div className="p-3 bg-stone-50 rounded-lg border border-stone-100 text-center">
-              <p className="text-[10px] text-stone-500">التعليقات متاحة للمستخدمين فقط</p>
+              <p className="text-[10px] text-stone-500">التعليقات متاحة للموظفين فقط</p>
             </div>
           )}
         </div>
@@ -717,11 +731,11 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                 }}
                 className="text-sm font-bold text-stone-900 hover:text-emerald-700 transition-colors truncate block"
               >
-                {property.assigned_employee_name || 'غير محدد'}
+                {property.assigned_employee?.full_name || property.assigned_employee_name || 'غير محدد'}
               </button>
-              <p className="text-[10px] text-stone-500">مستخدم معتمد</p>
+              <p className="text-[10px] text-stone-500">موظف معتمد</p>
               <span className="text-xs font-bold text-stone-600 mt-1">
-                {property.assigned_employee_phone || property.phone}
+                {property.assigned_employee?.phone || property.assigned_employee_phone || property.phone}
               </span>
             </div>
             

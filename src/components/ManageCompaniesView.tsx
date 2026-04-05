@@ -145,7 +145,7 @@ export const ManageCompaniesView: React.FC<ManageCompaniesViewProps> = ({
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Failed to create user');
 
-      toast.success('تم إنشاء المستخدم بنجاح');
+      toast.success('تم إنشاء الموظف بنجاح');
       setIsAddingUserToCompany(false);
       setTargetCompanyForUser(null);
     } catch (err: any) {
@@ -231,7 +231,7 @@ export const ManageCompaniesView: React.FC<ManageCompaniesViewProps> = ({
                     className="w-full px-4 py-3 bg-blue-50 text-blue-600 text-sm font-bold rounded-xl hover:bg-blue-100 transition-all flex items-center justify-center gap-2"
                   >
                     <UserPlus size={18} />
-                    إضافة مستخدم
+                    إضافة موظف
                   </button>
                   
                   <button 
@@ -360,7 +360,7 @@ export const ManageCompaniesView: React.FC<ManageCompaniesViewProps> = ({
                   <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center">
                     <UserPlus size={20} className="text-emerald-600" />
                   </div>
-                  إضافة مستخدم لشركة {targetCompanyForUser.name}
+                  إضافة موظف لشركة {targetCompanyForUser.name}
                 </h3>
                 <button onClick={() => setIsAddingUserToCompany(false)} className="p-2 hover:bg-stone-100 rounded-full transition-colors text-stone-400">
                   <X size={20} />
@@ -377,10 +377,10 @@ export const ManageCompaniesView: React.FC<ManageCompaniesViewProps> = ({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-stone-500 mr-1">اسم المستخدم</label>
+                  <label className="text-xs font-bold text-stone-500 mr-1">اسم الموظف</label>
                   <div className="relative">
                     <Mail className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
-                    <input name="username" placeholder="اسم المستخدم (سيستخدم لتسجيل الدخول)" className="w-full pr-10 pl-4 py-3 rounded-xl bg-stone-50 border border-stone-200 outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-sm" required />
+                    <input name="username" placeholder="اسم الموظف (سيستخدم لتسجيل الدخول)" className="w-full pr-10 pl-4 py-3 rounded-xl bg-stone-50 border border-stone-200 outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-sm" required />
                   </div>
                 </div>
 
@@ -423,7 +423,7 @@ export const ManageCompaniesView: React.FC<ManageCompaniesViewProps> = ({
                     disabled={isSubmittingUser}
                     className="flex-1 bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all disabled:opacity-50"
                   >
-                    {isSubmittingUser ? 'جاري الإنشاء...' : 'إنشاء المستخدم'}
+                    {isSubmittingUser ? 'جاري الإنشاء...' : 'إنشاء الموظف'}
                   </button>
                 </div>
               </form>

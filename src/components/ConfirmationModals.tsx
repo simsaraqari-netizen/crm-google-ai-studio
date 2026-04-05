@@ -50,10 +50,10 @@ export const ConfirmationModals = ({
         }
         message={
           userActionConfirm.action === 'bulk-delete' ? "⚠️ تحذير: هل أنت متأكد من حذف جميع الحسابات المسجلة؟ سيتم مسح صلاحياتهم وبياناتهم من قاعدة البيانات." :
-          userActionConfirm.action === 'approve' ? `هل أنت متأكد من الموافقة على المستخدم ${userActionConfirm.extraData?.full_name || ''}؟` :
-          userActionConfirm.action === 'reject' ? `هل أنت متأكد من رفض المستخدم ${userActionConfirm.extraData?.full_name || ''}؟` :
-          userActionConfirm.action === 'change-role' ? `هل أنت متأكد من تغيير صلاحية ${userActionConfirm.extraData?.full_name} إلى ${userActionConfirm.extraData?.newRole === 'admin' ? 'ادمن الشركة' : 'مستخدم'}؟` :
-          `هل أنت متأكد من رغبتك في حذف ${userActionConfirm.extraData?.full_name || 'هذا المستخدم'} نهائياً؟ لا يمكن التراجع عن هذا الإجراء.`
+          userActionConfirm.action === 'approve' ? `هل أنت متأكد من الموافقة على الموظف ${userActionConfirm.extraData?.full_name || ''}؟` :
+          userActionConfirm.action === 'reject' ? `هل أنت متأكد من رفض الموظف ${userActionConfirm.extraData?.full_name || ''}؟` :
+          userActionConfirm.action === 'change-role' ? `هل أنت متأكد من تغيير صلاحية ${userActionConfirm.extraData?.full_name} إلى ${userActionConfirm.extraData?.newRole === 'admin' ? 'ادمن الشركة' : 'موظف'}؟` :
+          `هل أنت متأكد من رغبتك في حذف ${userActionConfirm.extraData?.full_name || 'هذا الموظف'} نهائياً؟ لا يمكن التراجع عن هذا الإجراء.`
         }
         confirmText={
           userActionConfirm.action === 'approve' ? "تأكيد الموافقة" :
@@ -82,7 +82,7 @@ export const ConfirmationModals = ({
         onConfirm={confirmCompanyDelete}
         onCancel={() => setCompanyActionConfirm({ isOpen: false, company_id: null, companyName: null })}
         title="تأكيد حذف الشركة"
-        message={`هل أنت متأكد من حذف حساب الشركة ${companyActionConfirm.companyName} عموماً؟ سيؤدي ذلك لحذف الشركة وجميع المستخدمين والعقارات التابعة لها نهائياً. لا يمكن التراجع عن هذا الإجراء.`}
+        message={`هل أنت متأكد من حذف حساب الشركة ${companyActionConfirm.companyName} عموماً؟ سيؤدي ذلك لحذف الشركة وجميع الموظفين والعقارات التابعة لها نهائياً. لا يمكن التراجع عن هذا الإجراء.`}
         confirmText="تأكيد الحذف"
         confirmColor="bg-red-600 hover:bg-red-700"
       />
