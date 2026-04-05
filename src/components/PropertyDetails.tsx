@@ -46,6 +46,23 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editCommentText, setEditCommentText] = useState('');
 
+  const insertAtCursor = (textToInsert: string) => {
+    const textarea = document.getElementById('comment-textarea') as HTMLTextAreaElement;
+    if (textarea) {
+      const startPos = textarea.selectionStart;
+      const endPos = textarea.selectionEnd;
+      const text = newComment;
+      const newText = text.substring(0, startPos) + textToInsert + text.substring(endPos);
+      setNewComment(newText);
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(startPos + textToInsert.length, startPos + textToInsert.length);
+      }, 0);
+    } else {
+      setNewComment(prev => prev + ' ' + textToInsert);
+    }
+  };
+
   useEffect(() => {
     if (!property.id) return;
     async function fetchComments() {
