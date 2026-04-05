@@ -155,10 +155,11 @@ export function generatePropertyTitle(property: any): string {
     else if (p === 'إيجار' || p === 'ايجار') p = 'للايجار';
     else if (p === 'بدل' || p === 'للبدل') p = 'للبدل';
     else if (p === 'استئجار' || p.includes('مستاجر') || p.includes('مستأجر')) p = 'استئجار';
-    else if (p === 'شراء' || p === 'شراي' || p.includes('مشترين') || p.includes('مشتري')) p = 'شراء';
-    else if (!p.startsWith('ل') && p !== 'شراء' && p !== 'شراي' && p !== 'استئجار') p = 'ل' + p;
+    else if (p.includes('مشترين') || p.includes('شرايين')) p = 'شراء';
+    else if (p === 'شراي' || p === 'مشتري') { /* Keep as is */ }
+    else if (p === 'شراء' || p === 'للشراء') p = 'شراء';
+    else if (!p.startsWith('ل') && p !== 'شراء' && p !== 'شراي' && p !== 'مشتري' && p !== 'استئجار') p = 'ل' + p;
     
-    if (p === 'شراي') p = 'شراء';
     parts.push(p);
   }
   
