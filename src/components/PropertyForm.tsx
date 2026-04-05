@@ -100,8 +100,7 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
 
     setIsUploading(true);
     try {
-      const newImages = [...formData.images];
-      for (const file of files) {
+      const uploadPromises = files.map(async (file) => {
         let fileToUpload: Blob;
         let fileType = file.type;
         if (file.type && typeof file.type === 'string' && file.type.startsWith('image/')) {
@@ -110,20 +109,22 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
         } else {
           fileToUpload = file;
         }
-        
+
         const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '') || 'file';
-        const filePath = `properties/${Date.now()}_${safeName}`;
-        const { data, error } = await supabase.storage.from('properties_media').upload(filePath, fileToUpload, { contentType: fileType });
-        if (error) {
-          console.error("Supabase Storage Error:", error);
-          throw new Error(error.message || "فشل الرفع للخادم");
-        }
-        
-        const { data: { publicUrl } } = supabase.storage.from('properties_media').getPublicUrl(filePath);
+        const filePath = `properties/${Date.now()}_${Math.random().toString(36).slice(2)}_${safeName}`;
+        const { data, error } = await supabase.storage
+          .from('properties_media')
+          .upload(filePath, fileToUpload, { contentType: fileType });
+        if (error) throw new Error(error.message || 'فشل الرفع');
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('properties_media').getPublicUrl(filePath);
         const isVideo = file.type && typeof file.type === 'string' && file.type.startsWith('video/');
-        newImages.push({ url: publicUrl, type: isVideo ? 'video' : 'image', comment: '' });
-      }
-      setFormData({ ...formData, images: newImages });
+        return { url: publicUrl, type: isVideo ? 'video' : 'image', comment: '' };
+      });
+
+      const newUploadedImages = await Promise.all(uploadPromises);
+      setFormData(prev => ({ ...prev, images: [...prev.images, ...newUploadedImages] }));
     } catch (error: any) {
       console.error("Upload error:", error);
       toast.error("خطأ الرفع: " + (error.message || "حدث خطأ أثناء رفع الملفات"));

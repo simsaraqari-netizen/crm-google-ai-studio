@@ -49,7 +49,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { propertyService } from './services/propertyService';
 import { userService } from './services/userService';
-import { GOVERNORATES, AREAS, PROPERTY_TYPES, PURPOSES, LOCATIONS } from './constants';
+import { GOVERNORATES, AREAS, PROPERTY_TYPES, PURPOSES, LOCATIONS, SUPER_ADMIN_EMAILS } from './constants';
 import { 
   normalizeArabic, 
   cleanAreaName, 
@@ -76,6 +76,7 @@ import { SyncModal } from './components/SyncModal';
 import { ConfirmModal } from './components/ConfirmModal';
 import { ImageViewer } from './components/ImageViewer';
 import { PropertyCard } from './components/PropertyCard';
+import { useAuth } from './contexts/AuthContext';
 
 // --- Global Helpers ---
 
@@ -171,28 +172,27 @@ interface Notification {
 
 // --- Components ---
 
-
-
-
-
-const SUPER_ADMIN_EMAILS = ["simsaraqari@gmail.com", "mostafasoliman550@gmail.com"];
-
 export default function App() {
-  const lastProcessedSessionId = useRef<string | null>(null);
-  const isPopState = useRef(false);
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
-  const isSuperAdmin = user?.role === 'super_admin' || (user?.email && SUPER_ADMIN_EMAILS.includes(user.email));
-  const isAdmin = user?.role === 'admin' || isSuperAdmin;
+  const { 
+    user, 
+    loading, 
+    authError: contextAuthError, 
+    isSuperAdmin, 
+    isAdmin, 
+    selectedCompanyId, 
+    setSelectedCompanyId, 
+    handleLogout,
+    isPending
+  } = useAuth();
+
   const isEmployee = user?.role === 'employee' || isAdmin;
-  const isPending = user?.role === 'pending';
-  const [loading, setLoading] = useState(true);
+  const isPopState = useRef(false);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [authError, setAuthError] = useState('');
+  const [localAuthError, setLocalAuthError] = useState(''); // Specifically for form errors
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [properties, setProperties] = useState<Property[]>([]);
   const [deletedProperties, setDeletedProperties] = useState<Property[]>([]);
@@ -431,108 +431,6 @@ export default function App() {
     });
   }, [view, user, selectedProperty]);
 
-  // Auth Listener
-  useEffect(() => {
-    console.log("Setting up Supabase Auth Listener...");
-    
-    const handleSession = async (session: any) => {
-      // Prevent redundant processing if session hasn't changed
-      if (session?.user?.id === lastProcessedSessionId.current && user) {
-        console.log("Session already processed, skipping...");
-        return;
-      }
-      lastProcessedSessionId.current = session?.user?.id || null;
-
-      if (!session) {
-        console.log("No active session found.");
-        setUser(null);
-        setSelectedCompanyId(null);
-        setLoading(false);
-        return;
-      }
-
-      console.log("Processing session for user:", session.user.id);
-      const sbUser = session.user;
-      try {
-        const { data: userData, error } = await supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('id', sbUser.id)
-          .maybeSingle();
-
-        if (error) throw error;
-
-        if (userData) {
-          if (userData.force_sign_out) {
-            await supabase.from('user_profiles').update({ force_sign_out: false }).eq('id', sbUser.id);
-            setAuthError('تم تسجيل خروجك من قبل المسؤول.');
-            await supabase.auth.signOut();
-            setUser(null);
-            return;
-          }
-          if (userData.role === 'rejected') {
-            setAuthError('تم رفض حسابك من قبل الإدارة.');
-            await supabase.auth.signOut();
-            setUser(null);
-            return;
-          }
-
-          if (SUPER_ADMIN_EMAILS.includes(sbUser.email || '') && userData.role !== 'super_admin') {
-            await supabase.from('user_profiles').update({ role: 'super_admin' }).eq('id', sbUser.id);
-            userData.role = 'super_admin';
-          }
-
-          setUser(userData);
-          if (userData.company_id) {
-            setSelectedCompanyId(userData.company_id);
-          }
-        } else {
-          console.log("Creating new profile for user:", sbUser.id);
-          const isSuper = SUPER_ADMIN_EMAILS.includes(sbUser.email || '');
-          const role = isSuper ? 'super_admin' : 'pending';
-          const newProfile = {
-            id: sbUser.id,
-            email: sbUser.email || '',
-            display_name: sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'User',
-            role: role,
-            created_at: new Date().toISOString()
-          };
-          
-          await supabase.from('user_profiles').insert(newProfile);
-          
-          if (role === 'pending') {
-            await supabase.from('notifications').insert({
-              type: 'new-user',
-              title: 'طلب انضمام جديد',
-              message: `الموظف ${newProfile.display_name} يطلب الانضمام للنظام`,
-              user_id: sbUser.id,
-              read: false
-            });
-          }
-          setUser(newProfile as UserProfile);
-        }
-      } catch (err: any) {
-        console.error("Auth error details:", err);
-        setAuthError(`خطأ في الوصول لقاعدة البيانات: ${err.message}`);
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    // Initial session check
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      handleSession(session);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth Event Triggered:", event);
-      handleSession(session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, [user]); // user dependency is safe now due to lastProcessedSessionId ref gating
-
 
   // Companies Listener (for Super Admin)
   useEffect(() => {
@@ -591,77 +489,75 @@ export default function App() {
     if (!user?.id) return;
     
     const fetchProperties = async () => {
-      let allData: any[] = [];
-      let from = 0;
-      let step = 1000;
-      let fetchMore = true;
-
-      while (fetchMore) {
-        let query = supabase.from('properties').select('*');
-        
-        if (isSuperAdmin) {
-          if (selectedCompanyId) {
-            query = query.eq('company_id', selectedCompanyId);
-          }
-        } else if (user.company_id) {
-          query = query.eq('company_id', user.company_id);
-        } else {
-          setProperties([]);
-          return;
+      let query = supabase.from('properties').select('*', { count: 'exact' });
+      
+      if (isSuperAdmin) {
+        if (selectedCompanyId) {
+          query = query.eq('company_id', selectedCompanyId);
         }
-
-        const { data, error } = await query
-          .order('created_at', { ascending: false })
-          .range(from, from + step - 1);
-        
-        if (error) {
-          console.error("Properties error:", error);
-          break;
-        }
-
-        if (data && data.length > 0) {
-          allData = [...allData, ...data];
-          from += step;
-          if (data.length < step) {
-            fetchMore = false; // We fetched less than 1000, so we reached the end
-          }
-        } else {
-          fetchMore = false; // No data returned
-        }
+      } else if (user.company_id) {
+        query = query.eq('company_id', user.company_id);
+      } else {
+        setProperties([]);
+        return;
       }
 
-      const allProps = allData.map(p => ({
+      const { data, error } = await query
+        .order('created_at', { ascending: false })
+        .limit(2000);
+      
+      if (error) {
+        console.error("Properties error:", error);
+        return;
+      }
+
+      const allProps = (data || []).map(p => ({
         ...p,
         location: p.location === 'شارع واحد | سد' ? 'شارع واحد' : p.location
       })) as Property[];
-      
-      const now = Date.now();
-      const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
       
       const deleted = allProps.filter(p => p.status === 'deleted');
       const active = allProps.filter(p => p.status !== 'deleted');
       
       setProperties(active);
       setDeletedProperties(deleted);
-      
-      if (isAdmin) {
-        deleted.forEach(async (p) => {
-          if (p.deleted_at) {
-            const deletedTime = new Date(p.deleted_at).getTime();
-            if (now - deletedTime > thirtyDaysMs) {
-              await supabase.from('properties').delete().eq('id', p.id);
-            }
-          }
-        });
-      }
     };
 
     fetchProperties();
 
     const subscription = supabase
       .channel('properties_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'properties' }, () => {
-        fetchProperties();
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'properties' }, (payload) => {
+        const newProp = payload.new as Property;
+        if (isSuperAdmin) {
+          if (!selectedCompanyId || newProp.company_id === selectedCompanyId) {
+            setProperties(prev => [newProp, ...prev]);
+          }
+        } else if (newProp.company_id === user?.company_id) {
+          setProperties(prev => [newProp, ...prev]);
+        }
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'properties' }, (payload) => {
+        const updated = payload.new as Property;
+        if (updated.status === 'deleted') {
+          setProperties(prev => prev.filter(p => p.id !== updated.id));
+          setDeletedProperties(prev => [updated, ...prev.filter(p => p.id !== updated.id)]);
+        } else if (updated.status === 'approved' || updated.status === 'pending') {
+          setProperties(prev => prev.map(p => p.id === updated.id ? updated : p));
+          setDeletedProperties(prev => prev.filter(p => p.id !== updated.id));
+        }
+        if (selectedProperty?.id === updated.id) {
+          setSelectedProperty(updated);
+        }
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'properties' }, (payload) => {
+        const deletedId = payload.old.id;
+        setProperties(prev => prev.filter(p => p.id !== deletedId));
+        setDeletedProperties(prev => prev.filter(p => p.id !== deletedId));
+        if (selectedProperty?.id === deletedId) {
+          setSelectedProperty(null);
+          setView('list');
+        }
       })
       .subscribe();
 
@@ -742,7 +638,7 @@ export default function App() {
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    setAuthError('');
+    setLocalAuthError('');
     setIsAuthenticating(true);
     try {
       const generatedEmail = usernameToEmail(username);
@@ -798,16 +694,14 @@ export default function App() {
       } else if (error.message?.includes('User already registered')) {
         message = "هذا الموظف مسجل بالفعل. جرب تسجيل الدخول بدلاً من إنشاء حساب جديد.";
       }
-      setAuthError(message);
+      setLocalAuthError(message);
       toast.error(message);
     } finally {
       setIsAuthenticating(false);
     }
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-  };
+
 
   const handleDeleteAccount = () => {
     if (!user?.id) return;
@@ -955,10 +849,10 @@ export default function App() {
             </div>
           )}
 
-          {authError && (
-            <div className={`p-4 rounded-xl text-sm mb-6 text-center border shadow-sm font-medium ${authError.includes('المراجعة') ? 'bg-amber-50 text-amber-800 border-amber-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
-              <p>{authError}</p>
-              {authError.includes('المراجعة') && (
+          {(localAuthError || contextAuthError) && (
+            <div className={`p-4 rounded-xl text-sm mb-6 text-center border shadow-sm font-medium ${(localAuthError || contextAuthError).includes('المراجعة') ? 'bg-amber-50 text-amber-800 border-amber-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
+              <p>{localAuthError || contextAuthError}</p>
+              {(localAuthError || contextAuthError).includes('المراجعة') && (
                 <a 
                   href={`https://wa.me/96565814909?text=${encodeURIComponent('من فضلك اقبل الدخول الي حسابي ( اكتب هنا اسم الحساب )')}`}
                   target="_blank"
@@ -2893,17 +2787,21 @@ export default function App() {
         if (fetchError) throw fetchError;
         
         if (propertyData?.images && Array.isArray(propertyData.images)) {
-          for (const img of propertyData.images) {
-            try {
-              const url = typeof img === 'string' ? img : img.url;
-              // Extract path from Supabase URL if needed, but here we assume the helper might be needed.
-              // For now, focusing on removing the record.
-              if (url.includes('storage/v1/object/public/')) {
-                const path = url.split('storage/v1/object/public/properties_media/')[1];
-                if (path) await supabase.storage.from('properties_media').remove([path]);
+          const paths = propertyData.images
+            .map((img: any) => {
+              const url = typeof img === 'string' ? img : img?.url;
+              if (url?.includes('storage/v1/object/public/properties_media/')) {
+                return url.split('storage/v1/object/public/properties_media/')[1];
               }
+              return null;
+            })
+            .filter(Boolean) as string[];
+          
+          if (paths.length > 0) {
+            try {
+              await supabase.storage.from('properties_media').remove(paths);
             } catch (e) {
-              console.error("Error deleting file:", e);
+              console.error("Error deleting files:", e);
             }
           }
         }
@@ -2933,6 +2831,7 @@ export default function App() {
       try {
         const { error } = await supabase.from('properties').update({
           status: 'deleted',
+          is_deleted: true,
           deleted_at: new Date().toISOString()
         }).eq('id', deleteConfirm.property_id);
         
@@ -2958,17 +2857,23 @@ export default function App() {
         if (commentDeleteConfirm.commentId) {
           const { data: commentData } = await supabase.from('comments').select('*').eq('id', commentDeleteConfirm.commentId).single();
           if (commentData?.images && Array.isArray(commentData.images)) {
-            await Promise.all((commentData.images || []).map(async (img: any) => {
-              try {
-                const url = typeof img === 'string' ? img : img.url;
-                if (url.includes('storage/v1/object/public/properties_media/')) {
-                  const path = url.split('storage/v1/object/public/properties_media/')[1];
-                  if (path) await supabase.storage.from('properties_media').remove([path]);
+            const paths = commentData.images
+              .map((img: any) => {
+                const url = typeof img === 'string' ? img : img?.url;
+                if (url?.includes('storage/v1/object/public/properties_media/')) {
+                  return url.split('storage/v1/object/public/properties_media/')[1];
                 }
+                return null;
+              })
+              .filter(Boolean) as string[];
+
+            if (paths.length > 0) {
+              try {
+                await supabase.storage.from('properties_media').remove(paths);
               } catch (e) {
-                console.error("Error deleting file:", e);
+                console.error("Error deleting files:", e);
               }
-            }));
+            }
           }
           await supabase.from('comments').delete().eq('id', commentDeleteConfirm.commentId);
           
@@ -3047,3 +2952,4 @@ export default function App() {
     setCompanyActionConfirm({ isOpen: false, company: null, action: null });
   }
 }
+

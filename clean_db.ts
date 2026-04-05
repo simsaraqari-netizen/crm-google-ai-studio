@@ -7,7 +7,7 @@ dotenv.config();
 
 const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_SERVICE_ROLE_KEY);
 
-function inferPurpose(text) {
+function inferPurpose(text: string | null | undefined): string {
   if (!text) return '';
   const t = normalizeArabic(text);
   if (t.includes('بدل') || t.includes('بدا') || t.includes('بيدل') || t.includes('يدل')) return 'بدل';
@@ -17,7 +17,7 @@ function inferPurpose(text) {
   return '';
 }
 
-function inferType(text) {
+function inferType(text: string | null | undefined): string {
   if (!text) return '';
   const t = normalizeArabic(text);
   if (t.includes('طلب')) return 'طلب';
@@ -35,9 +35,9 @@ function inferType(text) {
   return '';
 }
 
-function inferGovernorate(govStr, areaStr) {
-  const g = normalizeArabic(govStr);
-  const a = cleanAreaName(areaStr);
+function inferGovernorate(govStr: string | null | undefined, areaStr: string | null | undefined): string {
+  const g = normalizeArabic(govStr || '');
+  const a = cleanAreaName(areaStr || '');
   
   if (a) {
     for (const gov of Object.keys(AREAS)) {
@@ -61,16 +61,17 @@ async function run() {
   console.log('Fetching properties...');
   let { data: properties, error } = await supabase.from('properties').select('*');
   if (error) throw error;
+  if (!properties) return;
   console.log('Found', properties.length, 'properties');
 
-  for (let p of properties) {
-    let newPurpose = inferPurpose(p.purpose) || inferPurpose(p.type) || inferPurpose(p.name);
-    let newType = inferType(p.type) || inferType(p.purpose) || inferType(p.name);
-    let newGov = inferGovernorate(p.governorate, p.area);
-    let newArea = cleanAreaName(p.area);
+  for (const p of properties) {
+    const newPurpose = inferPurpose(p.purpose) || inferPurpose(p.type) || inferPurpose(p.name);
+    const newType = inferType(p.type) || inferType(p.purpose) || inferType(p.name);
+    const newGov = inferGovernorate(p.governorate, p.area);
+    const newArea = cleanAreaName(p.area);
 
     let needsUpdate = false;
-    let updates = {};
+    const updates: any = {};
 
     if (newPurpose !== p.purpose) { updates.purpose = newPurpose; needsUpdate = true; }
     if (newType !== p.type) { updates.type = newType; needsUpdate = true; }

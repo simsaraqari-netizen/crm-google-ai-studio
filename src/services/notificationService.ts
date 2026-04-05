@@ -47,7 +47,7 @@ export async function notifyFavoriteUsers(property_id: string, property: any, da
         user_id: currentUserId,
         property_id: property_id,
         read: false,
-        createdAt: new Date().toISOString()
+        created_at: new Date().toISOString()
       });
     }
   }

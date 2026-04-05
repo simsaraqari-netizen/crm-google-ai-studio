@@ -10,10 +10,20 @@ import { initializeCronJobs } from "./src/services/cronService.ts";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const supabaseAdmin = createClient(
-  process.env.VITE_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  process.env.VITE_SUPABASE_URL || '',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || '',
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
+
+function escapeHtml(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
 
 async function startServer() {
   const app = express();
@@ -32,9 +42,9 @@ async function startServer() {
         return res.status(404).send('Property not found');
       }
       
-      const title = property?.name || 'عقار مميز';
-      const description = property?.details || 'تفاصيل العقار';
-      const image = property?.images?.[0] || 'https://via.placeholder.com/600x400';
+      const title = escapeHtml(property?.name || 'عقار مميز');
+      const description = escapeHtml(property?.details || 'تفاصيل العقار');
+      const image = escapeHtml(typeof property?.images?.[0] === 'string' ? property.images[0] : property?.images?.[0]?.url || 'https://via.placeholder.com/600x400');
 
       res.send(`
         <!DOCTYPE html>

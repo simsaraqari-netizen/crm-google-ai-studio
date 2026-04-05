@@ -201,16 +201,15 @@ export const initializeCronJobs = () => {
   // ---------------------------------------------------------
   cron.schedule('0 2 * * *', async () => {
     console.log('[CRON] Starting 30-day deleted property cleanup...');
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
     try {
       // 1. Fetch properties marked as deleted more than 30 days ago
       const { data: propertiesToDelete, error: fetchError } = await supabaseAdmin
         .from('properties')
         .select('id, images')
-        .eq('is_deleted', true)
-        .lt('updated_at', thirtyDaysAgo.toISOString());
+        .eq('status', 'deleted')
+        .lt('deleted_at', thirtyDaysAgo);
 
       if (fetchError) throw fetchError;
 

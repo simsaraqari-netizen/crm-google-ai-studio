@@ -13,6 +13,8 @@ window.onunhandledrejection = function(event) {
   console.error("UNHANDLED PROMISE REJECTION:", event.reason);
 };
 
+import { AuthProvider } from './contexts/AuthContext';
+
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 1000 * 60 * 5, retry: 1 } }
 });
@@ -20,7 +22,9 @@ const queryClient = new QueryClient({
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <App />
+      <AuthProvider>
+        <App />
+      </AuthProvider>
     </QueryClientProvider>
   </React.StrictMode>
 );
