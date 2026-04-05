@@ -554,6 +554,8 @@ export default function App() {
     type: '',
     purpose: '',
     location: '',
+    plot_number: '',
+    house_number: '',
     marketer: '',
     status: '' // '', 'available', 'sold'
   });
@@ -1169,12 +1171,14 @@ export default function App() {
       const matchesType = !filters.type || p.type === filters.type;
       const matchesPurpose = !filters.purpose || p.purpose === filters.purpose;
       const matchesLocation = !filters.location || p.location === filters.location;
+      const matchesPlot = !filters.plot_number || (p.plot_number && p.plot_number.includes(normalizeDigits(filters.plot_number)));
+      const matchesHouse = !filters.house_number || (p.house_number && p.house_number.includes(normalizeDigits(filters.house_number)));
       const matchesMarketer = !filters.marketer || p.assigned_employee_name === filters.marketer;
       const matchesStatus = !filters.status || 
                            (filters.status === 'sold' && p.is_sold) || 
                            (filters.status === 'available' && !p.is_sold);
 
-      return matchesSearch && matchesGov && matchesArea && matchesType && matchesPurpose && matchesLocation && matchesMarketer && matchesStatus;
+      return matchesSearch && matchesGov && matchesArea && matchesType && matchesPurpose && matchesLocation && matchesPlot && matchesHouse && matchesMarketer && matchesStatus;
     }).sort((a, b) => {
       const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
       const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
@@ -2017,6 +2021,22 @@ export default function App() {
                     onChange={(val) => setFilters({...filters, marketer: val})}
                   />
 
+                  <input
+                    type="text"
+                    placeholder="رقم القسيمة..."
+                    className="bg-white/70 backdrop-blur-md border border-stone-200 rounded-lg px-3 py-2 text-sm text-right focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none w-full"
+                    value={filters.plot_number}
+                    onChange={(e) => setFilters({...filters, plot_number: e.target.value})}
+                  />
+
+                  <input
+                    type="text"
+                    placeholder="رقم المنزل..."
+                    className="bg-white/70 backdrop-blur-md border border-stone-200 rounded-lg px-3 py-2 text-sm text-right focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none w-full"
+                    value={filters.house_number}
+                    onChange={(e) => setFilters({...filters, house_number: e.target.value})}
+                  />
+
                   <div className="bg-white/70 backdrop-blur-md border border-stone-200 rounded-lg p-2 h-[46px] flex flex-col justify-center focus-within:border-emerald-500 focus-within:ring-4 focus-within:ring-emerald-500/10 transition-all shadow-sm hover:border-stone-300">
                     <div className="relative flex items-center">
                       <select 
@@ -2040,11 +2060,11 @@ export default function App() {
                     <Search size={18} />
                     بحث
                   </button>
-                  {(searchQuery || filters.governorate || filters.area || filters.type || filters.purpose || filters.location || filters.marketer || filters.status !== '') && (
+                  {(searchQuery || filters.governorate || filters.area || filters.type || filters.purpose || filters.location || filters.plot_number || filters.house_number || filters.marketer || filters.status !== '') && (
                     <button 
                       onClick={() => {
                         setSearchQuery('');
-                        setFilters({ governorate: '', area: '', type: '', purpose: '', location: '', marketer: '', status: '' });
+                        setFilters({ governorate: '', area: '', type: '', purpose: '', location: '', plot_number: '', house_number: '', marketer: '', status: '' });
                       }}
                       className="w-full py-3 bg-stone-100 text-stone-600 rounded-lg hover:bg-stone-200 transition-all font-bold flex items-center justify-center gap-2"
                     >
@@ -2058,11 +2078,12 @@ export default function App() {
               {/* Actions & Results Header */}
               <div className="flex justify-center items-center">
                 <h2 className="text-2xl font-bold serif text-center">
-                  {view === 'pending-properties' ? `عقارات قيد المراجعة (${filteredProperties.length})` : view === 'trash' ? `سلة المحذوفات (${filteredProperties.length})` : (searchQuery || filters.governorate || filters.area || filters.type || filters.purpose || filters.location || filters.marketer || filters.status
+                  {view === 'pending-properties' ? `عقارات قيد المراجعة (${filteredProperties.length})` : view === 'trash' ? `سلة المحذوفات (${filteredProperties.length})` : (searchQuery || filters.governorate || filters.area || filters.type || filters.purpose || filters.location || filters.plot_number || filters.house_number || filters.marketer || filters.status
                     ? `نتائج البحث (${filteredProperties.length})` 
                     : `${view === 'list' ? 'كل العقارات' : view === 'my-listings' ? 'إعلاناتي' : view === 'my-favorites' ? 'إعلاناتي المفضلة' : `عقارات ${employees.find(emp => emp.id === selectedMarketerId)?.display_name || 'المستخدم'}`} (${filteredProperties.length})`)}
                 </h2>
               </div>
+
 
               {/* Grid - Always show results */}
               {filteredProperties.length > 0 ? (
