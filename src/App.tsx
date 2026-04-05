@@ -4791,7 +4791,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
                 />
-                <div className="absolute bottom-3 right-3 flex gap-3">
+                <div className="absolute bottom-3 right-3 left-3 flex gap-3 items-center">
                   <input 
                     id="comment-image-upload"
                     type="file" 
@@ -4811,11 +4811,11 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                       <ImageIcon size={24} />
                     )}
                   </label>
-                  <div className="flex items-center gap-2">
+                  <div className="flex-1 flex items-center gap-2">
                     <input 
                       type="text"
                       placeholder="رابط الصورة/الفيديو..."
-                      className="p-2 text-sm border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all w-32 sm:w-48"
+                      className="w-full p-2 text-sm border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
                       onBlur={(e) => {
                         if (e.target.value) {
                           insertAtCursor(`[رابط](${e.target.value})`);
