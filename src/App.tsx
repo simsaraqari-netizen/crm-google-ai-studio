@@ -542,6 +542,7 @@ export default function App() {
   const [tempSpreadsheetId, setTempSpreadsheetId] = useState('');
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isDetailedFiltersOpen, setIsDetailedFiltersOpen] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
   const [editUserName, setEditUserName] = useState('');

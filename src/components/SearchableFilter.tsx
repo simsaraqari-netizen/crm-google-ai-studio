@@ -36,7 +36,7 @@ export function SearchableFilter({
 
   return (
     <div className="relative">
-      <div className={`relative bg-white/70 backdrop-blur-md border border-stone-200 rounded-lg p-1 px-2 flex flex-col justify-center focus-within:border-emerald-500 focus-within:ring-4 focus-within:ring-emerald-500/10 transition-all shadow-sm hover:border-stone-300 hover:shadow-md ${disabled ? 'opacity-50' : ''} ${!label ? 'h-[40px]' : 'h-[50px]'}`}>
+      <div className={`relative bg-white border border-stone-200 rounded-lg p-1 px-2 flex flex-col justify-center focus-within:border-emerald-500 transition-all shadow-sm hover:border-stone-300 ${disabled ? 'opacity-50' : ''} ${!label ? 'h-[40px]' : 'h-[50px]'}`}>
         {label && <label className="text-[10px] font-bold text-stone-500 text-right px-1 mb-0">{label}</label>}
         <div className="relative flex items-center">
           <input

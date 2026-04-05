@@ -30,6 +30,7 @@ export interface Property {
   price?: string;
   details?: string;
   last_comment?: string;
+  last_comment_at?: any;
   status_label?: string;
   status: 'pending' | 'approved' | 'rejected' | 'deleted';
   is_deleted?: boolean;
