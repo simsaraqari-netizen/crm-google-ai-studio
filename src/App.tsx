@@ -1868,7 +1868,7 @@ export default function App() {
               className="space-y-6 px-4 py-8"
             >
               {/* Search & Filters */}
-              <div className="bg-white border border-stone-200 p-4 rounded-xl shadow-sm w-full">
+              <div className="bg-white border border-stone-200 p-4 rounded-xl shadow-sm w-full relative z-[50]">
                 <div className="space-y-4">
                   {/* Quick Search Section */}
                   <div className="flex flex-col md:flex-row gap-3 items-center">
@@ -1962,7 +1962,7 @@ export default function App() {
                               initial={{ opacity: 0, y: 10 }}
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, y: 10 }}
-                              className="absolute top-full right-0 left-0 mt-2 bg-white border border-stone-100 rounded-lg shadow-xl z-[90] overflow-hidden"
+                              className="absolute top-full right-0 left-0 mt-2 bg-white border border-stone-200 rounded-lg shadow-xl z-[100] overflow-hidden"
                             >
                               <div className="max-h-60 overflow-y-auto p-1">
                                 {searchSuggestions.map(opt => (
@@ -1997,7 +1997,7 @@ export default function App() {
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        className="overflow-hidden"
+                        className="overflow-visible z-[60] relative"
                       >
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
                           <SearchableFilter 
