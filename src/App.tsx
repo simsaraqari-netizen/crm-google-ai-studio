@@ -878,7 +878,7 @@ export default function App() {
       let fetchMore = true;
 
       while (fetchMore) {
-        let query = supabase.from('properties').select('*');
+        let query = supabase.from('properties_media').select('*');
         
         if (isSuperAdmin) {
           if (selectedCompanyId) {
@@ -930,7 +930,7 @@ export default function App() {
           if (p.deleted_at) {
             const deletedTime = new Date(p.deleted_at).getTime();
             if (now - deletedTime > thirtyDaysMs) {
-              await supabase.from('properties').delete().eq('id', p.id);
+              await supabase.from('properties_media').delete().eq('id', p.id);
             }
           }
         });
@@ -941,7 +941,7 @@ export default function App() {
 
     const subscription = supabase
       .channel('properties_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'properties' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'properties_media' }, () => {
         fetchProperties();
       })
       .subscribe();
@@ -1397,16 +1397,16 @@ export default function App() {
           }
 
           if (id && id.length > 5) {
-            const { error: updateError } = await supabase.from('properties').update(propertyData).eq('id', id);
+            const { error: updateError } = await supabase.from('properties_media').update(propertyData).eq('id', id);
             if (updateError) {
-              await supabase.from('properties').insert({
+              await supabase.from('properties_media').insert({
                 ...propertyData,
                 created_at: created_atStr ? new Date(created_atStr).toISOString() : new Date().toISOString(),
                 created_by: created_by || user?.id
               });
             }
           } else {
-            await supabase.from('properties').insert({
+            await supabase.from('properties_media').insert({
               ...propertyData,
               created_at: created_atStr ? new Date(created_atStr).toISOString() : new Date().toISOString(),
               created_by: created_by || user?.id
@@ -2101,13 +2101,13 @@ export default function App() {
                         }}
                         isAdmin={isAdmin}
                         onApprove={async (id: string) => {
-                          const { error } = await supabase.from('properties').update({ status: 'approved' }).eq('id', id);
-                          if (error) handleError(error, OperationType.UPDATE, 'properties');
+                          const { error } = await supabase.from('properties_media').update({ status: 'approved' }).eq('id', id);
+                          if (error) handleError(error, OperationType.UPDATE, 'properties_media');
                           else toast.success('تم قبول العقار');
                         }}
                         onReject={async (id: string) => {
-                          const { error } = await supabase.from('properties').update({ status: 'rejected' }).eq('id', id);
-                          if (error) handleError(error, OperationType.UPDATE, 'properties');
+                          const { error } = await supabase.from('properties_media').update({ status: 'rejected' }).eq('id', id);
+                          if (error) handleError(error, OperationType.UPDATE, 'properties_media');
                           else toast.success('تم رفض العقار');
                         }}
                         onEdit={(p: any) => {
@@ -3098,7 +3098,7 @@ export default function App() {
     try {
       const backupData: any = {};
       
-      const tablesToBackup = ['properties', 'users', 'comments', 'companies', 'notifications'];
+      const tablesToBackup = ['properties_media', 'users', 'comments', 'companies', 'notifications'];
       
       for (const tableName of tablesToBackup) {
         const { data, error } = await supabase.from(tableName).select('*');
@@ -3127,7 +3127,7 @@ export default function App() {
       return;
     }
     try {
-      const { error } = await supabase.from('properties').update({
+      const { error } = await supabase.from('properties_media').update({
         status: 'approved',
         deleted_at: null
       }).eq('id', id);
@@ -3146,7 +3146,7 @@ export default function App() {
     }
     if (window.confirm('هل أنت متأكد من حذف هذا العقار نهائياً؟ لا يمكن التراجع عن هذا الإجراء.')) {
       try {
-        const { data: propertyData, error: fetchError } = await supabase.from('properties').select('images').eq('id', id).single();
+        const { data: propertyData, error: fetchError } = await supabase.from('properties_media').select('images').eq('id', id).single();
         if (fetchError) throw fetchError;
         
         if (propertyData?.images && Array.isArray(propertyData.images)) {
@@ -3157,7 +3157,7 @@ export default function App() {
               // For now, focusing on removing the record.
               if (url.includes('storage/v1/object/public/')) {
                 const path = url.split('storage/v1/object/public/properties/')[1];
-                if (path) await supabase.storage.from('properties').remove([path]);
+                if (path) await supabase.storage.from('properties_media').remove([path]);
               }
             } catch (e) {
               console.error("Error deleting file:", e);
@@ -3165,7 +3165,7 @@ export default function App() {
           }
         }
         
-        const { error: deleteError } = await supabase.from('properties').delete().eq('id', id);
+        const { error: deleteError } = await supabase.from('properties_media').delete().eq('id', id);
         if (deleteError) throw deleteError;
         
         toast.success('تم حذف العقار نهائياً');
@@ -3189,7 +3189,7 @@ export default function App() {
     }
     if (deleteConfirm.property_id) {
       try {
-        const { error } = await supabase.from('properties').update({
+        const { error } = await supabase.from('properties_media').update({
           status: 'deleted',
           deleted_at: new Date().toISOString()
         }).eq('id', deleteConfirm.property_id);
@@ -3240,7 +3240,7 @@ export default function App() {
           
           const newLastComment = latestComments && latestComments.length > 0 ? latestComments[0].text : '';
           
-          await supabase.from('properties').update({
+          await supabase.from('properties_media').update({
             last_comment: newLastComment
           }).eq('id', commentDeleteConfirm.property_id);
         }
@@ -3656,13 +3656,13 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
         
         const fileName = `properties/${Date.now()}_${file.name}`;
         const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('properties')
+          .from('properties_media')
           .upload(fileName, fileToUpload);
         
         if (uploadError) throw uploadError;
         
         const { data: { publicUrl } } = supabase.storage
-          .from('properties')
+          .from('properties_media')
           .getPublicUrl(fileName);
           
         newImages.push({ url: publicUrl, type: file.type.startsWith('video/') ? 'video' : 'image' });
@@ -3747,7 +3747,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
 
       try {
         if (property) {
-          const { error: updateError } = await supabase.from('properties').update(data).eq('id', property.id);
+          const { error: updateError } = await supabase.from('properties_media').update(data).eq('id', property.id);
           if (updateError) throw updateError;
           
           const priceChanged = property.price !== data.price;
@@ -3793,11 +3793,11 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
             }
           }
         } else {
-          const { error: insertError } = await supabase.from('properties').insert(data);
+          const { error: insertError } = await supabase.from('properties_media').insert(data);
           if (insertError) throw insertError;
         }
       } catch (error) {
-        handleError(error, property ? OperationType.UPDATE : OperationType.CREATE, 'properties');
+        handleError(error, property ? OperationType.UPDATE : OperationType.CREATE, 'properties_media');
       }
       toast.success(property ? 'تم تحديث العقار بنجاح' : 'تمت إضافة العقار بنجاح');
       onSave();
@@ -4252,7 +4252,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
       if (commentError) throw commentError;
       
       // Update last comment on property
-      await supabase.from('properties').update({
+      await supabase.from('properties_media').update({
         last_comment: newComment || (commentImages.length > 0 ? 'تم إضافة صور' : '')
       }).eq('id', property.id);
 
@@ -4335,13 +4335,13 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
         
         const fileName = `comments/${Date.now()}_${file.name}`;
         const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('properties') // Reusing properties bucket for comments media or could use 'comments' bucket
+          .from('properties_media') // Reusing properties bucket for comments media or could use 'comments' bucket
           .upload(fileName, fileToUpload);
         
         if (uploadError) throw uploadError;
         
         const { data: { publicUrl } } = supabase.storage
-          .from('properties')
+          .from('properties_media')
           .getPublicUrl(fileName);
 
         newImages.push({ url: publicUrl, type: file.type.startsWith('video/') ? 'video' : 'image' });
@@ -4692,7 +4692,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                                   return timeB - timeA;
                                 });
                                 if (c.id === sorted[0]?.id) {
-                                  await supabase.from('properties').update({
+                                  await supabase.from('properties_media').update({
                                     last_comment: editCommentText
                                   }).eq('id', property.id);
                                 }
