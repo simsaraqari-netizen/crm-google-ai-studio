@@ -601,8 +601,8 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                                 className="relative w-16 h-16 rounded-lg overflow-hidden border border-stone-200 cursor-pointer shadow-sm"
                               >
                                 {(() => {
-                                  const url = typeof img === 'string' ? img : img.url;
-                                  const isVideo = typeof img === 'string' ? img.startsWith('data:video/') : img.type === 'video';
+                                  const url = img.url;
+                                  const isVideo = img.type === 'video';
                                   return isVideo ? (
                                     <video src={url} className="w-full h-full object-cover" />
                                   ) : (
