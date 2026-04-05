@@ -9,7 +9,7 @@ import {
   Share2
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { cleanAreaName, generatePropertyTitle, formatRelativeDate } from '../utils';
+import { cleanAreaName, generatePropertyTitle, formatRelativeDate, getImageUrl, isImageVideo } from '../utils';
 
 export const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavorite, onClick, onImageClick, isAdmin, onFilter, onUserClick, onApprove, onReject, onEdit, onDelete, onRestore, onPermanentDelete, view }: any) {
   return (
@@ -95,8 +95,8 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
           {property.images?.[0] ? (
             (() => {
               const img = property.images[0];
-              const url = typeof img === 'string' ? img : img.url;
-              const isVideo = typeof img === 'string' ? img.startsWith('data:video/') : img.type === 'video';
+              const url = getImageUrl(img);
+              const isVideo = isImageVideo(img);
               
               return (
                 <>

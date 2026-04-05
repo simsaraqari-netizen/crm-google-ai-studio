@@ -163,7 +163,7 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
       for (const file of files) {
         let fileToUpload: Blob;
         let fileType = file.type;
-        if (file.type.startsWith('image/')) {
+        if (file.type && typeof file.type === 'string' && file.type.startsWith('image/')) {
           fileToUpload = await compressImage(file);
           fileType = 'image/jpeg';
         } else {
@@ -179,7 +179,8 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
         }
         
         const { data: { publicUrl } } = supabase.storage.from('properties_media').getPublicUrl(filePath);
-        newImages.push({ url: publicUrl, type: file.type.startsWith('video/') ? 'video' : 'image' });
+        const isVideo = file.type && typeof file.type === 'string' && file.type.startsWith('video/');
+        newImages.push({ url: publicUrl, type: isVideo ? 'video' : 'image' });
       }
       setCommentImages(newImages);
     } catch (error: any) {

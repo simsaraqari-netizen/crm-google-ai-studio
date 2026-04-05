@@ -104,7 +104,7 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
       for (const file of files) {
         let fileToUpload: Blob;
         let fileType = file.type;
-        if (file.type.startsWith('image/')) {
+        if (file.type && typeof file.type === 'string' && file.type.startsWith('image/')) {
           fileToUpload = await compressImage(file);
           fileType = 'image/jpeg';
         } else {
@@ -120,7 +120,8 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
         }
         
         const { data: { publicUrl } } = supabase.storage.from('properties_media').getPublicUrl(filePath);
-        newImages.push({ url: publicUrl, type: file.type.startsWith('video/') ? 'video' : 'image', comment: '' });
+        const isVideo = file.type && typeof file.type === 'string' && file.type.startsWith('video/');
+        newImages.push({ url: publicUrl, type: isVideo ? 'video' : 'image', comment: '' });
       }
       setFormData({ ...formData, images: newImages });
     } catch (error: any) {
