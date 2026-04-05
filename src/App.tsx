@@ -1160,9 +1160,10 @@ export default function App() {
       // Approval status filtering - REMOVED to allow all users to see all properties
       // if (!isAdmin && view !== 'pending-properties' && p.status !== 'approved' && p.created_by !== user?.id) return false;
 
+      const searchDigitCount = (searchQuery.match(/\d/g) || []).length;
       const matchesSearch = 
         searchMatch(p.name, searchQuery) || 
-        searchMatch(p.phone, searchQuery) || 
+        (searchDigitCount >= 6 && searchMatch(p.phone, searchQuery)) || 
         searchMatch(p.area, searchQuery) || 
         searchMatch(p.assigned_employee_name || '', searchQuery);
       
