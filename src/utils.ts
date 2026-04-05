@@ -56,14 +56,13 @@ export function cleanAreaName(name: string): string {
 
   // Abbreviations mapping
   if (clean === "ج س ع" || clean.includes(" س ع") && clean.includes("ج ")) clean = "جنوب سعد العبدالله";
-  else if (clean === "ج ع م" || clean === "ج ع" || (clean.includes(" ع م") || clean.includes(" ع")) && clean.includes("ج ")) clean = "جنوب عبدالله المبارك";
+  else if (clean === "ج ع م" || clean === "ج ع" || (clean.includes(" ع") && clean.includes("ج ")) || clean === "جنوب ع") clean = "جنوب عبدالله المبارك";
   else if (clean === "ش غ ص" || clean.includes(" غ ص") && clean.includes("ش ")) clean = "شمال غرب صليبيخات";
   else if (clean === "ج ص الاحمد" || clean === "ج ص ح" || clean.includes(" ص ح") && clean.includes("ج ")) clean = "جنوب صباح الاحمد";
-  else if (clean === "غ ع م" || clean === "غ ع" || (clean.includes(" ع م") || clean.includes(" ع")) && clean.includes("غ ")) clean = "غرب عبدالله المبارك";
+  else if (clean === "غ ع م" || clean === "غ ع" || (clean.includes(" ع") && clean.includes("غ ")) || clean === "غرب ع") clean = "غرب عبدالله المبارك";
   else if (clean === "غرب") clean = "غرب عبدالله المبارك";
   else if (clean === "جنوب") clean = "جنوب عبدالله المبارك";
   else if (clean === "ص الاحمد") clean = "صباح الاحمد";
-  else if (clean === "م") clean = "المطلاع";
 
   if (clean === "شمال غرب الصليبخات" || clean === "شمال غرب صليبخات") clean = "شمال غرب صليبيخات";
 
@@ -151,8 +150,8 @@ export function cleanPropertyName(name: string): string {
   ];
   // Trim whitespace
   let cleaned = name.trim();
-  // Remove any trailing purpose word (case‑insensitive, handles variations)
-  const regex = new RegExp(`\\s+(?:(?:ل|ال)?(${purposeWords.join('|')}))$`, 'i');
+  // Remove any trailing purpose word (case‑insensitive, handles variations and optional punctuation)
+  const regex = new RegExp(`\\s+(?:(?:ل|ال)?(${purposeWords.join('|')}))[\\s.،,]*$`, 'i');
   cleaned = cleaned.replace(regex, '');
   // Collapse multiple spaces
   cleaned = cleaned.replace(/\s+/g, ' ').trim();
