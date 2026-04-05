@@ -3632,29 +3632,35 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
       const newImages = [...formData.images];
       for (const file of files) {
         let fileToUpload: Blob;
+        let fileType = file.type;
         if (file.type.startsWith('image/')) {
           fileToUpload = await compressImage(file);
+          fileType = 'image/jpeg';
         } else {
           fileToUpload = file;
         }
         
-        const fileName = `properties/${Date.now()}_${file.name}`;
+        const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '') || 'file';
+        const fileName = `properties/${Date.now()}_${safeName}`;
         const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('properties')
-          .upload(fileName, fileToUpload);
+          .from('properties_media')
+          .upload(fileName, fileToUpload, { contentType: fileType });
         
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          console.error("Supabase Storage Error:", uploadError);
+          throw new Error(uploadError.message || "فشل الرفع للخادم");
+        }
         
         const { data: { publicUrl } } = supabase.storage
-          .from('properties')
+          .from('properties_media')
           .getPublicUrl(fileName);
           
         newImages.push({ url: publicUrl, type: file.type.startsWith('video/') ? 'video' : 'image' });
       }
       setFormData({ ...formData, images: newImages });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Upload error:", error);
-      toast.error("حدث خطأ أثناء رفع الملفات");
+      toast.error("خطأ الرفع: " + (error.message || "حدث خطأ أثناء رفع الملفات"));
     } finally {
       setIsUploading(false);
       if (e.target) e.target.value = '';
@@ -4311,29 +4317,35 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
       const newImages = [...commentImages];
       for (const file of files) {
         let fileToUpload: Blob;
+        let fileType = file.type;
         if (file.type.startsWith('image/')) {
           fileToUpload = await compressImage(file);
+          fileType = 'image/jpeg';
         } else {
           fileToUpload = file;
         }
         
-        const fileName = `comments/${Date.now()}_${file.name}`;
+        const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '') || 'file';
+        const fileName = `comments/${Date.now()}_${safeName}`;
         const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('properties') // Reusing properties bucket for comments media or could use 'comments' bucket
-          .upload(fileName, fileToUpload);
+          .from('properties_media')
+          .upload(fileName, fileToUpload, { contentType: fileType });
         
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          console.error("Supabase Storage Error:", uploadError);
+          throw new Error(uploadError.message || "فشل الرفع للخادم");
+        }
         
         const { data: { publicUrl } } = supabase.storage
-          .from('properties')
+          .from('properties_media')
           .getPublicUrl(fileName);
 
         newImages.push({ url: publicUrl, type: file.type.startsWith('video/') ? 'video' : 'image' });
       }
       setCommentImages(newImages);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Comment media upload error:", error);
-      toast.error("حدث خطأ أثناء رفع الملفات");
+      toast.error("خطأ الرفع: " + (error.message || "حدث خطأ أثناء رفع الملفات"));
     } finally {
       setIsUploading(false);
       if (e.target) e.target.value = '';
