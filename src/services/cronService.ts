@@ -54,14 +54,14 @@ export const initializeCronJobs = () => {
             let g = cleanVal(gov);
             if (!g) return '';
             
-            if (g.includes('الرابعة') || g.includes('الرابعه')) return 'محافظة الفروانية';
+            if (g.includes('الرابعة') || g.includes('الرابعه')) return 'محافظة الفروانية (المنطقة الرابعة)';
 
             if (g.includes('العاشرة') || g.includes('العاشره')) {
                let a = cleanAreaName(cleanVal(areaName));
                if (a && AREAS['محافظة مبارك الكبير']?.some(x => a.includes(x) || x.includes(a))) {
                  return 'محافظة مبارك الكبير';
                }
-               return 'محافظة الأحمدي';
+               return 'محافظة الأحمدي (المنطقة العاشرة)';
             }
             
             if (!g.startsWith('محافظة')) g = 'محافظة ' + g;
