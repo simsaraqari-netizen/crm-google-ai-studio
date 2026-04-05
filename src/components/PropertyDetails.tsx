@@ -429,14 +429,14 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
               <div className="mt-8 pt-6 border-t border-stone-100">
                 <h3 className="text-sm font-bold text-stone-900 mb-4 flex items-center gap-2 justify-center">
                   <ImageIcon size={16} className="text-emerald-600" />
-                  معرض الصور ({property.images.length})
+                  معرض الصور ({(property.images || []).length})
                 </h3>
                 <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                  {property.images.map((img: any, i: number) => (
+                  {(property.images || []).map((img: any, i: number) => (
                     <button 
                       key={i} 
                       onClick={() => {
-                        setViewerImages(property.images.map((item: any) => typeof item === 'string' ? item : item.url));
+                        setViewerImages((property.images || []).map((item: any) => typeof item === 'string' ? item : item.url));
                         setViewerIndex(i);
                         setShowViewer(true);
                       }}

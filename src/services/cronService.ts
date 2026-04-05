@@ -48,7 +48,13 @@ export const initializeCronJobs = () => {
             status_label, created_by, created_atStr
           ] = row;
 
-          const cleanVal = (val: string) => val ? val.replace(/resedintal|residental|residential/gi, '').trim() : '';
+          const cleanVal = (val: string) => {
+            if (!val) return '';
+            let v = val.replace(/resedintal|residental|residential/gi, '').trim();
+            // Standardize standalone "م" contextually
+            v = v.replace(/\bم\s+(\d+|[٠-٩]+)/g, 'منزل $1');
+            return v;
+          };
 
           const cPurpose = cleanVal(purpose);
           const cType = cleanVal(type);

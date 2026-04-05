@@ -135,10 +135,9 @@ export function searchMatch(source: string, query: string): boolean {
   const normalizedQuery = normalizeArabic(query.toLowerCase());
   
   const queryParts = normalizedQuery.split(/\s+/).filter(Boolean);
-  // Extract all tokens from source (Arabic characters, English characters, and digits)
-  const sourceTokens: string[] = normalizedSource.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF0-9a-zA-Z]+/g) || [];
   
-  return queryParts.every(part => sourceTokens.includes(part));
+  // Use direct include for partial matching across the entire source
+  return queryParts.every(part => normalizedSource.includes(part));
 }
 
 export function cleanPropertyName(name: string): string {
@@ -154,6 +153,11 @@ export function cleanPropertyName(name: string): string {
   // Remove any trailing purpose word (case‑insensitive, handles variations and optional punctuation)
   const regex = new RegExp(`\\s+(?:(?:ل|ال)?(${purposeWords.join('|')}))[\\s.،,]*$`, 'i');
   cleaned = cleaned.replace(regex, '');
+  
+  // Standardize "م" as "منزل" (standalone m followed by space or number)
+  cleaned = cleaned.replace(/\bم\s+(\d+|[٠-٩]+)/g, 'منزل $1');
+  cleaned = cleaned.replace(/\s+م\s+/g, ' منزل ');
+
   // Collapse multiple spaces
   cleaned = cleaned.replace(/\s+/g, ' ').trim();
   return cleaned;
@@ -206,7 +210,7 @@ export function generatePropertyTitle(property: any): string {
   if (property.block) addressParts.push(`ق ${property.block}`);
   if (property.street) addressParts.push(`ش ${property.street}`);
   if (property.plot_number) addressParts.push(`قسيمة ${property.plot_number}`);
-  if (property.house_number) addressParts.push(`م ${property.house_number}`);
+  if (property.house_number) addressParts.push(`منزل ${property.house_number}`);
   if (property.location) addressParts.push(`موقع ${property.location}`);
   
   if (addressParts.length > 0) {

@@ -89,7 +89,8 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
           className="w-16 h-16 bg-stone-100 relative shrink-0 rounded-lg overflow-hidden shadow-inner group/img" 
           onClick={(e) => {
             e.stopPropagation();
-            if (property.images?.length > 0) onImageClick(property.images, 0);
+            const images = property.images || [];
+            if (images.length > 0) onImageClick(images, 0);
           }}
         >
           {property.images?.[0] ? (

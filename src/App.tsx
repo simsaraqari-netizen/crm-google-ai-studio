@@ -883,7 +883,7 @@ export default function App() {
           p.details,
           p.assigned_employee_name,
           p.phone,
-          p.description,
+          p.details,
           p.governorate,
           p.type,
           p.purpose,
@@ -894,14 +894,14 @@ export default function App() {
         if (!searchMatch(searchableText, activeSearchQuery)) return false;
       }
 
-      const matchesGov = !filters.governorate || p.governorate === filters.governorate;
-      const matchesArea = !filters.area || p.area === filters.area;
-      const matchesType = !filters.type || p.type === filters.type;
-      const matchesPurpose = !filters.purpose || p.purpose === filters.purpose;
-      const matchesLocation = !filters.location || p.location === filters.location;
+      const matchesGov = !filters.governorate || normalizeArabic(p.governorate || '') === normalizeArabic(filters.governorate);
+      const matchesArea = !filters.area || normalizeArabic(p.area || '') === normalizeArabic(filters.area);
+      const matchesType = !filters.type || normalizeArabic(p.type || '') === normalizeArabic(filters.type);
+      const matchesPurpose = !filters.purpose || normalizeArabic(p.purpose || '') === normalizeArabic(filters.purpose);
+      const matchesLocation = !filters.location || normalizeArabic(p.location || '') === normalizeArabic(filters.location);
       const matchesPlot = !filters.plot_number || (p.plot_number && p.plot_number.includes(normalizeDigits(filters.plot_number)));
       const matchesHouse = !filters.house_number || (p.house_number && p.house_number.includes(normalizeDigits(filters.house_number)));
-      const matchesMarketer = !filters.marketer || p.assigned_employee_name === filters.marketer;
+      const matchesMarketer = !filters.marketer || normalizeArabic(p.assigned_employee_name || '') === normalizeArabic(filters.marketer);
       const matchesStatus = !filters.status || 
                            (filters.status === 'sold' && p.is_sold) || 
                            (filters.status === 'available' && !p.is_sold);
