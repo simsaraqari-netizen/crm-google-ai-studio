@@ -3344,14 +3344,14 @@ const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavori
         >
           {property.images?.[0] ? (
             <>
-              {(property.images || [])[0].startsWith('data:video/') ? (
+              {isImageVideo((property.images || [])[0]) ? (
                 <video 
-                  src={(property.images || [])[0]} 
+                  src={getImageUrl((property.images || [])[0])} 
                   className={`w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
                 />
               ) : (
                 <img 
-                  src={(property.images || [])[0]} 
+                  src={getImageUrl((property.images || [])[0])} 
                   alt={generatePropertyTitle(property)} 
                   className={`w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
                   referrerPolicy="no-referrer"
@@ -4504,15 +4504,15 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
           <div className="relative aspect-square bg-stone-50 group">
              {property.images?.[activeImageIndex] ? (
               <>
-                {(property.images || [])[activeImageIndex].startsWith('data:video/') ? (
+                {isImageVideo(property.images[activeImageIndex]) ? (
                   <video 
-                    src={(property.images || [])[activeImageIndex]} 
+                    src={getImageUrl(property.images[activeImageIndex])} 
                     controls 
                     className={`w-full h-full object-cover ${property.is_sold ? 'grayscale opacity-60' : ''}`}
                   />
                 ) : (
                   <img 
-                    src={(property.images || [])[activeImageIndex]} 
+                    src={getImageUrl(property.images[activeImageIndex])} 
                     alt={generatePropertyTitle(property)} 
                     className={`w-full h-full object-cover cursor-zoom-in ${property.is_sold ? 'grayscale opacity-60' : ''}`}
                     referrerPolicy="no-referrer"
@@ -4623,10 +4623,12 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                       }}
                       className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${i === activeImageIndex ? 'border-emerald-500 scale-95' : 'border-transparent hover:border-stone-300'}`}
                     >
-                      {img.startsWith('data:video/') ? (
-                        <video src={img} className="w-full h-full object-cover" />
+                      {isImageVideo(img) ? (
+                        <div className="w-full h-full bg-stone-100 flex items-center justify-center">
+                          <ImageIcon className="text-stone-400" size={20} />
+                        </div>
                       ) : (
-                        <img src={img} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" />
+                        <img src={getImageUrl(img)} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" />
                       )}
                     </button>
                   ))}

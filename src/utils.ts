@@ -23,6 +23,17 @@ export function normalizeDigits(text: string): string {
   return text.replace(/[٠-٩۰-۹]/g, (d) => arabicDigits[d] || d);
 }
 
+export function getImageUrl(img: any): string {
+  if (!img) return '';
+  return typeof img === 'string' ? img : img.url || '';
+}
+
+export function isImageVideo(img: any): boolean {
+  if (!img) return false;
+  if (typeof img === 'string') return img.startsWith('data:video/');
+  return img.type === 'video';
+}
+
 export function normalizeArabic(text: string): string {
   if (!text) return "";
   // 1. تحويل الأرقام أولاً
@@ -125,12 +136,16 @@ export function searchMatch(source: string, query: string): boolean {
 
 export function cleanPropertyName(name: string): string {
   if (!name) return "";
-  // Define purpose words that may appear at the end of the name
-  const purposeWords = ['بيع', 'شراء', 'إيجار', 'بدل', 'استئجار', 'استاجار'];
+  // Define purpose words that may appear at the end of the name (to be removed from title)
+  const purposeWords = [
+    'بيع', 'للبيع', 'شراء', 'شراي', 'مشتري', 'مشترين', 'شرايين', 
+    'بدل', 'للبدل', 'ايجار', 'إيجار', 'للايجار', 'للإيجار', 
+    'استئجار', 'استاجار', 'طلب'
+  ];
   // Trim whitespace
   let cleaned = name.trim();
-  // Remove any trailing purpose word (case‑insensitive)
-  const regex = new RegExp(`\\s+(${purposeWords.join('|')})$`, 'i');
+  // Remove any trailing purpose word (case‑insensitive, handles variations)
+  const regex = new RegExp(`\\s+(?:(?:ل|ال)?(${purposeWords.join('|')}))$`, 'i');
   cleaned = cleaned.replace(regex, '');
   // Collapse multiple spaces
   cleaned = cleaned.replace(/\s+/g, ' ').trim();
@@ -148,9 +163,14 @@ export function generatePropertyTitle(property: any): string {
     if (cleanedName) parts.push(cleanedName);
   }
   
-  // الغرض
-  if (property.purpose) {
-    let p = property.purpose.trim();
+  // الغرض - إذا كان مفقوداً، نحاول استخلاصه من الاسم
+  let purpose = property.purpose;
+  if (!purpose && property.name) {
+    purpose = inferPurpose(property.name);
+  }
+
+  if (purpose) {
+    let p = purpose.trim();
     if (p === 'بيع' || p === 'للبيع') p = 'للبيع';
     else if (p === 'إيجار' || p === 'ايجار') p = 'للايجار';
     else if (p === 'بدل' || p === 'للبدل') p = 'للبدل';
