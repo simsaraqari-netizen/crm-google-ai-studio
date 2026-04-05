@@ -25,8 +25,10 @@ import {
   cleanAreaName, 
   compressImage,
   formatDateTime,
-  formatPropertyDate
+  formatPropertyDate,
+  inferGovernorate
 } from '../utils';
+import { PROPERTY_TYPES } from '../constants';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Comment } from '../types';
@@ -767,9 +769,12 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
               <span className="text-xs font-bold text-stone-800">{cleanAreaName(property.area)}</span>
             </button>
             {/* Type */}
-            <button onClick={() => onFilter('type', property.type)} className="flex items-center justify-center p-2 bg-stone-50/50 rounded-lg border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98]">
-              <span className="text-xs font-bold text-stone-800">{property.type}</span>
-            </button>
+            {PROPERTY_TYPES.includes(property.type) && (
+              <button onClick={() => onFilter('type', property.type)} className="flex items-center justify-center p-2 bg-stone-50/50 rounded-lg border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98]">
+                <span className="text-xs font-bold text-stone-800">{property.type}</span>
+              </button>
+            )}
+
             {/* Purpose */}
             {property.purpose !== 'بيع' && (
               <button onClick={() => onFilter('purpose', property.purpose)} className="flex items-center justify-center p-2 bg-stone-50/50 rounded-lg border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98]">

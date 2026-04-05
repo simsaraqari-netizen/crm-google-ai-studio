@@ -49,6 +49,8 @@ export function cleanAreaName(name: string): string {
   else if (clean === "ش غ ص" || clean.includes(" غ ص") && clean.includes("ش ")) clean = "شمال غرب صليبيخات";
   else if (clean === "ج ص الاحمد" || clean === "ج ص ح" || clean.includes(" ص ح") && clean.includes("ج ")) clean = "جنوب صباح الاحمد";
   else if (clean === "غ ع م" || clean.includes(" ع م") && clean.includes("غ ")) clean = "غرب عبدالله المبارك";
+  else if (clean === "غرب") clean = "غرب عبدالله المبارك";
+  else if (clean === "جنوب") clean = "جنوب عبدالله المبارك";
   else if (clean === "ص الاحمد") clean = "صباح الاحمد";
 
   if (clean === "شمال غرب الصليبخات" || clean === "شمال غرب صليبخات") clean = "شمال غرب صليبيخات";
@@ -80,6 +82,7 @@ export function inferGovernorate(areaName: string, currentGov: string = ""): str
   if (nGov.includes('مبارك')) return 'محافظة مبارك الكبير';
   if (nGov.includes('احمدي') || nGov.includes('عاشره') || nGov.includes('عاشرة')) return 'محافظة الأحمدي';
   if (nGov.includes('جهراء')) return 'محافظة الجهراء';
+  if (nGov.includes('مطلاع')) return 'محافظة الجهراء';
 
   return 'محافظة غير محددة';
 }
@@ -122,9 +125,18 @@ export function searchMatch(source: string, query: string): boolean {
 
 export function cleanPropertyName(name: string): string {
   if (!name) return "";
-  const regex = /(شراي|شراء|شتراي|يشتري|مشترين|مشتري|يبي|بيع|للبيع|بدل|للبدل|ايجار|للايجار|استئجار|للاستئجار|مستاجرين|مستأجرين|مستاجر|مستأجر|استثماري|تجاري|مطلوب)/g;
-  return name.replace(regex, ' ').replace(/\s+/g, ' ').trim();
+  // Define purpose words that may appear at the end of the name
+  const purposeWords = ['بيع', 'شراء', 'إيجار', 'بدل', 'استئجار', 'استاجار'];
+  // Trim whitespace
+  let cleaned = name.trim();
+  // Remove any trailing purpose word (case‑insensitive)
+  const regex = new RegExp(`\\s+(${purposeWords.join('|')})$`, 'i');
+  cleaned = cleaned.replace(regex, '');
+  // Collapse multiple spaces
+  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+  return cleaned;
 }
+
 
 export function generatePropertyTitle(property: any): string {
   if (!property) return "";
