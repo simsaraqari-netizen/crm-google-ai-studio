@@ -2015,14 +2015,7 @@ export default function App() {
                     onChange={(val) => setFilters({...filters, location: val})}
                   />
 
-                  <SearchableFilter 
-                    placeholder="ابحث بالموظف..."
-                    options={availableFilterOptions.marketers}
-                    value={filters.marketer}
-                    onChange={(val) => setFilters({...filters, marketer: val})}
-                  />
-
-                  <input
+                   <input
                     type="text"
                     placeholder="رقم القسيمة..."
                     className="bg-white/70 backdrop-blur-md border border-stone-200 rounded-lg px-3 py-2 text-sm text-right focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none w-full"
@@ -2036,6 +2029,13 @@ export default function App() {
                     className="bg-white/70 backdrop-blur-md border border-stone-200 rounded-lg px-3 py-2 text-sm text-right focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none w-full"
                     value={filters.house_number}
                     onChange={(e) => setFilters({...filters, house_number: e.target.value})}
+                  />
+
+                  <SearchableFilter 
+                    placeholder="ابحث بالموظف..."
+                    options={availableFilterOptions.marketers}
+                    value={filters.marketer}
+                    onChange={(val) => setFilters({...filters, marketer: val})}
                   />
 
                   <div className="bg-white/70 backdrop-blur-md border border-stone-200 rounded-lg p-2 h-[46px] flex flex-col justify-center focus-within:border-emerald-500 focus-within:ring-4 focus-within:ring-emerald-500/10 transition-all shadow-sm hover:border-stone-300">
