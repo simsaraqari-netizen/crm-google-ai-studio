@@ -347,16 +347,16 @@ function ImageViewer({ images, initialIndex, onClose, is_sold }: any) {
       )}
 
         <div className="max-w-5xl w-full h-full flex items-center justify-center relative">
-        {images?.[currentIndex]?.startsWith('data:video/') ? (
+        {isImageVideo(images?.[currentIndex]) ? (
           <video 
-            src={images[currentIndex]} 
+            src={getImageUrl(images?.[currentIndex])} 
             controls 
             autoPlay
             className={`max-w-full max-h-full object-contain rounded-lg shadow-2xl ${is_sold ? 'grayscale opacity-60' : ''}`}
           />
         ) : (
           <img 
-            src={images?.[currentIndex]} 
+            src={getImageUrl(images?.[currentIndex])} 
             className={`max-w-full max-h-full object-contain rounded-lg shadow-2xl ${is_sold ? 'grayscale opacity-60' : ''}`} 
             referrerPolicy="no-referrer"
             alt=""
@@ -3614,7 +3614,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
     assigned_employee_id: property?.assigned_employee_id || '',
     assigned_employee_name: property?.assigned_employee_name || '',
     assigned_employee_phone: property?.assigned_employee_phone || '',
-    images: (property?.images || []).map((img: any) => typeof img === 'string' ? { url: img, type: img.startsWith('data:video/') ? 'video' : 'image' } : img),
+    images: (property?.images || []).map((img: any) => typeof img === 'string' ? { url: img, type: isImageVideo(img) ? 'video' : 'image' } : img),
     location_link: property?.location_link || '',
     is_sold: property?.is_sold || false,
     sector: property?.sector || '',
@@ -3679,7 +3679,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
       for (const file of files) {
         let fileToUpload: Blob;
         let fileType = file.type;
-        if (file.type.startsWith('image/')) {
+        if (file.type && typeof file.type === 'string' && file.type.startsWith('image/')) {
           fileToUpload = await compressImage(file);
           fileType = 'image/jpeg';
         } else {
@@ -3701,7 +3701,8 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
           .from('properties_media')
           .getPublicUrl(fileName);
           
-        newImages.push({ url: publicUrl, type: file.type.startsWith('video/') ? 'video' : 'image' });
+        const isVideo = file.type && typeof file.type === 'string' && file.type.startsWith('video/');
+        newImages.push({ url: publicUrl, type: isVideo ? 'video' : 'image' });
       }
       setFormData({ ...formData, images: newImages });
     } catch (error: any) {
@@ -4364,7 +4365,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
       for (const file of files) {
         let fileToUpload: Blob;
         let fileType = file.type;
-        if (file.type.startsWith('image/')) {
+        if (file.type && typeof file.type === 'string' && file.type.startsWith('image/')) {
           fileToUpload = await compressImage(file);
           fileType = 'image/jpeg';
         } else {
@@ -4386,7 +4387,8 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
           .from('properties_media')
           .getPublicUrl(fileName);
 
-        newImages.push({ url: publicUrl, type: file.type.startsWith('video/') ? 'video' : 'image' });
+        const isVideo = file.type && typeof file.type === 'string' && file.type.startsWith('video/');
+        newImages.push({ url: publicUrl, type: isVideo ? 'video' : 'image' });
       }
       setCommentImages(newImages);
     } catch (error: any) {
@@ -4613,22 +4615,22 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                   معرض الصور ({(property.images?.length || 0)})
                 </h3>
                 <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                  {(property.images || []).map((img: string, i: number) => (
+                  {(property.images || []).map((img: any, i: number) => (
                     <button 
                       key={i} 
                       onClick={() => {
-                        setViewerImages(property.images);
+                        setViewerImages(property.images.map((im: any) => im.url));
                         setViewerIndex(i);
                         setShowViewer(true);
                       }}
                       className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${i === activeImageIndex ? 'border-emerald-500 scale-95' : 'border-transparent hover:border-stone-300'}`}
                     >
-                      {isImageVideo(img) ? (
+                      {img.type === 'video' ? (
                         <div className="w-full h-full bg-stone-100 flex items-center justify-center">
                           <ImageIcon className="text-stone-400" size={20} />
                         </div>
                       ) : (
-                        <img src={getImageUrl(img)} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" />
+                        <img src={img.url} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" />
                       )}
                     </button>
                   ))}
@@ -4696,7 +4698,6 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                                 onDeleteComment(c.id);
                               }}
                               className="text-stone-400 hover:text-red-600 transition-colors"
-                              title="حذف"
                             >
                               <Trash2 size={14} />
                             </button>
