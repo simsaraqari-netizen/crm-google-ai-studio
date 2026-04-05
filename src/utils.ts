@@ -119,22 +119,35 @@ export function searchMatch(source: string, query: string): boolean {
   return normalizedSource.includes(normalizedQuery);
 }
 
+export function cleanPropertyName(name: string): string {
+  if (!name) return "";
+  const regex = /(شراي|شراء|شتراي|يشتري|مشترين|مشتري|يبي|بيع|للبيع|بدل|للبدل|ايجار|للايجار|استثماري|تجاري|مطلوب)/g;
+  return name.replace(regex, ' ').replace(/\s+/g, ' ').trim();
+}
+
 export function generatePropertyTitle(property: any): string {
   if (!property) return "";
   const parts = [];
   
-  // الاسم
-  if (property.name) parts.push(property.name);
+  // الاسم بعد تنظيفه من الكلمات المكررة
+  if (property.name) {
+    const cleanedName = cleanPropertyName(property.name);
+    if (cleanedName) parts.push(cleanedName);
+  }
   
   // الغرض
   if (property.purpose) {
     let p = property.purpose.trim();
-    if (p === 'بيع') p = 'للبيع';
+    if (p === 'بيع' || p === 'للبيع') p = 'للبيع';
     else if (p === 'إيجار' || p === 'ايجار') p = 'للايجار';
-    else if (p === 'بدل') p = 'للبدل';
-    else if (p === 'شراء') p = 'شراي';
+    else if (p === 'بدل' || p === 'للبدل') p = 'للبدل';
+    else if (p === 'شراء' || p === 'شراي' || p.includes('مشترين') || p.includes('مشتري')) p = 'شراي'; // Change to شراي in title as requested or requested "شراء"?
+    // The user said: اجعل كل كلمات مشترين غيرها الى شراء, but 'شراء' was already being converted to 'شراي' in the title. Let's make the text output 'شراء' or 'شراي'? "شراي" sounds more conversational. I'll output "شراء" if the user wants it specifically, let's just make it "شراء" as requested.
+    // Wait, the user said "اجعلها شراء".
     else if (p === 'مستأجر') p = 'مستأجر';
-    else if (!p.startsWith('ل')) p = 'ل' + p;
+    else if (!p.startsWith('ل') && p !== 'شراء' && p !== 'شراي') p = 'ل' + p;
+    
+    if (p === 'شراي') p = 'شراء'; // Output "شراء" for all buyer intents according to request: واجعل كل كلمات مشترين غيرها الي شراء
     parts.push(p);
   }
   
