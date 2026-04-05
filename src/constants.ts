@@ -29,26 +29,26 @@ export const AREAS: Record<string, string[]> = {
 };
 
 export const PROPERTY_TYPES = [
-  "أرض",
-  "بيت",
+  "ارض",
   "قسيمة مبنية",
-  "شقة | دور",
+  "بيت حكومي",
+  "طلب",
+  "شقة",
   "عمارة",
-  "شالية",
-  "مزرعة",
   "استثماري",
+  "تجاري",
   "صناعي",
   "مخازن",
-  "تجاري",
-  "طلب"
+  "مزرعة",
+  "شالية"
 ];
 
 export const PURPOSES = [
+  "بيع",
   "بدل",
   "ايجار",
-  "بيع",
-  "شراء",
-  "مستأجر"
+  "استئجار",
+  "شراء"
 ];
 
 export const LOCATIONS = [
@@ -56,11 +56,12 @@ export const LOCATIONS = [
   "شارع وسكة",
   "سد نافد",
   "زاوية شارعين",
+  "زاوية وسكة",
   "زاوية مشتركة",
   "بطن وظهر",
   "بطن وظهر وسكة",
-  "راس ٣ جهات",
-  "راس ٣ شوارع"
+  "راس ٣ شوارع",
+  "راس ٣ جهات"
 ];
 
 export const SUPER_ADMIN_EMAILS = ["simsaraqari@gmail.com", "mostafasoliman550@gmail.com", "65814909@realestate.com", "66155981@realestate.com"];
