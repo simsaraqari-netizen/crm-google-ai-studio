@@ -77,7 +77,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
             <ChevronRight size={24} />
           </button>
           <div>
-            <h2 className="text-2xl font-bold tracking-tight">إدارة المستخدمين</h2>
+            <h2 className="text-2xl font-bold tracking-tight">إدارة الموظفين</h2>
             <p className="text-sm text-stone-500">إدارة جميع الحسابات والصلحيات في النظام</p>
           </div>
         </div>
@@ -143,7 +143,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                   throw new Error(errorText || 'Failed to create user');
                 }
                 
-                toast.success('تمت إضافة المستخدم بنجاح.');
+                toast.success('تمت إضافة الموظف بنجاح.');
                 form.reset();
               } catch (err: any) {
                 const errorMessage = err.message || "";
@@ -204,13 +204,13 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                 * المدير يمكنه حذف وتعديل العقارات وإدارة حسابات الموظفين التابعين لشركته.
               </p>
             </div>
-            <button type="submit" className="md:col-span-2 ios-button-primary py-3 mt-2">إضافة المستخدم</button>
+            <button type="submit" className="md:col-span-2 ios-button-primary py-3 mt-2">إضافة الموظف</button>
           </form>
         </div>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between px-2">
-            <h3 className="font-bold text-stone-900">قائمة المستخدمين ({employees.length})</h3>
+            <h3 className="font-bold text-stone-900">قائمة الموظفين ({employees.length})</h3>
             <button
               onClick={() => {
                 setUserActionConfirm({ isOpen: true, user_id: null, action: 'bulk-delete' });

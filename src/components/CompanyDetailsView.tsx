@@ -53,7 +53,7 @@ export function CompanyDetailsView({
               <Users size={24} />
             </div>
             <div>
-              <p className="text-sm text-blue-600 font-bold">إجمالي المستخدمين</p>
+              <p className="text-sm text-blue-600 font-bold">إجمالي الموظفين</p>
               <p className="text-2xl font-bold text-blue-900">
                 {companyUsers.length}
               </p>

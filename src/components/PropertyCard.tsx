@@ -20,9 +20,68 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
       onClick={() => onClick && onClick(property)}
     >
       {/* Title - Full Width */}
-      <h3 className="text-xs font-bold text-stone-900 mb-2 line-clamp-2 leading-tight w-full text-right">
+      <h3 className="text-xs font-bold text-stone-900 mb-2 line-clamp-2 leading-tight w-full text-right pr-6">
         {generatePropertyTitle(property)}
       </h3>
+
+      {/* Floating Actions */}
+      <div className="absolute top-3 left-3 flex items-center gap-1 z-30">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onFavorite(property.id);
+          }}
+          className={`p-1.5 rounded-full transition-all ${isFavorite ? 'text-red-500 bg-red-50 shadow-sm' : 'text-stone-400 hover:bg-stone-50'}`}
+        >
+          <Heart size={14} fill={isFavorite ? "currentColor" : "none"} />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            const shareUrl = `${window.location.origin}?property_id=${property.id}`;
+            if (navigator.share) {
+              navigator.share({
+                title: property.name || 'عقار',
+                text: property.details,
+                url: shareUrl,
+              }).catch(() => {
+                navigator.clipboard.writeText(shareUrl);
+                toast.success('تم نسخ الرابط');
+              });
+            } else {
+              navigator.clipboard.writeText(shareUrl);
+              toast.success('تم نسخ الرابط');
+            }
+          }}
+          className="p-1.5 text-stone-400 hover:bg-stone-50 rounded-full transition-all"
+        >
+          <Share2 size={14} />
+        </button>
+        {isAdmin && (
+          <>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onEdit) onEdit(property);
+              }}
+              className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-full transition-all"
+              title="تعديل"
+            >
+              <Edit size={14} />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onDelete) onDelete(property.id);
+              }}
+              className="p-1.5 text-red-500 hover:bg-red-50 rounded-full transition-all"
+              title="حذف"
+            >
+              <Trash2 size={14} />
+            </button>
+          </>
+        )}
+      </div>
 
       <div className="flex gap-3 flex-1 items-end mb-3">
         {/* Image on the right (first child in RTL) - Smaller and at bottom */}
@@ -126,151 +185,14 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
         </div>
       </div>
 
-      {/* Footer: Area + Purpose + Type */}
-      <div className="flex items-center gap-1.5 mt-auto pt-1 pb-1 text-[10px] font-bold text-stone-700">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            if (onFilter && property.area) onFilter('area', property.area);
-          }}
-          className="text-stone-500 hover:underline truncate max-w-[35%]"
-        >
-          {cleanAreaName(property.area) || '-'}
-        </button>
-        <span>|</span>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            if (onFilter && property.purpose) onFilter('purpose', property.purpose);
-          }}
-          className="text-emerald-600 hover:underline truncate max-w-[30%]"
-        >
-          {property.purpose || '-'}
-        </button>
-        <span>|</span>
-        <button 
-          onClick={(e) => {
-            e.stopPropagation();
-            if (onFilter && property.type) {
-              onFilter('type', property.type);
-            }
-          }}
-          className="hover:text-emerald-600 hover:underline truncate max-w-[30%]"
-        >
-          {property.type || 'غير محدد'}
-        </button>
-      </div>
-
-      {/* Footer: Icons + Time */}
-      <div className="flex items-center justify-between pt-0.5">
-        {property.created_at && (
-          <span className="text-[9px] text-stone-400 font-normal">
-            {formatRelativeDate(property.created_at)}
-          </span>
-        )}
-        <div className="flex items-center gap-1">
-          {view === 'pending-properties' && isAdmin ? (
-            <div className="flex gap-2">
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onApprove(property.id);
-                }}
-                className="bg-emerald-600 text-white px-2 py-1 rounded text-[10px]"
-              >
-                قبول
-              </button>
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onReject(property.id);
-                }}
-                className="bg-red-600 text-white px-2 py-1 rounded text-[10px]"
-              >
-                رفض
-              </button>
-            </div>
-          ) : view === 'trash' && isAdmin ? (
-            <div className="flex items-center gap-1">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onRestore) onRestore(property.id);
-                }}
-                className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
-                title="استعادة"
-              >
-                <RefreshCw size={16} />
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onPermanentDelete) onPermanentDelete(property.id);
-                }}
-                className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                title="حذف نهائي"
-              >
-                <Trash2 size={16} />
-              </button>
-            </div>
-          ) : (
-            <>
-              {isAdmin && (
-                <>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (onEdit) onEdit(property);
-                    }}
-                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                    title="تعديل"
-                  >
-                    <Edit size={16} />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (onDelete) onDelete(property.id);
-                    }}
-                    className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                    title="حذف"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </>
-              )}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const shareUrl = `${window.location.origin}?property_id=${property.id}`;
-                  if (navigator.share) {
-                    navigator.share({
-                      title: property.name || 'عقار',
-                      text: property.details,
-                      url: shareUrl,
-                    }).catch(console.error);
-                  } else {
-                    navigator.clipboard.writeText(shareUrl);
-                    toast.success('تم نسخ رابط العقار');
-                  }
-                }}
-                className="p-1.5 text-stone-500 hover:bg-stone-100 rounded-lg transition-all"
-                title="مشاركة"
-              >
-                <Share2 size={16} />
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onFavorite) onFavorite(property.id);
-                }}
-                className={`p-1.5 rounded-lg transition-all ${isFavorite ? 'text-red-500' : 'text-stone-500 hover:bg-stone-100'}`}
-              >
-                <Heart size={16} fill={isFavorite ? "currentColor" : "none"} />
-              </button>
-            </>
-          )}
-        </div>
+      {/* Last Row: Area + Time */}
+      <div className="flex items-center justify-between pt-1 border-t border-stone-100/50 mt-1">
+        <span className="text-[10px] font-bold text-emerald-600 truncate max-w-[60%]">
+          {cleanAreaName(property.area) || 'غير محدد'}
+        </span>
+        <span className="text-[9px] text-stone-400 font-medium ltr">
+          {formatRelativeDate(property.last_comment_at || property.created_at)}
+        </span>
       </div>
     </motion.div>
   );

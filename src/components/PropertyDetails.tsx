@@ -89,8 +89,10 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
       });
       
       // Update last comment on property
+      const now = new Date().toISOString();
       await supabase.from('properties').update({
-        last_comment: newComment || (commentImages.length > 0 ? 'تم إضافة صور' : '')
+        last_comment: newComment || (commentImages.length > 0 ? 'تم إضافة صور' : ''),
+        last_comment_at: now
       }).eq('id', property.id);
 
       // Notify interested users (who favorited the property)
@@ -356,13 +358,13 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
               <div className="absolute inset-0 flex items-center justify-between p-4 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button 
                   onClick={() => setActiveImageIndex(prev => (prev === 0 ? property.images.length - 1 : prev - 1))}
-                  className="p-2 bg-white/80 backdrop-blur rounded-full text-stone-800 hover:bg-white transition-all shadow-md"
+                  className="p-2 bg-white rounded-full text-stone-800 hover:bg-stone-50 transition-all shadow-md"
                 >
                   <ChevronRight size={20} />
                 </button>
                 <button 
                   onClick={() => setActiveImageIndex(prev => (prev === property.images.length - 1 ? 0 : prev + 1))}
-                  className="p-2 bg-white/80 backdrop-blur rounded-full text-stone-800 hover:bg-white transition-all shadow-md"
+                  className="p-2 bg-white rounded-full text-stone-800 hover:bg-stone-50 transition-all shadow-md"
                 >
                   <ChevronLeft size={20} />
                 </button>

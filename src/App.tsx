@@ -791,7 +791,7 @@ export default function App() {
             await supabase.from('notifications').insert({
               type: 'new-user',
               title: 'طلب انضمام جديد',
-              message: `المستخدم ${newProfile.display_name} يطلب الانضمام للنظام`,
+              message: `الموظف ${newProfile.display_name} يطلب الانضمام للنظام`,
               user_id: sbUser.id,
               read: false
             });
@@ -1064,7 +1064,7 @@ export default function App() {
             await supabase.from('notifications').insert({
               type: 'new-user',
               title: 'طلب انضمام جديد',
-              message: `المستخدم ${username} يطلب الانضمام للنظام`,
+              message: `الموظف ${username} يطلب الانضمام للنظام`,
               user_id: sbUser.id,
               read: false
             });
@@ -1083,7 +1083,7 @@ export default function App() {
       if (error.message?.includes('Invalid login credentials')) {
         message = "اسم المستخدم أو كلمة المرور غير صحيحة، أو الحساب غير موجود. تأكد من اختيار 'إنشاء حساب' إذا كنت تسجل لأول مرة.";
       } else if (error.message?.includes('User already registered')) {
-        message = "هذا المستخدم مسجل بالفعل. جرب تسجيل الدخول بدلاً من إنشاء حساب جديد.";
+        message = "هذا الموظف مسجل بالفعل. جرب تسجيل الدخول بدلاً من إنشاء حساب جديد.";
       }
       setAuthError(message);
       toast.error(message);
@@ -1868,194 +1868,217 @@ export default function App() {
               className="space-y-6 px-4 py-8"
             >
               {/* Search & Filters */}
-              <div className="bg-white/40 backdrop-blur-xl border border-white/40 p-4 rounded-xl shadow-xl shadow-stone-200/50 w-full">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                  <div className="relative w-full bg-white/70 backdrop-blur-md border border-stone-200 rounded-lg focus-within:border-emerald-500 focus-within:ring-4 focus-within:ring-emerald-500/10 transition-all flex items-center p-2 px-4 min-h-[46px] shadow-sm hover:border-stone-300">
-                    <div 
-                      className="flex flex-1 items-center gap-2 cursor-text"
-                      onClick={() => {
-                        if (!isSearchFocused) {
-                          setIsSearchFocused(true);
-                          setTimeout(() => {
-                            const input = document.getElementById('main-search-input');
-                            if (input) input.focus();
-                          }, 0);
-                        }
-                      }}
-                    >
-                      <Search className="text-stone-500 ml-1" size={16} />
-                      
-                      {Object.entries(filters).filter(([_, val]) => val !== '').map(([key, value]) => (
-                        <span key={key} className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold whitespace-nowrap">
-                          {value}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (key === 'governorate') {
-                                setFilters({ ...filters, governorate: '', area: '' });
-                              } else {
-                                setFilters({ ...filters, [key]: '' });
-                              }
-                            }}
-                            className="hover:bg-emerald-200 rounded-full p-0.5 transition-colors"
-                          >
-                            <X size={10} />
-                          </button>
-                        </span>
-                      ))}
-
-                      {searchQuery && !isSearchFocused && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold whitespace-nowrap">
-                          {searchQuery}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSearchQuery('');
-                            }}
-                            className="hover:bg-emerald-200 rounded-full p-0.5 transition-colors"
-                          >
-                            <X size={10} />
-                          </button>
-                        </span>
-                      )}
-
-                      <div className={`flex-1 flex items-center relative min-w-[80px] ${searchQuery && !isSearchFocused ? 'hidden' : ''}`}>
-                        <Search className="absolute left-2 text-stone-400" size={14} />
-                        <input 
-                          id="main-search-input"
-                          type="text"
-                          placeholder="الاسم، رقم الهاتف، أو المنطقة..."
-                          className="w-full bg-transparent border-none outline-none text-xs py-1 pl-8 pr-8"
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(normalizeDigits(e.target.value))}
-                          onFocus={() => setIsSearchFocused(true)}
-                          onBlur={() => {
-                            // Delay blur to allow clicking suggestions or the clear button
-                            setTimeout(() => setIsSearchFocused(false), 200);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              if (searchSuggestions.length > 0) {
-                                setSearchQuery(searchSuggestions[0]);
-                              }
-                              setIsSearchFocused(false);
-                            }
-                          }}
-                        />
-                        {searchQuery && (
-                          <button
-                            onClick={() => setSearchQuery('')}
-                            className="absolute right-2 text-stone-500 hover:text-stone-600 p-1 rounded-full hover:bg-stone-200 transition-colors"
-                          >
-                            <X size={14} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    <AnimatePresence>
-                      {isSearchFocused && searchSuggestions.length > 0 && (
-                        <>
-                          <div className="fixed inset-0 z-[80]" onClick={() => setIsSearchFocused(false)} />
-                          <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 10 }}
-                            className="absolute top-full right-0 left-0 mt-2 bg-white/90 backdrop-blur-xl border border-stone-100 rounded-lg shadow-xl z-[90] overflow-hidden"
-                          >
-                            <div className="max-h-60 overflow-y-auto p-1">
-                              {searchSuggestions.map(opt => (
-                                <button
-                                  key={opt}
-                                  type="button"
-                                  onClick={() => { setSearchQuery(opt); setIsSearchFocused(false); }}
-                                  className="w-full text-right p-3 text-sm rounded-lg hover:bg-white/50 text-stone-600 transition-colors"
-                                >
-                                  {opt}
-                                </button>
-                              ))}
-                            </div>
-                          </motion.div>
-                        </>
-                      )}
-                    </AnimatePresence>
-                  </div>
-
-                  <SearchableFilter 
-                    placeholder="المحافظة..."
-                    options={availableFilterOptions.governorates}
-                    value={filters.governorate}
-                    onChange={(val) => setFilters({...filters, governorate: val, area: ''})}
-                  />
-
-                  <SearchableFilter 
-                    placeholder="المنطقة..."
-                    options={availableFilterOptions.areas}
-                    value={filters.area}
-                    onChange={(val) => setFilters({...filters, area: val})}
-                  />
-
-                  <SearchableFilter 
-                    placeholder="نوع العقار..."
-                    options={availableFilterOptions.types}
-                    value={filters.type}
-                    onChange={(val) => setFilters({...filters, type: val})}
-                  />
-
-                  <SearchableFilter 
-                    placeholder="الغرض..."
-                    options={availableFilterOptions.purposes}
-                    value={filters.purpose}
-                    onChange={(val) => setFilters({...filters, purpose: val})}
-                  />
-
-                  <SearchableFilter 
-                    placeholder="الموقع..."
-                    options={availableFilterOptions.locations}
-                    value={filters.location}
-                    onChange={(val) => setFilters({...filters, location: val})}
-                  />
-
-                   <input
-                    type="text"
-                    placeholder="رقم القسيمة..."
-                    className="bg-white/70 backdrop-blur-md border border-stone-200 rounded-lg px-3 py-2 text-sm text-right focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none w-full"
-                    value={filters.plot_number}
-                    onChange={(e) => setFilters({...filters, plot_number: e.target.value})}
-                  />
-
-                  <input
-                    type="text"
-                    placeholder="رقم المنزل..."
-                    className="bg-white/70 backdrop-blur-md border border-stone-200 rounded-lg px-3 py-2 text-sm text-right focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none w-full"
-                    value={filters.house_number}
-                    onChange={(e) => setFilters({...filters, house_number: e.target.value})}
-                  />
-
-                  <SearchableFilter 
-                    placeholder="ابحث بالموظف..."
-                    options={availableFilterOptions.marketers}
-                    value={filters.marketer}
-                    onChange={(val) => setFilters({...filters, marketer: val})}
-                  />
-
-                  <div className="bg-white/70 backdrop-blur-md border border-stone-200 rounded-lg p-2 h-[46px] flex flex-col justify-center focus-within:border-emerald-500 focus-within:ring-4 focus-within:ring-emerald-500/10 transition-all shadow-sm hover:border-stone-300">
-                    <div className="relative flex items-center">
-                      <select 
-                        className="w-full bg-transparent border-none p-0 text-sm text-right outline-none focus:ring-0 appearance-none"
-                        value={filters.status}
-                        onChange={(e) => setFilters({...filters, status: e.target.value})}
+              <div className="bg-white border border-stone-200 p-4 rounded-xl shadow-sm w-full">
+                <div className="space-y-4">
+                  {/* Quick Search Section */}
+                  <div className="flex flex-col md:flex-row gap-3 items-center">
+                    <div className="bg-stone-50 border border-stone-200 rounded-lg flex-1 focus-within:border-emerald-500 transition-all flex items-center p-2 px-4 min-h-[46px] w-full">
+                      <div 
+                        className="flex flex-1 items-center gap-2 cursor-text"
+                        onClick={() => {
+                          if (!isSearchFocused) {
+                            setIsSearchFocused(true);
+                            setTimeout(() => {
+                              const input = document.getElementById('main-search-input');
+                              if (input) input.focus();
+                            }, 0);
+                          }
+                        }}
                       >
-                        <option value="">ابحث بالحالة (الكل)</option>
-                        <option value="available">متاح</option>
-                        <option value="sold">مباع</option>
-                      </select>
-                      <ChevronDown size={14} className="mr-2 text-stone-300 pointer-events-none shrink-0" />
+                        <Search className="text-stone-500 ml-1" size={16} />
+                        
+                        {Object.entries(filters).filter(([_, val]) => val !== '').map(([key, value]) => (
+                          <span key={key} className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold whitespace-nowrap">
+                            {value}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (key === 'governorate') {
+                                  setFilters({ ...filters, governorate: '', area: '' });
+                                } else {
+                                  setFilters({ ...filters, [key]: '' });
+                                }
+                              }}
+                              className="hover:bg-emerald-200 rounded-full p-0.5 transition-colors"
+                            >
+                              <X size={10} />
+                            </button>
+                          </span>
+                        ))}
+
+                        {searchQuery && !isSearchFocused && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold whitespace-nowrap">
+                            {searchQuery}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSearchQuery('');
+                              }}
+                              className="hover:bg-emerald-200 rounded-full p-0.5 transition-colors"
+                            >
+                              <X size={10} />
+                            </button>
+                          </span>
+                        )}
+
+                        <div className={`flex-1 flex items-center relative min-w-[80px] ${searchQuery && !isSearchFocused ? 'hidden' : ''}`}>
+                          <Search className="absolute left-2 text-stone-400" size={14} />
+                          <input 
+                            id="main-search-input"
+                            type="text"
+                            placeholder="الاسم، رقم الهاتف، أو المنطقة..."
+                            className="w-full bg-transparent border-none outline-none text-xs py-1 pl-8 pr-8 text-right"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(normalizeDigits(e.target.value))}
+                            onFocus={() => setIsSearchFocused(true)}
+                            onBlur={() => {
+                              setTimeout(() => setIsSearchFocused(false), 200);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                if (searchSuggestions.length > 0) {
+                                  setSearchQuery(searchSuggestions[0]);
+                                }
+                                setIsSearchFocused(false);
+                              }
+                            }}
+                          />
+                          {searchQuery && (
+                            <button
+                              onClick={() => setSearchQuery('')}
+                              className="absolute right-2 text-stone-500 hover:text-stone-600 p-1 rounded-full hover:bg-stone-200 transition-colors"
+                            >
+                              <X size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <AnimatePresence>
+                        {isSearchFocused && searchSuggestions.length > 0 && (
+                          <>
+                            <div className="fixed inset-0 z-[80]" onClick={() => setIsSearchFocused(false)} />
+                            <motion.div
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: 10 }}
+                              className="absolute top-full right-0 left-0 mt-2 bg-white border border-stone-100 rounded-lg shadow-xl z-[90] overflow-hidden"
+                            >
+                              <div className="max-h-60 overflow-y-auto p-1">
+                                {searchSuggestions.map(opt => (
+                                  <button
+                                    key={opt}
+                                    type="button"
+                                    onClick={() => { setSearchQuery(opt); setIsSearchFocused(false); }}
+                                    className="w-full text-right p-3 text-sm rounded-lg hover:bg-stone-50 text-stone-600 transition-colors"
+                                  >
+                                    {opt}
+                                  </button>
+                                ))}
+                              </div>
+                            </motion.div>
+                          </>
+                        )}
+                      </AnimatePresence>
                     </div>
+                    <button 
+                      onClick={() => setIsDetailedFiltersOpen(!isDetailedFiltersOpen)}
+                      className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all whitespace-nowrap"
+                    >
+                      <Filter size={16} />
+                      {isDetailedFiltersOpen ? 'إخفاء البحث الدقيق' : 'البحث الدقيق'}
+                    </button>
                   </div>
+
+                  {/* Detailed Search Filters */}
+                  <AnimatePresence>
+                    {isDetailedFiltersOpen && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
+                          <SearchableFilter 
+                            placeholder="المحافظة..."
+                            options={availableFilterOptions.governorates}
+                            value={filters.governorate}
+                            onChange={(val) => setFilters({...filters, governorate: val, area: ''})}
+                          />
+
+                          <SearchableFilter 
+                            placeholder="المنطقة..."
+                            options={availableFilterOptions.areas}
+                            value={filters.area}
+                            onChange={(val) => setFilters({...filters, area: val})}
+                          />
+
+                          <SearchableFilter 
+                            placeholder="نوع العقار..."
+                            options={availableFilterOptions.types}
+                            value={filters.type}
+                            onChange={(val) => setFilters({...filters, type: val})}
+                          />
+
+                          <SearchableFilter 
+                            placeholder="الغرض..."
+                            options={availableFilterOptions.purposes}
+                            value={filters.purpose}
+                            onChange={(val) => setFilters({...filters, purpose: val})}
+                          />
+
+                          <SearchableFilter 
+                            placeholder="الموقع..."
+                            options={availableFilterOptions.locations}
+                            value={filters.location}
+                            onChange={(val) => setFilters({...filters, location: val})}
+                          />
+
+                           <input
+                            type="text"
+                            placeholder="رقم القسيمة..."
+                            className="bg-white border border-stone-200 rounded-lg px-3 py-2 text-sm text-right focus:border-emerald-500 outline-none w-full"
+                            value={filters.plot_number}
+                            onChange={(e) => setFilters({...filters, plot_number: e.target.value})}
+                          />
+
+                          <input
+                            type="text"
+                            placeholder="رقم المنزل..."
+                            className="bg-white border border-stone-200 rounded-lg px-3 py-2 text-sm text-right focus:border-emerald-500 outline-none w-full"
+                            value={filters.house_number}
+                            onChange={(e) => setFilters({...filters, house_number: e.target.value})}
+                          />
+
+                          <SearchableFilter 
+                            placeholder="ابحث بالموظف..."
+                            options={availableFilterOptions.marketers}
+                            value={filters.marketer}
+                            onChange={(val) => setFilters({...filters, marketer: val})}
+                          />
+
+                          <div className="bg-white border border-stone-200 rounded-lg p-2 h-[46px] flex flex-col justify-center focus-within:border-emerald-500 transition-all shadow-sm">
+                            <div className="relative flex items-center">
+                              <select 
+                                className="w-full bg-transparent border-none p-0 text-sm text-right outline-none focus:ring-0 appearance-none"
+                                value={filters.status}
+                                onChange={(e) => setFilters({...filters, status: e.target.value})}
+                              >
+                                <option value="">ابحث بالحالة (الكل)</option>
+                                <option value="available">متاح</option>
+                                <option value="sold">مباع</option>
+                              </select>
+                              <ChevronDown size={14} className="mr-2 text-stone-300 pointer-events-none shrink-0" />
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
-                <div className="flex flex-col gap-2 pt-4 border-t border-stone-100">
+                <div className="flex flex-col gap-2 pt-4 border-t border-stone-100 mt-4">
                   <button 
                     className="w-full py-3.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 hover:shadow-emerald-200/50 transition-all font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-100 active:scale-[0.98]"
                   >
@@ -2082,7 +2105,7 @@ export default function App() {
                 <h2 className="text-2xl font-bold serif text-center">
                   {view === 'pending-properties' ? `عقارات قيد المراجعة (${filteredProperties.length})` : view === 'trash' ? `سلة المحذوفات (${filteredProperties.length})` : (searchQuery || filters.governorate || filters.area || filters.type || filters.purpose || filters.location || filters.plot_number || filters.house_number || filters.marketer || filters.status
                     ? `نتائج البحث (${filteredProperties.length})` 
-                    : `${view === 'list' ? 'كل العقارات' : view === 'my-listings' ? 'إعلاناتي' : view === 'my-favorites' ? 'إعلاناتي المفضلة' : `عقارات ${employees.find(emp => emp.id === selectedMarketerId)?.display_name || 'المستخدم'}`} (${filteredProperties.length})`)}
+                    : `${view === 'list' ? 'كل العقارات' : view === 'my-listings' ? 'إعلاناتي' : view === 'my-favorites' ? 'إعلاناتي المفضلة' : `عقارات ${employees.find(emp => emp.id === selectedMarketerId)?.display_name || 'الموظف'}`} (${filteredProperties.length})`)}
                 </h2>
               </div>
 
@@ -2564,10 +2587,10 @@ export default function App() {
 
                             if (!response.ok) {
                               const errData = await response.json();
-                              throw new Error(errData.error || 'فشل إنشاء المستخدم');
+                              throw new Error(errData.error || 'فشل إنشاء الموظف');
                             }
 
-                            toast.success('تمت إضافة المستخدم بنجاح.');
+                            toast.success('تمت إضافة الموظف بنجاح.');
                             setIsAddingUserToCompany(false);
                           } catch (err: any) {
                             toast.error('حدث خطأ: ' + err.message);
@@ -2609,7 +2632,7 @@ export default function App() {
                         </div>
                         <div className="flex gap-3 pt-4 sticky bottom-0 bg-white pb-2">
                           <button type="button" onClick={() => setIsAddingUserToCompany(false)} className="flex-1 py-3.5 rounded-xl border border-stone-200 text-stone-600 font-bold hover:bg-stone-50 transition-all active:scale-[0.98]">إلغاء</button>
-                          <button type="submit" className="flex-1 bg-emerald-600 text-white py-3.5 rounded-xl font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all active:scale-[0.98]">إضافة المستخدم</button>
+                          <button type="submit" className="flex-1 bg-emerald-600 text-white py-3.5 rounded-xl font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all active:scale-[0.98]">إضافة الموظف</button>
                         </div>
                       </form>
                     </div>
@@ -2750,7 +2773,7 @@ export default function App() {
 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between px-2">
-                    <h3 className="font-bold text-stone-900">قائمة المستخدمين ({employees.length})</h3>
+                    <h3 className="font-bold text-stone-900">قائمة الموظفين ({employees.length})</h3>
                     <button
                       onClick={() => {
                         setUserActionConfirm({ isOpen: true, user_id: null, action: 'bulk-delete' });
@@ -3021,10 +3044,10 @@ export default function App() {
           }
           message={
             userActionConfirm.action === 'bulk-delete' ? "⚠️ تحذير: هل أنت متأكد من حذف جميع الحسابات المسجلة؟ سيتم مسح صلاحياتهم وبياناتهم من قاعدة البيانات." :
-            userActionConfirm.action === 'approve' ? `هل أنت متأكد من الموافقة على المستخدم ${userActionConfirm.extraData?.display_name || ''}؟` :
-            userActionConfirm.action === 'reject' ? `هل أنت متأكد من رفض المستخدم ${userActionConfirm.extraData?.display_name || ''}؟` :
+            userActionConfirm.action === 'approve' ? `هل أنت متأكد من الموافقة على الموظف ${userActionConfirm.extraData?.display_name || ''}؟` :
+            userActionConfirm.action === 'reject' ? `هل أنت متأكد من رفض الموظف ${userActionConfirm.extraData?.display_name || ''}؟` :
             userActionConfirm.action === 'change-role' ? `هل أنت متأكد من تغيير صلاحية ${userActionConfirm.extraData?.display_name} إلى ${userActionConfirm.extraData?.newRole === 'admin' ? 'مدير نظام' : 'مستخدم'}؟` :
-            `هل أنت متأكد من رغبتك في حذف ${userActionConfirm.extraData?.display_name || 'هذا المستخدم'} نهائياً؟ لا يمكن التراجع عن هذا الإجراء.`
+            `هل أنت متأكد من رغبتك في حذف ${userActionConfirm.extraData?.display_name || 'هذا الموظف'} نهائياً؟ لا يمكن التراجع عن هذا الإجراء.`
           }
           onConfirm={confirmUserAction}
           onCancel={() => setUserActionConfirm({ isOpen: false, user_id: null, action: null })}
@@ -3263,7 +3286,7 @@ export default function App() {
 
   async function confirmUserAction() {
     if (!isAdmin) {
-      toast.error("ليس لديك صلاحية لإدارة المستخدمين");
+      toast.error("ليس لديك صلاحية لإدارة الموظفين");
       setUserActionConfirm({ isOpen: false, user_id: null, action: null, extraData: null });
       return;
     }
@@ -4008,7 +4031,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
           )}
 
           <SearchableFilter 
-            label="المستخدم / الموظف المسؤول"
+            label="الموظف المسؤول"
             placeholder="ابحث عن مستخدم أو اكتب اسماً جديداً..."
             options={employees.map(emp => emp.display_name)}
             value={formData.assigned_employee_name}
