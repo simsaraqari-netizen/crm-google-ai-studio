@@ -43,7 +43,7 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
     assigned_employee_id: property?.assigned_employee_id || '',
     assigned_employee_name: property?.assigned_employee_name || '',
     assigned_employee_phone: property?.assigned_employee_phone || '',
-    images: (property?.images || []).map((img: any) => typeof img === 'string' ? { url: img, type: img.startsWith('data:video/') ? 'video' : 'image', comment: '' } : img),
+    images: (property?.images || []).map((img: any) => typeof img === 'string' ? { url: img, type: isImageVideo(img) ? 'video' : 'image', comment: '' } : img),
     location_link: property?.location_link || '',
     is_sold: property?.is_sold || false,
     sector: property?.sector || '',
