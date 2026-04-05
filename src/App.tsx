@@ -1127,24 +1127,18 @@ export default function App() {
       currentAreas = Array.from(new Set(Object.values(AREAS).flat())).sort();
     }
 
-    const types = new Set<string>();
-    const purposes = new Set<string>();
-    const locations = new Set<string>();
     const marketers = new Set<string>();
 
     properties.forEach(p => {
-      if (p.type) types.add(p.type);
-      if (p.purpose) purposes.add(p.purpose);
-      if (p.location) locations.add(p.location);
       if (p.assigned_employee_name) marketers.add(p.assigned_employee_name);
     });
 
     return {
       governorates: [...GOVERNORATES],
       areas: currentAreas,
-      types: Array.from(types).sort(),
-      purposes: Array.from(purposes).sort(),
-      locations: Array.from(locations).sort(),
+      types: [...PROPERTY_TYPES],
+      purposes: [...PURPOSES],
+      locations: [...LOCATIONS],
       marketers: Array.from(marketers).sort()
     };
   }, [properties, filters.governorate]);
