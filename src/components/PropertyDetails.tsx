@@ -786,18 +786,40 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
               <span className="text-xs font-bold text-stone-800">{cleanAreaName(property.area)}</span>
             </button>
             {/* Type */}
-            {PROPERTY_TYPES.includes(property.type) && (
-              <button onClick={() => onFilter('type', property.type)} className="flex items-center justify-center p-2 bg-stone-50/50 rounded-lg border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98]">
-                <span className="text-xs font-bold text-stone-800">{property.type}</span>
-              </button>
-            )}
+            {(() => {
+              const type = property.type;
+              if (!PROPERTY_TYPES.includes(type)) return null;
+              
+              const normalizedContent = normalizeArabic((property.name || '') + ' ' + (property.details || '')).toLowerCase();
+              const normalizedType = normalizeArabic(type).toLowerCase();
+              
+              // Hide if already mentioned in name or details
+              if (normalizedContent.includes(normalizedType)) return null;
+              
+              return (
+                <button onClick={() => onFilter('type', type)} className="flex items-center justify-center p-2 bg-stone-50/50 rounded-lg border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98]">
+                  <span className="text-xs font-bold text-stone-800">{type}</span>
+                </button>
+              );
+            })()}
 
             {/* Purpose */}
-            {property.purpose !== 'بيع' && (
-              <button onClick={() => onFilter('purpose', property.purpose)} className="flex items-center justify-center p-2 bg-stone-50/50 rounded-lg border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98]">
-                <span className="text-xs font-bold text-stone-800">{property.purpose}</span>
-              </button>
-            )}
+            {(() => {
+              const purpose = property.purpose;
+              if (!purpose || purpose === 'بيع') return null; // 'بيع' is usually default/implied
+              
+              const normalizedContent = normalizeArabic((property.name || '') + ' ' + (property.details || '')).toLowerCase();
+              const normalizedPurpose = normalizeArabic(purpose).toLowerCase();
+              
+              // Hide if already mentioned in name or details
+              if (normalizedContent.includes(normalizedPurpose)) return null;
+              
+              return (
+                <button onClick={() => onFilter('purpose', purpose)} className="flex items-center justify-center p-2 bg-stone-50/50 rounded-lg border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98]">
+                  <span className="text-xs font-bold text-stone-800">{purpose}</span>
+                </button>
+              );
+            })()}
             {/* Sector */}
             {property.sector && (
               <div className="flex items-center justify-center p-2 bg-stone-50/50 rounded-lg border border-stone-100">
@@ -833,10 +855,10 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
               </button>
             )}
             {/* House Number */}
-            {property.houseNumber && (
-              <button onClick={() => onFilter('houseNumber', property.houseNumber)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
+            {property.house_number && (
+              <button onClick={() => onFilter('house_number', property.house_number)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
                 <span className="text-[10px] text-stone-500 mb-1">المنزل</span>
-                <span className="text-xs font-bold text-stone-800">{property.houseNumber}</span>
+                <span className="text-xs font-bold text-stone-800">{property.house_number}</span>
               </button>
             )}
             {/* Location */}
@@ -847,10 +869,10 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
               </button>
             )}
             {/* Location Link */}
-            {property.locationLink && (
+            {property.location_link && (
               <div className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 text-right col-span-2">
                 <span className="text-[10px] text-stone-500 mb-1">رابط العنوان</span>
-                <a href={property.locationLink} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-blue-600 hover:underline truncate w-full" dir="ltr">
+                <a href={property.location_link} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-blue-600 hover:underline truncate w-full" dir="ltr">
                   عرض على الخريطة
                 </a>
               </div>
