@@ -39,17 +39,15 @@ import { Comment } from '../types';
 import { ImageViewer } from './ImageViewer';
 import { LoadingSpinner } from './LoadingSpinner';
 import { SUPER_ADMIN_EMAILS, SUPER_ADMIN_PHONES } from '../constants';
-import { useStore } from '../store/useStore';
+import { useUIStore } from '../stores/useUIStore';
+import { usePropertyStore } from '../stores/usePropertyStore';
+import { useSearchStore } from '../stores/useSearchStore';
 import { useAuth } from '../contexts/AuthContext';
 
 export const PropertyDetails = memo(function PropertyDetails() {
-  const { 
-    selectedProperty: property, 
-    setView, 
-    favorites, 
-    toggleFavorite,
-    setFilters
-  } = useStore();
+  const { setView } = useUIStore();
+  const { selectedProperty: property, favorites, toggleFavorite } = usePropertyStore();
+  const { setFilters } = useSearchStore();
   const { user, isAdmin } = useAuth();
 
   const onBack = () => setView('list');

@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { Toaster } from 'react-hot-toast';
-import { useStore } from './store/useStore';
+import { useUIStore } from './stores/useUIStore';
+import { usePropertyStore } from './stores/usePropertyStore';
 import { useAuth } from './contexts/AuthContext';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
@@ -11,18 +12,18 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 const PropertyListView = lazy(() => import('./components/PropertyListView').then(m => ({ default: m.PropertyListView })));
 const PropertyDetails = lazy(() => import('./components/PropertyDetails').then(m => ({ default: m.PropertyDetails })));
 const PropertyForm = lazy(() => import('./components/PropertyForm').then(m => ({ default: m.PropertyForm })));
-// Add more lazy components as needed (UserManagement, CompanyManagement, etc.)
 
 import { useMemoryMonitor } from './hooks/usePerformanceDiagnostic';
 
 function App() {
-  const { view, selectedProperty } = useStore();
-  const { user, isInitialized } = useAuth();
+  const { view } = useUIStore();
+  const { selectedProperty } = usePropertyStore();
+  const { user, loading } = useAuth();
   
   // Performance Monitoring
   useMemoryMonitor();
 
-  if (!isInitialized) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-stone-50 flex items-center justify-center">
         <LoadingSpinner />
@@ -31,8 +32,6 @@ function App() {
   }
 
   if (!user) {
-    // AuthContext handles the redirect to login or shows the login form
-    // If we're here and no user, we might be in a loading state or AuthContext is still working
     return null; 
   }
 

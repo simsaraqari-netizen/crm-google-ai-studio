@@ -29,16 +29,14 @@ import {
 } from '../constants';
 import { UserProfile } from '../types';
 
-import { useStore } from '../store/useStore';
+import { useUIStore } from '../stores/useUIStore';
+import { usePropertyStore } from '../stores/usePropertyStore';
 import { useAuth } from '../contexts/AuthContext';
 import { useCompanies } from '../hooks/useCompanies';
 
 export const PropertyForm = memo(function PropertyForm() {
-  const { 
-    view,
-    selectedProperty: property, 
-    setView 
-  } = useStore();
+  const { view, setView } = useUIStore();
+  const { selectedProperty: property } = usePropertyStore();
   const { user, isAdmin, selectedCompanyId } = useAuth();
   const { data: companies = [] } = useCompanies();
 

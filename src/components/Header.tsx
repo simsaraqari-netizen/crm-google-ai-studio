@@ -1,11 +1,11 @@
 import React from 'react';
 import { Menu, Building2, User } from 'lucide-react';
-import { useStore } from '../store/useStore';
+import { useUIStore } from '../stores/useUIStore';
 import { useAuth } from '../contexts/AuthContext';
 import { useCompanies } from '../hooks/useCompanies';
 
 export const Header: React.FC = () => {
-  const { setSidebarOpen } = useStore();
+  const { setSidebarOpen } = useUIStore();
   const { user, isSuperAdmin, selectedCompanyId, setSelectedCompanyId } = useAuth();
   const { data: companies = [] } = useCompanies();
 

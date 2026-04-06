@@ -13,13 +13,13 @@ import {
   X,
   RefreshCw
 } from 'lucide-react';
-import { useStore } from '../store/useStore';
+import { useUIStore } from '../stores/useUIStore';
 import { useAuth } from '../contexts/AuthContext';
 
 type ViewType = 'list' | 'search-results' | 'my-listings' | 'my-favorites' | 'manage-marketers' | 'user-listings' | 'pending-properties' | 'manage-companies' | 'notifications' | 'details' | 'add' | 'edit' | 'company-details' | 'general-notifications' | 'trash';
 
 export const Sidebar: React.FC = () => {
-  const { view, setView, isSidebarOpen, setSidebarOpen } = useStore();
+  const { view, setView, isSidebarOpen, setSidebarOpen } = useUIStore();
   const { user, isAdmin, isSuperAdmin, handleLogout } = useAuth();
   
   // Placeholder for unreadCount - will be moved to a store or query later

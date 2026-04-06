@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useCallback, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, X, RefreshCw, Filter } from 'lucide-react';
-import { VGrid } from 'virtua';
+import { experimental_VGrid as VGrid } from 'virtua';
 import { PropertyCard } from './PropertyCard';
 import { LoadingSpinner } from './LoadingSpinner';
 import { useUIStore } from '../stores/useUIStore';
