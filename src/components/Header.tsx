@@ -1,28 +1,38 @@
 import React from 'react';
 import { Menu, Building2, User } from 'lucide-react';
-import { useUIStore } from '../stores/useUIStore';
-import { useAuth } from '../contexts/AuthContext';
-import { useCompanies } from '../hooks/useCompanies';
+import { UserProfile, Company } from '../types';
 
-export const Header: React.FC = () => {
-  const { setSidebarOpen } = useUIStore();
-  const { user, isSuperAdmin, selectedCompanyId, setSelectedCompanyId } = useAuth();
-  const { data: companies = [] } = useCompanies();
+interface HeaderProps {
+  setIsSidebarOpen: (open: boolean) => void;
+  company: Company | null;
+  user: UserProfile | null;
+  isSuperAdmin: boolean;
+  companies: Company[];
+  selectedCompanyId: string | null;
+  setSelectedCompanyId: (id: string | null) => void;
+}
 
-  const selectedCompany = companies.find(c => c.id === selectedCompanyId);
-
+export const Header: React.FC<HeaderProps> = ({
+  setIsSidebarOpen,
+  company,
+  user,
+  isSuperAdmin,
+  companies,
+  selectedCompanyId,
+  setSelectedCompanyId
+}) => {
   return (
     <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-stone-200/50 px-6 py-4 flex items-center justify-between shadow-sm shadow-stone-100/50">
       <div className="flex items-center gap-4">
         <button 
-          onClick={() => setSidebarOpen(true)}
+          onClick={() => setIsSidebarOpen(true)}
           className="p-2.5 hover:bg-stone-100 rounded-xl lg:hidden transition-all active:scale-95"
         >
           <Menu size={22} className="text-stone-600" />
         </button>
         <div className="flex flex-col">
           <h1 className="text-lg font-black tracking-tight text-stone-900 leading-none mb-1">
-            {selectedCompany?.name || 'شركة مصادقة'}
+            {company?.name || 'عقاراتي'}
           </h1>
           <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest">نظام إدارة العقارات</p>
         </div>

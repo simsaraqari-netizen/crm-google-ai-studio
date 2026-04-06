@@ -10,21 +10,39 @@ import {
   LogOut,
   ShieldCheck,
   ChevronRight,
+  Menu,
   X,
   RefreshCw
 } from 'lucide-react';
-import { useUIStore } from '../stores/useUIStore';
-import { useAuth } from '../contexts/AuthContext';
+import { UserProfile, Company } from '../types';
 
 type ViewType = 'list' | 'search-results' | 'my-listings' | 'my-favorites' | 'manage-marketers' | 'user-listings' | 'pending-properties' | 'manage-companies' | 'notifications' | 'details' | 'add' | 'edit' | 'company-details' | 'general-notifications' | 'trash';
 
-export const Sidebar: React.FC = () => {
-  const { view, setView, isSidebarOpen, setSidebarOpen } = useUIStore();
-  const { user, isAdmin, isSuperAdmin, handleLogout } = useAuth();
-  
-  // Placeholder for unreadCount - will be moved to a store or query later
-  const unreadCount = 0; 
+interface SidebarProps {
+  view: ViewType;
+  setView: (view: ViewType) => void;
+  user: UserProfile | null;
+  isAdmin: boolean;
+  isSuperAdmin: boolean;
+  company: Company | null;
+  unreadCount: number;
+  isSidebarOpen: boolean;
+  setIsSidebarOpen: (open: boolean) => void;
+  handleLogout: () => void;
+}
 
+export const Sidebar: React.FC<SidebarProps> = ({
+  view,
+  setView,
+  user,
+  isAdmin,
+  isSuperAdmin,
+  company,
+  unreadCount,
+  isSidebarOpen,
+  setIsSidebarOpen,
+  handleLogout
+}) => {
   const menuItems: { id: ViewType; label: string; icon: any; show: boolean; badge?: number }[] = [
     { id: 'list', label: 'كل العقارات', icon: LayoutGrid, show: true },
     { id: 'add', label: 'إضافة عقار', icon: PlusCircle, show: user?.role !== 'pending' },
@@ -43,7 +61,7 @@ export const Sidebar: React.FC = () => {
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-stone-900/20 backdrop-blur-sm z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
+          onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
@@ -55,10 +73,10 @@ export const Sidebar: React.FC = () => {
               <Building2 className="text-white" size={24} />
             </div>
             <span className={`font-black text-xl tracking-tight text-stone-900 whitespace-nowrap transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 lg:hidden'}`}>
-              شركة مصادقة
+              {company?.name || 'عقاراتي'}
             </span>
           </div>
-          <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-2 hover:bg-stone-100 rounded-lg transition-colors">
+          <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 hover:bg-stone-100 rounded-lg transition-colors">
             <X size={20} />
           </button>
         </div>
@@ -69,7 +87,7 @@ export const Sidebar: React.FC = () => {
               key={item.id}
               onClick={() => {
                 setView(item.id);
-                if (window.innerWidth < 1024) setSidebarOpen(false);
+                if (window.innerWidth < 1024) setIsSidebarOpen(false);
               }}
               className={`w-full flex items-center gap-4 p-3.5 rounded-xl transition-all duration-200 group relative ${
                 view === item.id 

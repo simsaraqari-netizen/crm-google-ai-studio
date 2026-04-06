@@ -39,34 +39,8 @@ import { Comment } from '../types';
 import { ImageViewer } from './ImageViewer';
 import { LoadingSpinner } from './LoadingSpinner';
 import { SUPER_ADMIN_EMAILS, SUPER_ADMIN_PHONES } from '../constants';
-import { useUIStore } from '../stores/useUIStore';
-import { usePropertyStore } from '../stores/usePropertyStore';
-import { useSearchStore } from '../stores/useSearchStore';
-import { useAuth } from '../contexts/AuthContext';
 
-export const PropertyDetails = memo(function PropertyDetails() {
-  const { setView } = useUIStore();
-  const { selectedProperty: property, favorites, toggleFavorite } = usePropertyStore();
-  const { setFilters } = useSearchStore();
-  const { user, isAdmin } = useAuth();
-
-  const onBack = () => setView('list');
-  const isFavorite = property ? (favorites || []).includes(property.id) : false;
-  const onFavorite = () => property && toggleFavorite(property.id);
-  const onEdit = () => setView('edit');
-  
-  if (!property || !user) return null;
-
-  // Stubs - should be implemented in a hook or store for full functionality
-  const onRestore = () => {};
-  const onPermanentDelete = () => {};
-  const onDelete = () => {};
-  const onDeleteComment = (id: string) => {};
-  const onUserClick = (id: string) => {};
-  const onFilter = (key: string, value: string) => {
-    setFilters({ [key]: value });
-    setView('list');
-  };
+export const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, isAdmin, isFavorite, onFavorite, onEdit, onDelete, onRestore, onPermanentDelete, onDeleteComment, onUserClick, onFilter }: any) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [commentImages, setCommentImages] = useState<Array<{ url: string, type: 'image' | 'video' }>>([]);
@@ -331,8 +305,8 @@ export const PropertyDetails = memo(function PropertyDetails() {
               <>
                  {(() => {
                    const img = property.images[activeImageIndex];
-                   const url = getImageUrl(img);
-                   const isVideo = isImageVideo(img);
+                   const url = typeof img === 'string' ? img : img.url;
+                   const isVideo = typeof img === 'string' ? img.startsWith('data:video/') : img.type === 'video';
                    const comment = typeof img === 'string' ? null : img.comment;
                    
                    return (
@@ -352,7 +326,7 @@ export const PropertyDetails = memo(function PropertyDetails() {
                              className={`w-full h-full object-cover cursor-zoom-in ${property.is_sold ? 'grayscale opacity-60' : ''}`}
                              referrerPolicy="no-referrer"
                              onClick={() => {
-                               setViewerImages(property.images.map(i => getImageUrl(i)));
+                               setViewerImages(property.images.map(i => typeof i === 'string' ? i : i.url));
                                setViewerIndex(activeImageIndex);
                                setShowViewer(true);
                              }}
@@ -361,14 +335,14 @@ export const PropertyDetails = memo(function PropertyDetails() {
                              <div className="absolute bottom-4 right-4 left-4 p-3 bg-black/60 backdrop-blur-md rounded-xl border border-white/20">
                                <p className="text-white text-xs font-bold text-center leading-relaxed">
                                  {comment}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
+                               </p>
+                             </div>
+                           )}
+                         </div>
+                       )}
+                     </>
+                   );
+                 })()}
                 {property.is_sold && (
                   <div className="absolute inset-0 flex items-center justify-center bg-stone-700/80 backdrop-blur-sm pointer-events-none z-10">
                     <span className="text-white font-black text-4xl tracking-wider transform -rotate-12 border-4 border-white px-6 py-2 rounded-xl shadow-2xl">مباع</span>
