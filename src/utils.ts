@@ -450,7 +450,7 @@ export function cleanNameText(text: string): string {
   let clean = text.trim();
   
   // Suffixes that are often redundant if they appear earlier
-  const redundantSuffixes = ["طلب", "عرض", "للبيع", "للبدل", "للايجار", "مشترى", "شراء", "شراي", "مشترين", "شراي"];
+  const redundantSuffixes = ["طلب", "عرض", "للبيع", "للبدل", "للايجار", "مشترى", "شراء", "شراي", "مشترين", "شرايين", "شراية", "مطلوب", "للشراء"];
   
   let changed = true;
   while (changed) {
@@ -459,15 +459,81 @@ export function cleanNameText(text: string): string {
       const lastWordRegex = new RegExp(`\\s*${word}$`, 'i');
       if (lastWordRegex.test(clean)) {
         const remainingText = clean.replace(lastWordRegex, "").trim();
-        // Only remove if it's already present earlier in the text
-        if (normalizeArabic(remainingText).includes(normalizeArabic(word))) {
-          clean = remainingText;
-          changed = true;
+        // Only remove if it's already present earlier in the text or it's a very common redundant suffix
+        if (normalizeArabic(remainingText).includes(normalizeArabic(word)) || remainingText.length > 3) {
+           // We are more aggressive now: if there's enough text left, remove the redundant suffix
+           clean = remainingText;
+           changed = true;
         }
       }
     }
   }
   
+  return clean;
+}
+
+/**
+ * Advanced cleaning that uses the property's other fields to remove redundancies from the name
+ */
+export function cleanNameWithContext(name: string, area: string, purpose: string, type: string): string {
+  if (!name) return "";
+  let clean = name.trim();
+
+  // 1. Map of purpose variations
+  const purposeMap: { [key: string]: string[] } = {
+    'شراء': ['شراء', 'للشراء', 'شراي', 'شراية', 'مشترك', 'مشتري', 'مطلوب', 'مشترين', 'شرايين'],
+    'بدل': ['بدل', 'للبدل', 'تبديل'],
+    'بيع': ['بيع', 'للبيع', 'بياع'],
+    'ايجار': ['ايجار', 'للايجار', 'تاجير', 'تأجير', 'للإيجار'],
+    'استئجار': ['استئجار', 'مستاجر', 'مستأجر', 'استاجار']
+  };
+
+  const currentPurposeTokens = purposeMap[purpose] || [];
+  const nArea = normalizeArabic(area || "");
+  const nType = normalizeArabic(type || "");
+
+  // Tokenize
+  let tokens = clean.split(/\s+/);
+  if (tokens.length <= 1) return clean; // Don't wipe out single-word names
+
+  // 2. Filter tokens by comparing with context
+  tokens = tokens.filter((token, index) => {
+    const nToken = normalizeArabic(token);
+    
+    // Skip very short tokens unless they are the only thing
+    if (nToken.length <= 1) return true;
+
+    // Remove if it's a redundant purpose word
+    if (purpose && currentPurposeTokens.some(p => normalizeArabic(p) === nToken)) {
+      return false;
+    }
+    
+    // Remove if it matches the type
+    if (type && nType.includes(nToken) && nToken.length > 2) {
+      return false;
+    }
+
+    // Remove if it matches the area name (only if at the end of the string)
+    if (area && nArea.includes(nToken) && index >= tokens.length - 2 && nToken.length > 2) {
+      // Avoid removing "عبدالله" if the area is "عبدالله المبارك" but it's part of a person's name
+      // But usually if it's at the very end, it's the area redundancy
+      return false;
+    }
+
+    return true;
+  });
+
+  clean = tokens.join(' ').trim();
+  
+  // 3. Final cleanup for common garbage left at the end
+  const trailingGarbage = ["في", "منطقة", "المنطقة", "عرض", "طلب"];
+  for (const word of trailingGarbage) {
+    const reg = new RegExp(`\\s+${word}$`, 'i');
+    if (reg.test(clean)) {
+      clean = clean.replace(reg, "").trim();
+    }
+  }
+
   return clean;
 }
 

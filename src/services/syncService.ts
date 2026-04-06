@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { readSheet, writeToSheet } from './googleSheetsService.ts';
-import { cleanAreaName, inferGovernorate, inferPurpose, inferType, cleanNameText } from '../utils.ts';
+import { cleanAreaName, inferGovernorate, inferPurpose, inferType, cleanNameText, cleanNameWithContext } from '../utils.ts';
 
 const supabaseAdmin = createClient(
   process.env.VITE_SUPABASE_URL!,
@@ -70,14 +70,8 @@ export const syncSupabaseWithSheets = async () => {
 
         const newGov = inferGovernorate(cArea, cleanVal(governorate));
 
-        // Deduplicate name: check if it ends with area, purpose or type
-        let finalName = cName;
-        const potentialSuffixes = [cArea, newPurpose, newType].filter(s => s && s.length > 2);
-        for (const suffix of potentialSuffixes) {
-          if (finalName.endsWith(suffix)) {
-            finalName = finalName.substring(0, finalName.length - suffix.length).trim();
-          }
-        }
+        // Deduplicate name using contextual metadata
+        let finalName = cleanNameWithContext(cName, cArea, newPurpose, newType);
         finalName = cleanNameText(finalName);
 
         const propertyData: any = {
