@@ -41,13 +41,26 @@ export function normalizeDigits(text: string): string {
 
 export function getImageUrl(img: any): string {
   if (!img) return '';
-  return typeof img === 'string' ? img : img.url || '';
+  if (typeof img === 'string') {
+    if (img.startsWith('[object')) return ''; // Catch sync errors
+    return img;
+  }
+  return img.url || '';
 }
 
 export function isImageVideo(img: any): boolean {
   if (!img) return false;
-  if (typeof img === 'string') return img.startsWith('data:video/');
-  return img.type === 'video';
+  const actualUrl = typeof img === 'string' ? img : (img.url || '');
+  if (!actualUrl) return false;
+  
+  if (typeof img !== 'string' && img.type === 'video') return true;
+  
+  const videoExtensions = ['.mp4', '.mov', '.webm', '.ogg', '.m4v'];
+  const isVideoUrl = videoExtensions.some(ext => actualUrl.toLowerCase().endsWith(ext)) || 
+                     actualUrl.includes('video') || 
+                     actualUrl.startsWith('data:video/');
+  
+  return isVideoUrl;
 }
 
 export function normalizeArabic(text: string): string {

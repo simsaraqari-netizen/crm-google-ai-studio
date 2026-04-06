@@ -79,7 +79,11 @@ export const syncSupabaseWithSheets = async () => {
           phone: cleanVal(phone),
           assigned_employee_id: assigned_employee_id || null,
           assigned_employee_name: assigned_employee_name || '',
-          images: imagesStr ? imagesStr.split(',').filter(Boolean) : [],
+          images: imagesStr ? imagesStr.split(',').filter(Boolean).map(url => ({ 
+            url, 
+            type: (url.includes('.mp4') || url.includes('.mov') || url.includes('video')) ? 'video' : 'image',
+            comment: '' 
+          })) : [],
           links: linksStr ? linksStr.split(',').filter(Boolean) : [],
           location_link: location_link || '',
           is_sold: is_soldStr === 'TRUE' || is_soldStr === 'نعم' || is_soldStr === 'مباع',
@@ -160,7 +164,7 @@ export const syncSupabaseWithSheets = async () => {
         p.phone || '',
         p.assigned_employee_id || '',
         p.assigned_employee_name || '',
-        (p.images || []).join(','),
+        (p.images || []).map((img: any) => typeof img === 'string' ? img : (img.url || '')).filter(Boolean).join(','),
         (p.links || []).join(','),
         p.location_link || '',
         p.is_sold ? "مباع" : "متاح",
