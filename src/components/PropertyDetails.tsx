@@ -333,8 +333,8 @@ export const PropertyDetails = memo(function PropertyDetails() {
               <>
                  {(() => {
                    const img = property.images[activeImageIndex];
-                   const url = typeof img === 'string' ? img : img.url;
-                   const isVideo = typeof img === 'string' ? img.startsWith('data:video/') : img.type === 'video';
+                   const url = getImageUrl(img);
+                   const isVideo = isImageVideo(img);
                    const comment = typeof img === 'string' ? null : img.comment;
                    
                    return (
@@ -354,7 +354,7 @@ export const PropertyDetails = memo(function PropertyDetails() {
                              className={`w-full h-full object-cover cursor-zoom-in ${property.is_sold ? 'grayscale opacity-60' : ''}`}
                              referrerPolicy="no-referrer"
                              onClick={() => {
-                               setViewerImages(property.images.map(i => typeof i === 'string' ? i : i.url));
+                               setViewerImages(property.images.map(i => getImageUrl(i)));
                                setViewerIndex(activeImageIndex);
                                setShowViewer(true);
                              }}
@@ -363,14 +363,14 @@ export const PropertyDetails = memo(function PropertyDetails() {
                              <div className="absolute bottom-4 right-4 left-4 p-3 bg-black/60 backdrop-blur-md rounded-xl border border-white/20">
                                <p className="text-white text-xs font-bold text-center leading-relaxed">
                                  {comment}
-                               </p>
-                             </div>
-                           )}
-                         </div>
-                       )}
-                     </>
-                   );
-                 })()}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 {property.is_sold && (
                   <div className="absolute inset-0 flex items-center justify-center bg-stone-700/80 backdrop-blur-sm pointer-events-none z-10">
                     <span className="text-white font-black text-4xl tracking-wider transform -rotate-12 border-4 border-white px-6 py-2 rounded-xl shadow-2xl">مباع</span>

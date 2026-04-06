@@ -16,7 +16,7 @@ export interface Property {
   assigned_employee_id?: string;
   assigned_employee_name?: string;
   assigned_employee_phone?: string;
-  assigned_employee?: { phone: string };
+  assigned_employee?: { phone: string; full_name?: string };
   images: (string | PropertyImage)[];
   location_link?: string;
   is_sold?: boolean;

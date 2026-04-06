@@ -223,16 +223,15 @@ export const PropertyForm = memo(function PropertyForm() {
         status: isAdmin ? (property?.status || 'approved') : 'pending'
       };
 
-      try {
-        if (property) {
-          await supabase.from('properties').update(data).eq('id', property.id);
-          await notifyFavoriteUsers(property.id, property, data);
-        } else {
-          await supabase.from('properties').insert(data);
-        }
-      } catch (error) {
-        console.error("Error saving property:", error);
+      if (property) {
+        const { error } = await supabase.from('properties').update(data).eq('id', property.id);
+        if (error) throw error;
+        await notifyFavoriteUsers(property.id, property, data);
+      } else {
+        const { error } = await supabase.from('properties').insert(data);
+        if (error) throw error;
       }
+
       toast.success(property ? 'تم تحديث العقار بنجاح' : 'تمت إضافة العقار بنجاح');
       
       // Trigger background sync with Google Sheets
@@ -240,13 +239,9 @@ export const PropertyForm = memo(function PropertyForm() {
 
       onSave();
     } catch (error: any) {
-      console.error("Error saving property:", error);
-      let message = error.message;
-      try {
-        const parsed = JSON.parse(error.message);
-        message = parsed.error;
-      } catch (e) {}
-      toast.error(`حدث خطأ أثناء حفظ البيانات: ${message}`);
+      console.error("Error saving property details:", error);
+      let message = error.message || 'حدث خطأ غير معروف';
+      toast.error(`فشل في حفظ العقار: ${message}`);
     } finally {
       setIsSaving(false);
     }
