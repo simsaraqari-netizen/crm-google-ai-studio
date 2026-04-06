@@ -136,8 +136,12 @@ export function searchMatch(source: string, query: string): boolean {
   
   const queryParts = normalizedQuery.split(/\s+/).filter(Boolean);
   
-  // Use direct include for partial matching across the entire source
-  return queryParts.every(part => normalizedSource.includes(part));
+  // Split source into tokens (words/numbers) using non-alphanumeric/non-Arabic characters as boundaries
+  // This effectively treats anything that isn't a letter or digit as a separator
+  const sourceTokens = normalizedSource.split(/[^a-zA-Z0-9\u0600-\u06FF]+/).filter(Boolean);
+  
+  // Every part of the search query must exist as an EXACT token in the source
+  return queryParts.every(part => sourceTokens.includes(part));
 }
 
 export function cleanPropertyName(name: string): string {

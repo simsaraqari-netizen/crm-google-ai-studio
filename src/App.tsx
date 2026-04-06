@@ -793,8 +793,8 @@ export default function App() {
       const matchesType = !filters.type || normalizeArabic(p.type || '') === normalizeArabic(filters.type);
       const matchesPurpose = !filters.purpose || normalizeArabic(p.purpose || '') === normalizeArabic(filters.purpose);
       const matchesLocation = !filters.location || normalizeArabic(p.location || '') === normalizeArabic(filters.location);
-      const matchesPlot = !filters.plot_number || (p.plot_number && p.plot_number.includes(normalizeDigits(filters.plot_number)));
-      const matchesHouse = !filters.house_number || (p.house_number && p.house_number.includes(normalizeDigits(filters.house_number)));
+      const matchesPlot = !filters.plot_number || (p.plot_number && p.plot_number === normalizeDigits(filters.plot_number));
+      const matchesHouse = !filters.house_number || (p.house_number && p.house_number === normalizeDigits(filters.house_number));
       const matchesMarketer = !filters.marketer || normalizeArabic(p.assigned_employee_name || '') === normalizeArabic(filters.marketer);
       const matchesStatus = !filters.status || 
                            (filters.status === 'sold' && p.is_sold) || 

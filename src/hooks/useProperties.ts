@@ -42,7 +42,7 @@ export const useProperties = (user: any, isSuperAdmin: boolean, selectedCompanyI
 
       if (debouncedSearchQuery) {
         const search = debouncedSearchQuery.trim();
-        query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%,area.ilike.%${search}%`);
+        query = query.or(`name.imatch.\\y${search}\\y,phone.imatch.\\y${search}\\y,area.imatch.\\y${search}\\y`);
       }
       
       const { data, error, count } = await query.order('created_at', { ascending: false }).range(0, visibleCount - 1);
