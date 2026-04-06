@@ -6,6 +6,7 @@ import { fileURLToPath } from "url";
 import { createClient } from '@supabase/supabase-js';
 import { readSheet, writeToSheet, createSheet } from "./src/services/googleSheetsService.ts";
 import { initializeCronJobs } from "./src/services/cronService.ts";
+import { syncSupabaseWithSheets } from "./src/services/syncService.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -63,6 +64,27 @@ async function startServer() {
       `);
     } catch (e) {
       res.status(500).send('Error');
+    }
+  });
+
+  app.post("/api/sync/auto", async (req, res) => {
+    const { idToken } = req.body;
+    try {
+      const { data: { user: caller } } = await supabaseAdmin.auth.getUser(idToken);
+      if (!caller) return res.status(401).send('Unauthorized');
+
+      const { data: userDoc } = await supabaseAdmin.from('user_profiles').select('role').eq('id', caller.id).maybeSingle();
+      const isAdminEmail = ["simsaraqari@gmail.com", "mostafasoliman550@gmail.com"].includes(caller.email!);
+      
+      if (userDoc?.role !== 'admin' && !isAdminEmail) {
+        return res.status(403).send('Unauthorized');
+      }
+
+      await syncSupabaseWithSheets();
+      res.send('Auto-sync completed successfully');
+    } catch (e: any) {
+      console.error('Auto-sync error:', e);
+      res.status(500).send(e.message || 'Error during auto-sync');
     }
   });
 
