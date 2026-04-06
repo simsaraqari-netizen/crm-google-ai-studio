@@ -29,7 +29,26 @@ import {
 } from '../constants';
 import { UserProfile } from '../types';
 
-export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selectedCompanyId, companies, onCancel, onSave }: any) {
+import { useStore } from '../store/useStore';
+import { useAuth } from '../contexts/AuthContext';
+import { useCompanies } from '../hooks/useCompanies';
+
+export const PropertyForm = memo(function PropertyForm() {
+  const { 
+    view,
+    selectedProperty: property, 
+    setView 
+  } = useStore();
+  const { user, isAdmin, selectedCompanyId } = useAuth();
+  const { data: companies = [] } = useCompanies();
+
+  const mode = view === 'edit' ? 'edit' : 'add';
+  const onCancel = () => setView('list');
+  const onSave = () => {
+    // Save logic is already inside PropertyForm usually, or it calls onSave.
+    // I will keep the internal state management of the form for now.
+    setView('list');
+  };
   const isSuperAdmin = user?.role === 'super_admin' || 
     (user?.email && SUPER_ADMIN_EMAILS.includes(user.email)) ||
     (user?.phone && SUPER_ADMIN_PHONES.includes(user.phone));

@@ -99,4 +99,14 @@ export interface FilterOptions {
   location: string;
   marketer: string;
   status: string;
+  plot_number: string;
+  house_number: string;
+}
+
+export enum OperationType {
+  CREATE = 'CREATE',
+  UPDATE = 'UPDATE',
+  DELETE = 'DELETE',
+  GET = 'GET',
+  WRITE = 'WRITE'
 }
