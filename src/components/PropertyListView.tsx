@@ -1,55 +1,46 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo, useRef, useCallback, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, X, RefreshCw, Filter } from 'lucide-react';
 import { VGrid } from 'virtua';
 import { PropertyCard } from './PropertyCard';
 import { LoadingSpinner } from './LoadingSpinner';
-import { SearchableFilter } from './SearchableFilter';
-import { useStore } from '../store/useStore';
+import { useUIStore } from '../stores/useUIStore';
+import { usePropertyStore } from '../stores/usePropertyStore';
+import { useSearchStore } from '../stores/useSearchStore';
 import { useProperties } from '../hooks/useProperties';
 import { useAuth } from '../contexts/AuthContext';
-import { normalizeArabic, normalizeDigits, searchMatch, extractDetailsFromName } from '../utils';
+import { useDebounce } from '../hooks/useDebounce';
+import { useExactSearch } from '../hooks/useExactSearch';
+import { normalizeArabic, normalizeDigits, extractDetailsFromName } from '../utils';
 import { useRenderTracker, usePerformanceTimer } from '../hooks/usePerformanceDiagnostic';
 
-export const PropertyListView: React.FC = () => {
-  const { 
-    view, 
-    filters, 
-    setFilters, 
-    searchQuery, 
-    setSearchQuery, 
-    activeSearchQuery, 
-    setActiveSearchQuery,
-    setSelectedProperty,
-    setView,
-    showFilters,
-    setShowFilters,
-    favorites,
-    toggleFavorite,
-    selectedMarketerId
-  } = useStore();
+export const PropertyListView = memo(function PropertyListView() {
+  // 1. UI Store
+  const { view, setView, showFilters, setShowFilters } = useUIStore();
+  
+  // 2. Property Store
+  const { setSelectedProperty, favorites, toggleFavorite, selectedMarketerId } = usePropertyStore();
+  
+  // 3. Search Store
+  const { searchQuery, setSearchQuery, activeSearchQuery, setActiveSearchQuery, filters } = useSearchStore();
 
   // Performance Tracking
   useRenderTracker('PropertyListView');
-  usePerformanceTimer('PropertyListView-Filter');
+  usePerformanceTimer('PropertyListView-Root');
 
   const { user, isAdmin } = useAuth();
   const { data: properties = [], isLoading, refetch, isFetching } = useProperties(user?.company_id);
 
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Search Debouncing Logic
+  // Search Debouncing (Using the new hook)
+  const debouncedSearch = useDebounce(searchQuery, 400);
+  
   React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setActiveSearchQuery(searchQuery);
-    }, 400); // 400ms debounce
+    setActiveSearchQuery(debouncedSearch);
+  }, [debouncedSearch, setActiveSearchQuery]);
 
-    return () => clearTimeout(timer);
-  }, [searchQuery, setActiveSearchQuery]);
-
-  const filteredProperties = useMemo(() => {
+  // Step 1: Base View Filtering
+  const baseFilteredProperties = useMemo(() => {
     return properties.filter(p => {
-      // View specific filtering
       if (view === 'my-listings' && p.created_by !== user?.id) return false;
       if (view === 'my-favorites' && !favorites.includes(p.id)) return false;
       if (view === 'user-listings' && selectedMarketerId && p.assigned_employee_id !== selectedMarketerId) return false;
@@ -57,48 +48,43 @@ export const PropertyListView: React.FC = () => {
       if (view === 'trash' && p.status !== 'deleted') return false;
       if (view !== 'trash' && p.status === 'deleted') return false;
       
-      // Text Search
-      if (activeSearchQuery) {
-        const extracted = extractDetailsFromName(p.name);
-        const searchableText = [
-          p.name,
-          p.area,
-          p.plot_number,
-          p.details,
-          p.assigned_employee_name,
-          p.phone,
-          p.governorate,
-          p.type,
-          p.purpose,
-          p.location,
-          p.house_number,
-          p.sector,
-          extracted.sector ? `قطاع ${extracted.sector}` : '',
-          extracted.block ? `ق ${extracted.block} قطعة ${extracted.block}` : '',
-          extracted.street ? `ش ${extracted.street} شارع ${extracted.street}` : '',
-          extracted.avenue ? `ج ${extracted.avenue} جادة ${extracted.avenue}` : '',
-          extracted.plot_number ? `قسيمة ${extracted.plot_number}` : '',
-          extracted.house_number ? `م ${extracted.house_number} منزل ${extracted.house_number}` : '',
-        ].filter(Boolean).join(' ');
-        if (!searchMatch(searchableText, activeSearchQuery)) return false;
-      }
-
       const matchesGov = !filters.governorate || normalizeArabic(p.governorate || '') === normalizeArabic(filters.governorate);
       const matchesArea = !filters.area || normalizeArabic(p.area || '') === normalizeArabic(filters.area);
       const matchesType = !filters.type || normalizeArabic(p.type || '') === normalizeArabic(filters.type);
       const matchesPurpose = !filters.purpose || normalizeArabic(p.purpose || '') === normalizeArabic(filters.purpose);
       const matchesLocation = !filters.location || normalizeArabic(p.location || '') === normalizeArabic(filters.location);
-      const matchesPlot = !filters.plot_number || (p.plot_number && p.plot_number === normalizeDigits(filters.plot_number));
-      const matchesHouse = !filters.house_number || (p.house_number && p.house_number === normalizeDigits(filters.house_number));
-      const matchesMarketer = !filters.marketer || normalizeArabic(p.assigned_employee_name || '') === normalizeArabic(filters.marketer);
       const matchesStatus = !filters.status || 
                            (filters.status === 'sold' && p.is_sold) || 
                            (filters.status === 'available' && !p.is_sold);
 
       return matchesGov && matchesArea && matchesType && matchesPurpose && 
-             matchesLocation && matchesPlot && matchesHouse && matchesMarketer && matchesStatus;
+             matchesLocation && matchesStatus;
     });
-  }, [properties, view, user?.id, favorites, selectedMarketerId, activeSearchQuery, filters]);
+  }, [properties, view, user?.id, favorites, selectedMarketerId, filters]);
+
+  // Step 2: Advanced Text Search using useExactSearch
+  const filteredProperties = useExactSearch(baseFilteredProperties, activeSearchQuery, (p) => {
+    const extracted = extractDetailsFromName(p.name);
+    return [
+      p.name, p.area, p.plot_number, p.details, p.assigned_employee_name,
+      p.phone, p.governorate, p.type, p.purpose, p.location, p.house_number, p.sector,
+      extracted.sector ? `قطاع ${extracted.sector}` : '',
+      extracted.block ? `قطعة ${extracted.block}` : '',
+      extracted.street ? `شارع ${extracted.street}` : '',
+      extracted.avenue ? `جادة ${extracted.avenue}` : '',
+      extracted.plot_number ? `قسيمة ${extracted.plot_number}` : '',
+      extracted.house_number ? `منزل ${extracted.house_number}` : '',
+    ];
+  });
+
+  const handlePropertyClick = useCallback((p: any) => {
+    setSelectedProperty(p);
+    setView('details');
+  }, [setSelectedProperty, setView]);
+
+  const handleFavoriteToggle = useCallback((id: string) => {
+    toggleFavorite(id);
+  }, [toggleFavorite]);
 
   if (isLoading) return <LoadingSpinner />;
 
@@ -163,9 +149,8 @@ export const PropertyListView: React.FC = () => {
               exit={{ height: 0, opacity: 0 }}
               className="overflow-hidden border-t border-stone-100 mt-4 pt-4"
             >
-              <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                {/* Filters would go here - for now keeping it simple to test virtua */}
-                <p className="col-span-full text-xs text-stone-400 text-center">الفلاتر المتقدمة جاري تحسينها...</p>
+              <div className="max-w-7xl mx-auto flex items-center justify-center p-4">
+                <p className="text-stone-400 text-sm font-medium">الفلاتر المتقدمة يتم تحميلها...</p>
               </div>
             </motion.div>
           )}
@@ -185,12 +170,8 @@ export const PropertyListView: React.FC = () => {
                 key={p.id} 
                 property={p} 
                 isFavorite={favorites.includes(p.id)}
-                onFavorite={() => toggleFavorite(p.id)}
-                onClick={() => {
-                  setSelectedProperty(p);
-                  setView('details');
-                }}
-                // Add more handlers as needed
+                onFavorite={handleFavoriteToggle}
+                onClick={handlePropertyClick}
                 isAdmin={isAdmin}
                 view={view}
               />
@@ -210,4 +191,4 @@ export const PropertyListView: React.FC = () => {
       </div>
     </div>
   );
-};
+});
