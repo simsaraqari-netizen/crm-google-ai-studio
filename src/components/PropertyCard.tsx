@@ -20,68 +20,9 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
       onClick={() => onClick && onClick(property)}
     >
       {/* Title - Full Width */}
-      <h3 className="text-xs font-bold text-stone-900 mb-2 line-clamp-2 leading-tight w-full text-right pr-6">
+      <h3 className="text-xs font-bold text-stone-900 mb-2 line-clamp-2 leading-tight w-full text-right">
         {generatePropertyTitle(property)}
       </h3>
-
-      {/* Floating Actions */}
-      <div className="absolute top-3 left-3 flex items-center gap-1 z-30">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onFavorite(property.id);
-          }}
-          className={`p-1.5 rounded-full transition-all ${isFavorite ? 'text-red-500 bg-red-50 shadow-sm' : 'text-stone-400 hover:bg-stone-50'}`}
-        >
-          <Heart size={14} fill={isFavorite ? "currentColor" : "none"} />
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            const shareUrl = `${window.location.origin}?property_id=${property.id}`;
-            if (navigator.share) {
-              navigator.share({
-                title: property.name || 'عقار',
-                text: property.details,
-                url: shareUrl,
-              }).catch(() => {
-                navigator.clipboard.writeText(shareUrl);
-                toast.success('تم نسخ الرابط');
-              });
-            } else {
-              navigator.clipboard.writeText(shareUrl);
-              toast.success('تم نسخ الرابط');
-            }
-          }}
-          className="p-1.5 text-stone-400 hover:bg-stone-50 rounded-full transition-all"
-        >
-          <Share2 size={14} />
-        </button>
-        {isAdmin && (
-          <>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onEdit) onEdit(property);
-              }}
-              className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-full transition-all"
-              title="تعديل"
-            >
-              <Edit size={14} />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onDelete) onDelete(property.id);
-              }}
-              className="p-1.5 text-red-500 hover:bg-red-50 rounded-full transition-all"
-              title="حذف"
-            >
-              <Trash2 size={14} />
-            </button>
-          </>
-        )}
-      </div>
 
       <div className="flex gap-3 flex-1 items-end mb-3">
         {/* Image on the right (first child in RTL) - Smaller and at bottom */}
