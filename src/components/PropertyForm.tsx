@@ -14,7 +14,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabaseClient';
-import { compressImage, isImageVideo, extractDetailsFromName, triggerAutoSync, inferArea, inferGovernorate, inferPurpose, inferType } from '../utils';
+import { compressImage, isImageVideo, extractDetailsFromName, triggerAutoSync, inferArea, inferGovernorate, inferPurpose, inferType, cleanNameText } from '../utils';
 import { notifyFavoriteUsers } from '../services/notificationService';
 import { SearchableFilter } from './SearchableFilter';
 import { LoadingSpinner } from './LoadingSpinner';
@@ -289,7 +289,7 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
 
                   setFormData(prev => ({
                     ...prev, 
-                    name: newName,
+                    name: cleanNameText(newName),
                     // Auto-fill if current value is empty
                     area: prev.area || inferredArea || '',
                     governorate: prev.governorate || inferredGov || '',

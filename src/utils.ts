@@ -445,6 +445,32 @@ export const formatPropertyDate = (date: any) => {
   }
 };
 
+export function cleanNameText(text: string): string {
+  if (!text) return "";
+  let clean = text.trim();
+  
+  // Suffixes that are often redundant if they appear earlier
+  const redundantSuffixes = ["طلب", "عرض", "للبيع", "للبدل", "للايجار", "مشترى", "شراء", "شراي", "مشترين", "شراي"];
+  
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const word of redundantSuffixes) {
+      const lastWordRegex = new RegExp(`\\s*${word}$`, 'i');
+      if (lastWordRegex.test(clean)) {
+        const remainingText = clean.replace(lastWordRegex, "").trim();
+        // Only remove if it's already present earlier in the text
+        if (normalizeArabic(remainingText).includes(normalizeArabic(word))) {
+          clean = remainingText;
+          changed = true;
+        }
+      }
+    }
+  }
+  
+  return clean;
+}
+
 export function extractDetailsFromName(name: string) {
   if (!name) return {};
   const normalized = normalizeArabic(name);
