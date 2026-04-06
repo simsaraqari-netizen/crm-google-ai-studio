@@ -12,7 +12,8 @@ const supabaseAdmin = createClient(
 
 export const initializeCronJobs = () => {
   // Run daily at midnight '0 0 * * *'
-  cron.schedule('0 0 * * *', async () => {
+  // Run every 5 minutes for auto-sync '*/5 * * * *'
+  cron.schedule('*/5 * * * *', async () => {
     console.log('[CRON] Starting daily Google Sheets Sync at', new Date().toISOString());
 
     try {
@@ -151,10 +152,10 @@ export const initializeCronJobs = () => {
 
       const header = [
         "ID", "الاسم", "المحافظة", "المنطقة", "النوع", "الغرض", "تليفون",
-        "Assigned Employee ID", "Assigned Employee Name", "Images", "Links", 
-        "Location Link", "Is Sold", "Sector", "Block", "Street", "Avenue", 
-        "Plot Number", "House Number", "Location", "Details", "Last Comment", 
-        "Status Label", "Created By", "Created At"
+        "المسؤول الرقمي", "المسؤول", "الصور", "الروابط", 
+        "رابط الموقع", "مباع؟", "القطاع", "القطعة", "الشارع", "الجادة", 
+        "القسيمة", "المنزل", "الموقع", "التفاصيل", "آخر تعليق", 
+        "حالة الحجز", "بواسطة", "تاريخ الإضافة"
       ];
 
       const writeData = [
