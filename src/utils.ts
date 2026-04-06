@@ -354,3 +354,36 @@ export const formatPropertyDate = (date: any) => {
     return '';
   }
 };
+
+export function extractDetailsFromName(name: string) {
+  if (!name) return {};
+  const normalized = normalizeArabic(name);
+  const details: any = {};
+
+  // Extract Block (ق)
+  const blockMatch = normalized.match(/ق\s*(\d+)/);
+  if (blockMatch) details.block = blockMatch[1];
+
+  // Extract Street (ش)
+  const streetMatch = normalized.match(/ش\s*(\d+)/);
+  if (streetMatch) details.street = streetMatch[1];
+
+  // Extract Avenue (جاده/جادة)
+  const avenueMatch = normalized.match(/جاده?\s*(\d+)/);
+  if (avenueMatch) details.avenue = avenueMatch[1];
+
+  // Extract Plot (قسيمه/قسيمة)
+  const plotMatch = normalized.match(/قسيمه?\s*(\d+)/);
+  if (plotMatch) details.plot_number = plotMatch[1];
+
+  // Extract House (منزل/م)
+  // To avoid confusion with "منطقة", we check for "منزل" or standalone "م" before a number
+  const houseMatch = normalized.match(/(?:منزل|م)\s*(\d+)/);
+  if (houseMatch) details.house_number = houseMatch[1];
+
+  // Extract Sector (قطاع)
+  const sectorMatch = normalized.match(/قطاع\s*(\d+)/);
+  if (sectorMatch) details.sector = sectorMatch[1];
+
+  return details;
+}
