@@ -14,7 +14,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabaseClient';
-import { compressImage, isImageVideo, extractDetailsFromName } from '../utils';
+import { compressImage, isImageVideo, extractDetailsFromName, triggerAutoSync, inferArea, inferGovernorate, inferPurpose, inferType } from '../utils';
 import { notifyFavoriteUsers } from '../services/notificationService';
 import { SearchableFilter } from './SearchableFilter';
 import { LoadingSpinner } from './LoadingSpinner';
@@ -215,6 +215,10 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
         console.error("Error saving property:", error);
       }
       toast.success(property ? 'تم تحديث العقار بنجاح' : 'تمت إضافة العقار بنجاح');
+      
+      // Trigger background sync with Google Sheets
+      setTimeout(triggerAutoSync, 500);
+
       onSave();
     } catch (error: any) {
       console.error("Error saving property:", error);
@@ -278,10 +282,19 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
                 onChange={(e) => {
                   const newName = e.target.value;
                   const extracted = extractDetailsFromName(newName);
+                  const inferredArea = inferArea(newName);
+                  const inferredGov = inferGovernorate(inferredArea);
+                  const inferredPurpose = inferPurpose(newName);
+                  const inferredType = inferType(newName);
+
                   setFormData(prev => ({
                     ...prev, 
                     name: newName,
                     // Auto-fill if current value is empty
+                    area: prev.area || inferredArea || '',
+                    governorate: prev.governorate || inferredGov || '',
+                    purpose: prev.purpose || inferredPurpose || '',
+                    type: prev.type || inferredType || '',
                     sector: prev.sector || extracted.sector || '',
                     block: prev.block || extracted.block || '',
                     street: prev.street || extracted.street || '',

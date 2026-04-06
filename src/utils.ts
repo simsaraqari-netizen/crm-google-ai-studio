@@ -1,5 +1,21 @@
 import { formatDistanceToNow } from 'date-fns';
 import { ar } from 'date-fns/locale';
+import { supabase } from './lib/supabaseClient';
+
+export const triggerAutoSync = async () => {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      await fetch('/api/sync/auto', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken: session.access_token })
+      });
+    }
+  } catch (err) {
+    console.error("Auto-sync trigger error:", err);
+  }
+};
 
 export function formatRelativeDate(date: any): string {
   if (!date) return '';
@@ -69,6 +85,56 @@ export function cleanAreaName(name: string): string {
   return clean;
 }
 
+export function inferArea(text: string): string {
+  if (!text) return '';
+  const normalized = normalizeArabic(text);
+
+  // 1. Identify the primary part of the text (ignore everything after "مع" or "بدل مع")
+  let primaryText = normalized;
+  const exchangeTerms = ['مع', 'بدل مع', 'نبدل مع', 'نبدل', 'للبدل'];
+  for (const term of exchangeTerms) {
+    const termPos = normalized.indexOf(term);
+    if (termPos !== -1 && termPos > 5) { // Ensure the term isn't at the very start
+      primaryText = normalized.substring(0, termPos);
+      break;
+    }
+  }
+
+  // Import AREAS here to avoid circular dependency
+  const { AREAS } = require('./constants');
+  const allAreas = Array.from(new Set(Object.values(AREAS).flat())) as string[];
+
+  // 2. Look for "في <area>" pattern in the primary part
+  const inPatternMatch = primaryText.match(/في\s+([^\s]+(?:\s+[^\s]+)?)/);
+  if (inPatternMatch) {
+    const captured = cleanAreaName(inPatternMatch[1]);
+    const normalizedCaptured = normalizeArabic(captured);
+    const matchedArea = allAreas.find(a => 
+      normalizeArabic(a).includes(normalizedCaptured) || 
+      normalizedCaptured.includes(normalizeArabic(a))
+    );
+    if (matchedArea) return matchedArea;
+  }
+
+  // 3. Just look for any area name in the primary part, return the first one found
+  for (const area of allAreas) {
+    const normalizedArea = normalizeArabic(area);
+    if (primaryText.includes(normalizedArea)) {
+      return area;
+    }
+  }
+
+  // 4. Fallback search in the whole text if not found in primary
+  for (const area of allAreas) {
+    const normalizedArea = normalizeArabic(area);
+    if (normalized.includes(normalizedArea)) {
+      return area;
+    }
+  }
+
+  return '';
+}
+
 export function inferGovernorate(areaName: string, currentGov: string = ""): string {
   if (!areaName && !currentGov) return "محافظة غير محددة";
   
@@ -87,13 +153,14 @@ export function inferGovernorate(areaName: string, currentGov: string = ""): str
   }
 
   // Fallback to text matching on currentGov
-  if (nGov.includes('عاصمه') || nGov.includes('عاصمة')) return 'محافظة العاصمة';
-  if (nGov.includes('حولي')) return 'محافظة حولي';
-  if (nGov.includes('فروانيه') || nGov.includes('فروانية') || nGov.includes('رابعه') || nGov.includes('رابعة')) return 'محافظة الفروانية';
-  if (nGov.includes('مبارك')) return 'محافظة مبارك الكبير';
-  if (nGov.includes('احمدي') || nGov.includes('عاشره') || nGov.includes('عاشرة')) return 'محافظة الأحمدي';
-  if (nGov.includes('جهراء')) return 'محافظة الجهراء';
-  if (nGov.includes('مطلاع')) return 'محافظة الجهراء';
+  const t = nGov || nArea;
+  if (t.includes('عاصمه') || t.includes('عاصمة')) return 'محافظة العاصمة';
+  if (t.includes('حولي')) return 'محافظة حولي';
+  if (t.includes('فروانيه') || t.includes('فروانية') || t.includes('رابعه') || t.includes('رابعة')) return 'محافظة الفروانية';
+  if (t.includes('مبارك')) return 'محافظة مبارك الكبير';
+  if (t.includes('احمدي') || t.includes('عاشره') || t.includes('عاشرة')) return 'محافظة الأحمدي';
+  if (t.includes('جهراء')) return 'محافظة الجهراء';
+  if (t.includes('مطلاع')) return 'محافظة الجهراء';
 
   return 'محافظة غير محددة';
 }

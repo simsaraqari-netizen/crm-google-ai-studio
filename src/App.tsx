@@ -64,7 +64,9 @@ import {
   formatRelativeDate,
   formatDateTime,
   isImageVideo,
-  getImageUrl
+  getImageUrl,
+  triggerAutoSync,
+  extractDetailsFromName
 } from './utils';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -1760,12 +1762,18 @@ export default function App() {
                         onApprove={async (id: string) => {
                           const { error } = await supabase.from('properties').update({ status: 'approved' }).eq('id', id);
                           if (error) handleError(error, OperationType.UPDATE, 'properties');
-                          else toast.success('تم قبول العقار');
+                          else {
+                            toast.success('تم قبول العقار');
+                            triggerAutoSync();
+                          }
                         }}
                         onReject={async (id: string) => {
                           const { error } = await supabase.from('properties').update({ status: 'rejected' }).eq('id', id);
                           if (error) handleError(error, OperationType.UPDATE, 'properties');
-                          else toast.success('تم رفض العقار');
+                          else {
+                            toast.success('تم رفض العقار');
+                            triggerAutoSync();
+                          }
                         }}
                         onEdit={(p: any) => {
                           setSelectedProperty(p);
@@ -2779,6 +2787,7 @@ export default function App() {
       }).eq('id', id);
       if (error) throw error;
       toast.success('تم استعادة العقار بنجاح');
+      triggerAutoSync();
     } catch (error) {
       console.error("Error restoring property:", error);
       toast.error("حدث خطأ أثناء محاولة استعادة العقار");
@@ -2817,6 +2826,7 @@ export default function App() {
         if (deleteError) throw deleteError;
         
         toast.success('تم حذف العقار نهائياً');
+        triggerAutoSync();
         if (view === 'details') setView('list');
       } catch (error) {
         console.error("Error permanently deleting property:", error);
@@ -2846,6 +2856,7 @@ export default function App() {
         setDeleteConfirm({ isOpen: false, property_id: null });
         if (view === 'details') setView('list');
         toast.success('تم نقل العقار إلى سلة المحذوفات');
+        triggerAutoSync();
       } catch (error) {
         console.error("Error deleting property:", error);
         toast.error("حدث خطأ أثناء محاولة حذف العقار");
@@ -2901,6 +2912,7 @@ export default function App() {
 
         setCommentDeleteConfirm({ isOpen: false, commentId: null, property_id: null });
         toast.success("تم حذف التعليق بنجاح");
+        triggerAutoSync();
       } catch (error) {
         console.error("Error deleting comment:", error);
         toast.error("حدث خطأ أثناء حذف التعليق");
