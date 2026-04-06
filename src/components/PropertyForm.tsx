@@ -14,7 +14,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabaseClient';
-import { compressImage, isImageVideo } from '../utils';
+import { compressImage, isImageVideo, extractDetailsFromName } from '../utils';
 import { notifyFavoriteUsers } from '../services/notificationService';
 import { SearchableFilter } from './SearchableFilter';
 import { LoadingSpinner } from './LoadingSpinner';
@@ -275,7 +275,21 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
                 placeholder="اسم العميل (الاسم الثلاثي)"
                 className="w-full px-4 py-2 bg-stone-50 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all outline-none text-sm"
                 value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                onChange={(e) => {
+                  const newName = e.target.value;
+                  const extracted = extractDetailsFromName(newName);
+                  setFormData(prev => ({
+                    ...prev, 
+                    name: newName,
+                    // Auto-fill if current value is empty
+                    sector: prev.sector || extracted.sector || '',
+                    block: prev.block || extracted.block || '',
+                    street: prev.street || extracted.street || '',
+                    avenue: prev.avenue || extracted.avenue || '',
+                    plot_number: prev.plot_number || extracted.plot_number || '',
+                    house_number: prev.house_number || extracted.house_number || ''
+                  }));
+                }}
               />
             </div>
             <SearchableFilter 

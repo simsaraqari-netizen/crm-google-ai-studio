@@ -210,12 +210,22 @@ export function generatePropertyTitle(property: any): string {
   
   // الموقع
   const addressParts = [];
-  if (property.sector) addressParts.push(property.sector);
-  if (property.block) addressParts.push(`ق ${property.block}`);
-  if (property.street) addressParts.push(`ش ${property.street}`);
-  if (property.plot_number) addressParts.push(`قسيمة ${property.plot_number}`);
-  if (property.house_number) addressParts.push(`منزل ${property.house_number}`);
-  if (property.location) addressParts.push(`موقع ${property.location}`);
+  const ext = extractDetailsFromName(property.name);
+  
+  const sector = property.sector || ext.sector;
+  const block = property.block || ext.block;
+  const street = property.street || ext.street;
+  const avenue = property.avenue || ext.avenue;
+  const plot = property.plot_number || ext.plot_number;
+  const house = property.house_number || ext.house_number;
+
+  if (sector) addressParts.push(`قطاع ${sector}`);
+  if (block) addressParts.push(`ق ${block}`);
+  if (street) addressParts.push(`ش ${street}`);
+  if (avenue) addressParts.push(`ج ${avenue}`);
+  if (plot) addressParts.push(`قسيمة ${plot}`);
+  if (house) addressParts.push(`منزل ${house}`);
+  if (property.location) addressParts.push(property.location);
   
   if (addressParts.length > 0) {
     parts.push(addressParts.join(' '));
@@ -361,24 +371,23 @@ export function extractDetailsFromName(name: string) {
   const details: any = {};
 
   // Extract Block (ق)
-  const blockMatch = normalized.match(/ق\s*(\d+)/);
+  const blockMatch = normalized.match(/(?:ق|قطعه|قطعة)\s*(\d+)/);
   if (blockMatch) details.block = blockMatch[1];
 
   // Extract Street (ش)
-  const streetMatch = normalized.match(/ش\s*(\d+)/);
+  const streetMatch = normalized.match(/(?:ش|شارع)\s*(\d+)/);
   if (streetMatch) details.street = streetMatch[1];
 
-  // Extract Avenue (جاده/جادة)
-  const avenueMatch = normalized.match(/جاده?\s*(\d+)/);
+  // Extract Avenue (جاده|جادة|ج)
+  const avenueMatch = normalized.match(/(?:جاده|جادة|ج)\s*(\d+)/);
   if (avenueMatch) details.avenue = avenueMatch[1];
 
-  // Extract Plot (قسيمه/قسيمة)
-  const plotMatch = normalized.match(/قسيمه?\s*(\d+)/);
+  // Extract Plot (قسيمه|قسيمة)
+  const plotMatch = normalized.match(/(?:قسيمه|قسيمة)\s*(\d+)/);
   if (plotMatch) details.plot_number = plotMatch[1];
 
-  // Extract House (منزل/م)
-  // To avoid confusion with "منطقة", we check for "منزل" or standalone "م" before a number
-  const houseMatch = normalized.match(/(?:منزل|م)\s*(\d+)/);
+  // Extract House (منزل|م)
+  const houseMatch = normalized.match(/(?:منزل|\bم)\s*(\d+)/);
   if (houseMatch) details.house_number = houseMatch[1];
 
   // Extract Sector (قطاع)

@@ -770,6 +770,7 @@ export default function App() {
       
       // Text Search - Manual Trigger Required
       if (activeSearchQuery) {
+        const extracted = extractDetailsFromName(p.name);
         const searchableText = [
           p.name,
           p.area,
@@ -777,14 +778,20 @@ export default function App() {
           p.details,
           p.assigned_employee_name,
           p.phone,
-          p.details,
           p.governorate,
           p.type,
           p.purpose,
           p.location,
           p.house_number,
-          p.sector
-        ].join(' ');
+          p.sector,
+          // Add logical prefixes for extraction
+          extracted.sector ? `قطاع ${extracted.sector}` : '',
+          extracted.block ? `ق ${extracted.block} قطعة ${extracted.block}` : '',
+          extracted.street ? `ش ${extracted.street} شارع ${extracted.street}` : '',
+          extracted.avenue ? `ج ${extracted.avenue} جادة ${extracted.avenue}` : '',
+          extracted.plot_number ? `قسيمة ${extracted.plot_number}` : '',
+          extracted.house_number ? `م ${extracted.house_number} منزل ${extracted.house_number}` : '',
+        ].filter(Boolean).join(' ');
         if (!searchMatch(searchableText, activeSearchQuery)) return false;
       }
 
