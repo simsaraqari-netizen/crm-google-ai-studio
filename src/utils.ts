@@ -562,8 +562,8 @@ export function extractDetailsFromName(name: string) {
   const houseMatch = normalized.match(/(?:منزل|\bم)\s*(\d+)/);
   if (houseMatch) details.house_number = houseMatch[1];
 
-  // Extract Sector (قطاع)
-  const sectorMatch = normalized.match(/قطاع\s*(\d+)/);
+  // Extract Sector (قطاع | ان)
+  const sectorMatch = normalized.match(/(?:قطاع|ان)\s*(\d+)/);
   if (sectorMatch) details.sector = sectorMatch[1];
 
   return details;

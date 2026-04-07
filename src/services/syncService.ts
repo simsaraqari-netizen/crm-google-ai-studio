@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { readSheet, writeToSheet } from './googleSheetsService.ts';
-import { cleanAreaName, inferGovernorate, inferPurpose, inferType, cleanNameText, cleanNameWithContext } from '../utils.ts';
+import { cleanAreaName, inferGovernorate, inferPurpose, inferType, cleanNameText, cleanNameWithContext, normalizeDigits, extractDetailsFromName } from '../utils.ts';
 
 const supabaseAdmin = createClient(
   process.env.VITE_SUPABASE_URL!,
@@ -44,11 +44,14 @@ export const syncSupabaseWithSheets = async () => {
           status_label, created_by, created_atStr
         ] = row;
 
+        if (!name || name.trim() === '') continue;
+
         const cleanVal = (val: string) => {
           if (!val) return '';
-          let v = val.replace(/resedintal|residental|residential/gi, '').trim();
+          let v = normalizeDigits(val); // Always convert digits first
+          v = v.replace(/resedintal|residental|residential/gi, '').trim();
           // Standardize standalone "م" contextually
-          v = v.replace(/\bم\s+(\d+|[٠-٩]+)/g, 'منزل $1');
+          v = v.replace(/\bم\s+(\d+)/g, 'منزل $1');
           return v;
         };
 
@@ -91,7 +94,7 @@ export const syncSupabaseWithSheets = async () => {
           links: linksStr ? linksStr.split(',').filter(Boolean) : [],
           location_link: location_link || '',
           is_sold: is_soldStr === 'TRUE' || is_soldStr === 'نعم' || is_soldStr === 'مباع',
-          sector: cleanVal(sector),
+          sector: cleanVal(sector) || extractDetailsFromName(cName).sector || '',
           block: cleanVal(block),
           street: cleanVal(street),
           avenue: cleanVal(avenue),
@@ -160,29 +163,29 @@ export const syncSupabaseWithSheets = async () => {
       header,
       ...allProps.map(p => [
         p.id,
-        p.name || '',
-        p.governorate || '',
-        p.area || '',
-        p.type || '',
-        p.purpose || '',
-        p.phone || '',
+        normalizeDigits(p.name || ''),
+        normalizeDigits(p.governorate || ''),
+        normalizeDigits(p.area || ''),
+        normalizeDigits(p.type || ''),
+        normalizeDigits(p.purpose || ''),
+        normalizeDigits(p.phone || ''),
         p.assigned_employee_id || '',
-        p.assigned_employee_name || '',
+        normalizeDigits(p.assigned_employee_name || ''),
         (p.images || []).map((img: any) => typeof img === 'string' ? img : (img.url || '')).filter(Boolean).join(','),
         (p.links || []).join(','),
         p.location_link || '',
         p.is_sold ? "مباع" : "متاح",
-        p.sector || '',
-        p.block || '',
-        p.street || '',
-        p.avenue || '',
-        p.plot_number || '',
-        p.house_number || '',
-        p.location || '',
-        p.details || '',
-        p.last_comment || '',
-        p.status_label || '',
-        p.created_by || '',
+        normalizeDigits(p.sector || ''),
+        normalizeDigits(p.block || ''),
+        normalizeDigits(p.street || ''),
+        normalizeDigits(p.avenue || ''),
+        normalizeDigits(p.plot_number || ''),
+        normalizeDigits(p.house_number || ''),
+        normalizeDigits(p.location || ''),
+        normalizeDigits(p.details || ''),
+        normalizeDigits(p.last_comment || ''),
+        normalizeDigits(p.status_label || ''),
+        normalizeDigits(p.created_by || ''),
         new Date(p.created_at).toLocaleString('ar-KW')
       ])
     ];
