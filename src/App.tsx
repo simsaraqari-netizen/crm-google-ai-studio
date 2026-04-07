@@ -692,21 +692,50 @@ export default function App() {
   
   useEffect(() => {
     if (isAdmin) {
-      let q;
-      if (isSuperAdmin) {
-        if (selectedCompanyId) {
-          q = query(collection(db, 'users'), where('companyId', '==', selectedCompanyId));
-        } else {
-          q = query(collection(db, 'users'));
+      (async () => {
+        try {
+          let query = supabase.from('user_profiles').select('*');
+
+          if (isSuperAdmin) {
+            if (selectedCompanyId) {
+              query = query.eq('company_id', selectedCompanyId);
+            }
+          } else {
+            query = query.eq('company_id', user?.companyId);
+          }
+
+          const { data: usersData, error } = await query;
+
+          if (error) throw error;
+
+          const mappedUsers = (usersData || []).map(doc => ({
+            uid: doc.id,
+            ...doc
+          })) as UserProfile[];
+          setEmployees(mappedUsers.filter(u => u.uid !== user?.uid));
+
+          // Subscribe to changes
+          const channel = supabase.channel('users-changes');
+          channel.on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'user_profiles' },
+            () => {
+              // Re-fetch on any change
+              query.then(({ data: updated }) => {
+                const updated_users = (updated || []).map(doc => ({
+                  uid: doc.id,
+                  ...doc
+                })) as UserProfile[];
+                setEmployees(updated_users.filter(u => u.uid !== user?.uid));
+              });
+            }
+          ).subscribe();
+
+          return () => { channel.unsubscribe(); };
+        } catch (error) {
+          console.error('Users fetch error:', error);
         }
-      } else {
-        q = query(collection(db, 'users'), where('companyId', '==', user?.companyId));
-      }
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const usersData = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
-        setEmployees(usersData.filter(u => u.uid !== user?.uid));
-      });
-      return () => unsubscribe();
+      })();
     }
   }, [isAdmin, isSuperAdmin, selectedCompanyId, user?.companyId, user?.uid]);
 
@@ -810,85 +839,204 @@ export default function App() {
   // Auth Listener
   useEffect(() => {
     console.log("Setting up Auth Listener...");
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      console.log("Auth State Changed:", firebaseUser ? `User: ${firebaseUser.email}` : "No User");
-      try {
-        if (firebaseUser) {
-          console.log("Fetching user doc for UID:", firebaseUser.uid);
-          let userDoc;
-          try {
-            userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-          } catch (err) {
-            handleFirestoreError(err, OperationType.GET, `users/${firebaseUser.uid}`);
-            return;
-          }
-          let userData: UserProfile;
 
-          if (userDoc.exists()) {
-            userData = userDoc.data() as UserProfile;
-            console.log("User doc found:", userData.role);
-            if (userData.forceSignOut) {
-              await updateDoc(doc(db, 'users', firebaseUser.uid), { forceSignOut: false });
+    const setupAuth = async () => {
+      try {
+        // Get initial session
+        const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+
+        if (initialSession?.user) {
+          const sbUser = initialSession.user;
+          console.log("Auth State Changed:", `User: ${sbUser.email}`);
+
+          // Fetch user profile
+          const { data: userData, error: profileError } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('id', sbUser.id)
+            .maybeSingle();
+
+          if (profileError) throw profileError;
+
+          if (userData) {
+            console.log("User profile found:", userData.role);
+
+            // Check force sign out
+            if (userData.force_sign_out) {
+              await supabase.from('user_profiles').update({ force_sign_out: false }).eq('id', sbUser.id);
               setAuthError('تم تسجيل خروجك من قبل المسؤول.');
-              await signOut(auth);
+              await supabase.auth.signOut();
               setUser(null);
+              setLoading(false);
               return;
             }
+
+            // Check if rejected
             if (userData.role === 'rejected') {
               setAuthError('تم رفض حسابك من قبل الإدارة.');
-              await signOut(auth);
+              await supabase.auth.signOut();
+              setUser(null);
+              setLoading(false);
+              return;
+            }
+
+            // Check if deleted
+            if (userData.is_deleted) {
+              setAuthError('هذا الحساب تم حذفه من قبل الإدارة.');
+              await supabase.auth.signOut();
+              setUser(null);
+              setLoading(false);
+              return;
+            }
+
+            // Check for super admin email
+            let profileData = userData;
+            if (SUPER_ADMIN_EMAILS.includes(sbUser.email || '') && userData.role !== 'super_admin') {
+              console.log("Super Admin email detected, updating role to super_admin...");
+              await supabase.from('user_profiles').update({ role: 'super_admin' }).eq('id', sbUser.id);
+              profileData = { ...userData, role: 'super_admin' };
+            }
+
+            // Map Supabase snake_case to app camelCase
+            const mappedUser: UserProfile = {
+              uid: profileData.id,
+              email: sbUser.email || '',
+              displayName: profileData.display_name || 'User',
+              role: profileData.role,
+              companyId: profileData.company_id,
+              createdAt: profileData.created_at,
+              forceSignOut: profileData.force_sign_out,
+              phone: profileData.phone
+            };
+
+            setUser(mappedUser);
+            if (mappedUser.companyId) {
+              setSelectedCompanyId(mappedUser.companyId);
+            }
+          } else {
+            console.log("User profile not found, creating new profile...");
+            const isSuper = SUPER_ADMIN_EMAILS.includes(sbUser.email || '');
+            const role = isSuper ? 'super_admin' : 'pending';
+
+            const newProfile = {
+              id: sbUser.id,
+              email: sbUser.email || '',
+              display_name: sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'User',
+              role: role,
+              created_at: new Date().toISOString()
+            };
+
+            const { error: insertError } = await supabase.from('user_profiles').insert(newProfile);
+            if (insertError) throw insertError;
+
+            const mappedUser: UserProfile = {
+              uid: newProfile.id,
+              email: newProfile.email,
+              displayName: newProfile.display_name,
+              role: newProfile.role as UserProfile['role'],
+              createdAt: newProfile.created_at
+            };
+
+            console.log("New user profile created successfully");
+            if (role === 'pending') {
+              await supabase.from('notifications').insert({
+                type: 'new-user',
+                title: 'طلب انضمام جديد',
+                message: `المستخدم ${newProfile.display_name} يطلب الانضمام للنظام`,
+                user_id: sbUser.id,
+                read: false,
+                created_at: new Date().toISOString()
+              });
+            }
+
+            setUser(mappedUser);
+          }
+        } else {
+          console.log("Auth State Changed: No User");
+          setUser(null);
+          setSelectedCompanyId(null);
+        }
+      } catch (error: any) {
+        console.error("Auth initialization error:", error);
+        setAuthError(`خطأ في الوصول لقاعدة البيانات: ${error.message}`);
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    setupAuth();
+
+    // Subscribe to auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      try {
+        if (session?.user) {
+          const sbUser = session.user;
+          const { data: userData, error: profileError } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('id', sbUser.id)
+            .maybeSingle();
+
+          if (profileError) throw profileError;
+
+          if (userData) {
+            if (userData.force_sign_out) {
+              await supabase.from('user_profiles').update({ force_sign_out: false }).eq('id', sbUser.id);
+              setAuthError('تم تسجيل خروجك من قبل المسؤول.');
+              await supabase.auth.signOut();
               setUser(null);
               return;
             }
-            
-            // Check for super admin email
-            if (SUPER_ADMIN_EMAILS.includes(firebaseUser.email || '') && userData.role !== 'super_admin') {
-              console.log("Super Admin email detected, updating role to super_admin...");
-              userData.role = 'super_admin';
-              await updateDoc(doc(db, 'users', firebaseUser.uid), { role: 'super_admin' });
+
+            if (userData.role === 'rejected') {
+              setAuthError('تم رفض حسابك من قبل الإدارة.');
+              await supabase.auth.signOut();
+              setUser(null);
+              return;
             }
-          } else {
-            console.log("User doc not found, creating new profile...");
-            const isSuper = SUPER_ADMIN_EMAILS.includes(firebaseUser.email || '');
-            const role = isSuper ? 'super_admin' : 'pending';
-            userData = {
-              uid: firebaseUser.uid,
-              email: firebaseUser.email || '',
-              displayName: firebaseUser.displayName || 'User',
-              role: role,
-              createdAt: new Date().toISOString()
+
+            if (userData.is_deleted) {
+              setAuthError('هذا الحساب تم حذفه من قبل الإدارة.');
+              await supabase.auth.signOut();
+              setUser(null);
+              return;
+            }
+
+            let profileData = userData;
+            if (SUPER_ADMIN_EMAILS.includes(sbUser.email || '') && userData.role !== 'super_admin') {
+              await supabase.from('user_profiles').update({ role: 'super_admin' }).eq('id', sbUser.id);
+              profileData = { ...userData, role: 'super_admin' };
+            }
+
+            const mappedUser: UserProfile = {
+              uid: profileData.id,
+              email: sbUser.email || '',
+              displayName: profileData.display_name || 'User',
+              role: profileData.role,
+              companyId: profileData.company_id,
+              createdAt: profileData.created_at,
+              forceSignOut: profileData.force_sign_out,
+              phone: profileData.phone
             };
-            await setDoc(doc(db, 'users', firebaseUser.uid), userData);
-            console.log("New user profile created successfully");
-            if (role === 'pending') {
-              // Create notification for super admins
-              await addDoc(collection(db, 'notifications'), {
-                type: 'new-user',
-                title: 'طلب انضمام جديد',
-                message: `المستخدم ${userData.displayName} يطلب الانضمام للنظام`,
-                userId: firebaseUser.uid,
-                read: false,
-                createdAt: serverTimestamp()
-              });
+
+            setUser(mappedUser);
+            if (mappedUser.companyId) {
+              setSelectedCompanyId(mappedUser.companyId);
             }
-          }
-          setUser(userData);
-          if (userData.companyId) {
-            setSelectedCompanyId(userData.companyId);
           }
         } else {
           setUser(null);
           setSelectedCompanyId(null);
         }
       } catch (error: any) {
-        console.error("Auth initialization error (Firestore):", error);
+        console.error("Auth state change error:", error);
         setAuthError(`خطأ في الوصول لقاعدة البيانات: ${error.message}`);
-        setUser(null);
-      } finally {
-        setLoading(false);
       }
     });
-    return unsubscribe;
+
+    return () => subscription?.unsubscribe();
   }, []);
 
   // Companies Listener (for Super Admin)
@@ -897,68 +1045,100 @@ export default function App() {
       setCompanies([]);
       return;
     }
-    const q = query(collection(db, 'companies'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const companiesData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Company[];
-      setCompanies(companiesData);
-    }, (err) => {
-      handleFirestoreError(err, OperationType.GET, 'companies');
-    });
-    return unsubscribe;
+
+    (async () => {
+      try {
+        const { data: companiesData, error } = await supabase
+          .from('companies')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        const companies = (companiesData || []).map(doc => ({
+          id: doc.id,
+          ...doc
+        })) as Company[];
+        setCompanies(companies);
+
+        // Subscribe to changes
+        const channel = supabase.channel('companies-changes');
+        channel.on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'companies' },
+          () => {
+            // Re-fetch on any change
+            supabase
+              .from('companies')
+              .select('*')
+              .order('created_at', { ascending: false })
+              .then(({ data: updated }) => {
+                const updated_companies = (updated || []).map(doc => ({
+                  id: doc.id,
+                  ...doc
+                })) as Company[];
+                setCompanies(updated_companies);
+              });
+          }
+        ).subscribe();
+
+        return () => { channel.unsubscribe(); };
+      } catch (err) {
+        console.error('Companies fetch error:', err);
+        handleFirestoreError(err, OperationType.GET, 'companies');
+      }
+    })();
   }, [isSuperAdmin]);
 
   // Properties Listener
   useEffect(() => {
     if (!user) return;
-    
-    let q;
-    if (isSuperAdmin) {
-      if (selectedCompanyId) {
-        q = query(collection(db, 'properties'), where('companyId', '==', selectedCompanyId), orderBy('createdAt', 'desc'));
-      } else {
-        q = query(collection(db, 'properties'), orderBy('createdAt', 'desc'));
-      }
-    } else if (user.companyId) {
-      q = query(collection(db, 'properties'), where('companyId', '==', user.companyId), orderBy('createdAt', 'desc'));
-    } else {
-      // User has no company assigned yet (pending)
-      // They shouldn't see any properties unless they are super admin
-      setProperties([]);
-      return;
-    }
 
-    const unsubscribe = onSnapshot(q, 
-      (snapshot) => {
-        const allProps = snapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            ...data,
-            location: data.location === 'شارع واحد | سد' ? 'شارع واحد' : data.location
-          } as Property;
-        });
-        
+    (async () => {
+      try {
+        let query = supabase.from('properties').select('*');
+
+        if (isSuperAdmin) {
+          if (selectedCompanyId) {
+            query = query.eq('company_id', selectedCompanyId);
+          }
+        } else if (user.companyId) {
+          query = query.eq('company_id', user.companyId);
+        } else {
+          // User has no company assigned yet (pending)
+          setProperties([]);
+          return;
+        }
+
+        const { data: allPropsData, error } = await query.order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        const allProps = (allPropsData || []).map(data => ({
+          id: data.id,
+          ...data,
+          location: data.location === 'شارع واحد | سد' ? 'شارع واحد' : data.location
+        } as Property));
+
         const now = Date.now();
         const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
-        
+
         // Auto-cleanup logic for deleted properties older than 30 days
         const deleted = allProps.filter(p => p.status === 'deleted');
         const active = allProps.filter(p => p.status !== 'deleted');
-        
+
         setProperties(active);
         setDeletedProperties(deleted);
-        
+
         // Optional: Admin-side cleanup of old trash
         if (isAdmin) {
           deleted.forEach(async (p) => {
-            if (p.deletedAt && (p.deletedAt.toMillis || p.deletedAt.seconds)) {
-              const deletedTime = p.deletedAt.toMillis ? p.deletedAt.toMillis() : p.deletedAt.seconds * 1000;
+            const deletedAtField = (p as any).deleted_at || p.deletedAt;
+            if (deletedAtField) {
+              const deletedTime = new Date(deletedAtField).getTime();
               if (now - deletedTime > thirtyDaysMs) {
                 try {
-                  await deleteDoc(doc(db, 'properties', p.id));
+                  await supabase.from('properties').delete().eq('id', p.id);
                 } catch (e) {
                   console.error("Failed to auto-delete old property", e);
                 }
@@ -966,64 +1146,125 @@ export default function App() {
             }
           });
         }
-      },
-      (error) => {
+
+        // Subscribe to changes
+        const channel = supabase.channel('properties-changes');
+        channel.on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'properties' },
+          () => {
+            // Re-fetch on any change
+            supabase.from('properties').select('*').order('created_at', { ascending: false }).then(({ data: updated }) => {
+              const updated_props = (updated || []).map(data => ({
+                id: data.id,
+                ...data,
+                location: data.location === 'شارع واحد | سد' ? 'شارع واحد' : data.location
+              } as Property));
+              const deleted_upd = updated_props.filter(p => p.status === 'deleted');
+              const active_upd = updated_props.filter(p => p.status !== 'deleted');
+              setProperties(active_upd);
+              setDeletedProperties(deleted_upd);
+            });
+          }
+        ).subscribe();
+
+        return () => { channel.unsubscribe(); };
+      } catch (error) {
         console.error("Properties listener error:", error);
       }
-    );
-    return unsubscribe;
+    })();
   }, [user, isSuperAdmin, selectedCompanyId]);
 
   // Notifications Listener
   useEffect(() => {
     if (!user) return;
-    
-    let q;
-    if (isSuperAdmin) {
-      q = query(collection(db, 'notifications'), orderBy('createdAt', 'desc'), limit(50));
-    } else if (user.role === 'admin') {
-      // Company admins see notifications for their company
-      q = query(
-        collection(db, 'notifications'), 
-        where('companyId', '==', user.companyId),
-        orderBy('createdAt', 'desc'), 
-        limit(50)
-      );
-    } else {
-      // Regular users see notifications where they are the recipient
-      q = query(
-        collection(db, 'notifications'), 
-        where('recipientId', '==', user.uid),
-        orderBy('createdAt', 'desc'), 
-        limit(50)
-      );
-    }
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const allNotifications = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Notification[];
-      setNotifications(allNotifications);
-    }, (err) => {
-      handleFirestoreError(err, OperationType.GET, 'notifications');
-    });
-    return unsubscribe;
+    (async () => {
+      try {
+        let query = supabase.from('notifications').select('*');
+
+        if (isSuperAdmin) {
+          // Super admin sees all
+          query = query.order('created_at', { ascending: false }).limit(50);
+        } else if (user.role === 'admin') {
+          // Company admins see notifications for their company
+          query = query.eq('company_id', user.companyId).order('created_at', { ascending: false }).limit(50);
+        } else {
+          // Regular users see notifications where they are the recipient
+          query = query.eq('recipient_id', user.uid).order('created_at', { ascending: false }).limit(50);
+        }
+
+        const { data: notificationsData, error } = await query;
+
+        if (error) throw error;
+
+        const allNotifications = (notificationsData || []).map(doc => ({
+          id: doc.id,
+          ...doc
+        })) as Notification[];
+        setNotifications(allNotifications);
+
+        // Subscribe to changes
+        const channel = supabase.channel('notifications-changes');
+        channel.on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'notifications' },
+          () => {
+            // Re-fetch on any change
+            query.then(({ data: updated }) => {
+              const updated_notifs = (updated || []).map(doc => ({
+                id: doc.id,
+                ...doc
+              })) as Notification[];
+              setNotifications(updated_notifs);
+            });
+          }
+        ).subscribe();
+
+        return () => { channel.unsubscribe(); };
+      } catch (err) {
+        console.error('Notifications fetch error:', err);
+        handleFirestoreError(err, OperationType.GET, 'notifications');
+      }
+    })();
   }, [user]);
 
   // Favorites Listener
   useEffect(() => {
     if (!user) return;
-    const q = query(collection(db, 'favorites'), where('userId', '==', user.uid));
-    const unsubscribe = onSnapshot(q, 
-      (snapshot) => {
-        setFavorites(snapshot.docs.map(doc => doc.data().propertyId));
-      },
-      (error) => {
+
+    (async () => {
+      try {
+        const { data: favoritesData, error } = await supabase
+          .from('favorites')
+          .select('property_id')
+          .eq('user_id', user.uid);
+
+        if (error) throw error;
+
+        setFavorites((favoritesData || []).map(doc => doc.property_id));
+
+        // Subscribe to changes
+        const channel = supabase.channel('favorites-changes');
+        channel.on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'favorites' },
+          () => {
+            supabase
+              .from('favorites')
+              .select('property_id')
+              .eq('user_id', user.uid)
+              .then(({ data: updated }) => {
+                setFavorites((updated || []).map(doc => doc.property_id));
+              });
+          }
+        ).subscribe();
+
+        return () => { channel.unsubscribe(); };
+      } catch (error) {
         console.error("Favorites listener error:", error);
       }
-    );
-    return unsubscribe;
+    })();
   }, [user]);
 
   // All Users Listener (for Admin Management) - REMOVED, consolidated above
@@ -1035,52 +1276,87 @@ export default function App() {
     try {
       const generatedEmail = usernameToEmail(username);
       if (authMode === 'register') {
-        const userCredential = await createUserWithEmailAndPassword(auth, generatedEmail, password);
-        await updateProfile(userCredential.user, { displayName: username });
-        
-        // Create user profile in Firestore
-        const role = SUPER_ADMIN_EMAILS.includes(generatedEmail) ? 'super_admin' : 'pending';
-        const userData: UserProfile = {
-          uid: userCredential.user.uid,
-          email: generatedEmail,
-          displayName: username,
-          role: role as 'admin' | 'employee' | 'pending' | 'rejected',
-          createdAt: new Date().toISOString()
-        };
-        await setDoc(doc(db, 'users', userCredential.user.uid), userData);
-        
-        if (role === 'pending') {
-          // Create notification for admins
-          await addDoc(collection(db, 'notifications'), {
-            type: 'new-user',
-            title: 'طلب انضمام جديد',
-            message: `المستخدم ${username} يطلب الانضمام للنظام`,
-            userId: userCredential.user.uid,
-            read: false,
-            createdAt: serverTimestamp()
-          });
-          setUser(userData);
-        } else {
+        // Call server endpoint to create user with service role
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token || '';
+
+        const response = await fetch('/api/admin/create-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: generatedEmail,
+            password: password,
+            username: username,
+            idToken: token
+          })
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Failed to create user');
+        }
+
+        const result = await response.json();
+        const userId = result.user?.id;
+
+        if (userId) {
+          // Create user profile in Supabase
+          const role = SUPER_ADMIN_EMAILS.includes(generatedEmail) ? 'super_admin' : 'pending';
+          const newProfile = {
+            id: userId,
+            email: generatedEmail,
+            display_name: username,
+            role: role,
+            created_at: new Date().toISOString()
+          };
+
+          const { error: profileError } = await supabase.from('user_profiles').insert(newProfile);
+          if (profileError) throw profileError;
+
+          if (role === 'pending') {
+            await supabase.from('notifications').insert({
+              type: 'new-user',
+              title: 'طلب انضمام جديد',
+              message: `المستخدم ${username} يطلب الانضمام للنظام`,
+              user_id: userId,
+              read: false,
+              created_at: new Date().toISOString()
+            });
+          }
+
+          const userData: UserProfile = {
+            uid: userId,
+            email: generatedEmail,
+            displayName: username,
+            role: role,
+            createdAt: new Date().toISOString()
+          };
           setUser(userData);
         }
+
+        // Sign in the user
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: generatedEmail,
+          password: password
+        });
+        if (signInError) throw signInError;
       } else {
-        await signInWithEmailAndPassword(auth, generatedEmail, password);
+        // Sign in
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: generatedEmail,
+          password: password
+        });
+        if (signInError) throw signInError;
       }
     } catch (error: any) {
       console.error("Email auth failed", error);
       let message = `خطأ: ${error.message || "حدث خطأ أثناء تسجيل الدخول"}`;
-      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+      if (error.message?.includes('invalid') || error.message?.includes('wrong')) {
         message = "اسم المستخدم أو كلمة المرور غير صحيحة، أو الحساب غير موجود. تأكد من اختيار 'إنشاء حساب' إذا كنت تسجل لأول مرة.";
-      } else if (error.code === 'auth/email-already-in-use') {
+      } else if (error.message?.includes('already')) {
         message = "هذا المستخدم مسجل بالفعل. جرب تسجيل الدخول بدلاً من إنشاء حساب جديد.";
-      } else if (error.code === 'auth/weak-password') {
+      } else if (error.message?.includes('weak')) {
         message = "كلمة المرور ضعيفة جداً. يجب أن تكون 6 أحرف على الأقل.";
-      } else if (error.code === 'auth/operation-not-allowed') {
-        message = "تسجيل الدخول غير مفعل حالياً.";
-      } else if (error.code === 'auth/too-many-requests') {
-        message = "تم حظر الحساب مؤقتاً بسبب محاولات فاشلة كثيرة. حاول مرة أخرى لاحقاً.";
-      } else if (error.code === 'auth/network-request-failed') {
-        message = "فشل الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت.";
       }
       setAuthError(message);
       toast.error(message);
@@ -1090,38 +1366,45 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    await signOut(auth);
+    await supabase.auth.signOut();
   };
 
   const handleDeleteAccount = () => {
-    if (!auth.currentUser) return;
     setAccountDeleteConfirm(true);
   };
 
   const confirmAccountDelete = async () => {
-    if (!auth.currentUser) return;
-    
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return;
+
     setIsAuthenticating(true);
     try {
-      const userToDelete = auth.currentUser;
-      const userUid = userToDelete.uid;
-      
-      // 1. Delete from Firestore
-      await deleteDoc(doc(db, 'users', userUid));
-      
-      // 2. Delete from Auth
-      await deleteUser(userToDelete);
-      
+      const userUid = session.user.id;
+
+      // Call server endpoint to delete user with service role
+      const response = await fetch('/api/admin/delete-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: userUid,
+          idToken: session.access_token
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to delete user');
+      }
+
+      // Delete profile from user_profiles table
+      await supabase.from('user_profiles').delete().eq('id', userUid);
+
       toast.success("تم حذف الحساب بنجاح. يمكنك الآن إعادة التسجيل.");
-      await signOut(auth);
+      await supabase.auth.signOut();
       window.location.reload();
     } catch (error: any) {
       console.error("Account deletion failed", error);
-      if (error.code === 'auth/requires-recent-login') {
-        toast.error("لحماية حسابك، يتطلب حذف الحساب تسجيل دخول حديث. يرجى تسجيل الخروج ثم الدخول مرة أخرى والمحاولة مجدداً.");
-      } else {
-        toast.error(`حدث خطأ أثناء حذف الحساب: ${error.message}`);
-      }
+      toast.error(`حدث خطأ أثناء حذف الحساب: ${error.message}`);
     } finally {
       setIsAuthenticating(false);
       setAccountDeleteConfirm(false);
@@ -1991,11 +2274,11 @@ export default function App() {
                         }}
                         isAdmin={isAdmin}
                         onApprove={async (id: string) => {
-                          await updateDoc(doc(db, 'properties', id), { status: 'approved' });
+                          await supabase.from('properties').update({ status: 'approved' }).eq('id', id);
                           toast.success('تم قبول العقار');
                         }}
                         onReject={async (id: string) => {
-                          await updateDoc(doc(db, 'properties', id), { status: 'rejected' });
+                          await supabase.from('properties').update({ status: 'rejected' }).eq('id', id);
                           toast.success('تم رفض العقار');
                         }}
                         onEdit={(p: any) => {
@@ -2083,11 +2366,11 @@ export default function App() {
                     </button>
                     <h2 className="text-2xl font-bold tracking-tight">الإشعارات</h2>
                   </div>
-                  <button 
+                  <button
                     onClick={async () => {
                       const unread = notifications.filter(n => !n.read);
                       for (const n of unread) {
-                        await updateDoc(doc(db, 'notifications', n.id), { read: true });
+                        await supabase.from('notifications').update({ read: true }).eq('id', n.id);
                       }
                     }}
                     className="text-sm text-emerald-600 font-bold hover:underline"
@@ -2103,14 +2386,17 @@ export default function App() {
                         key={n.id} 
                         className={`p-4 rounded-xl border border-stone-100 hover:bg-stone-50 transition-colors cursor-pointer ${!n.read ? 'bg-emerald-50/30' : ''}`}
                         onClick={async () => {
-                          if (!n.read) await updateDoc(doc(db, 'notifications', n.id), { read: true });
+                          if (!n.read) await supabase.from('notifications').update({ read: true }).eq('id', n.id);
                           if (n.type === 'new-user') {
                             setView('manage-marketers');
-                          } else if (n.propertyId) {
-                            const prop = properties.find(p => p.id === n.propertyId);
-                            if (prop) {
-                              setSelectedProperty(prop);
-                              setView('details');
+                          } else {
+                            const propertyId = (n as any).property_id || n.propertyId;
+                            if (propertyId) {
+                              const prop = properties.find(p => p.id === propertyId);
+                              if (prop) {
+                                setSelectedProperty(prop);
+                                setView('details');
+                              }
                             }
                           }
                         }}
@@ -2192,12 +2478,12 @@ export default function App() {
                       }
 
                       try {
-                        await addDoc(collection(db, 'companies'), {
+                        await supabase.from('companies').insert({
                           name,
-                          companyId,
+                          company_id: companyId,
                           address,
                           phone,
-                          createdAt: new Date().toISOString()
+                          created_at: new Date().toISOString()
                         });
                         toast.success('تمت إضافة الشركة بنجاح');
                         form.reset();
@@ -2294,11 +2580,11 @@ export default function App() {
                             >
                               <Edit size={16} />
                             </button>
-                            <button 
+                            <button
                               onClick={async () => {
                                 if (confirm(`هل أنت متأكد من حذف شركة ${company.name}؟ سيؤدي ذلك لحذف جميع بياناتها.`)) {
                                   try {
-                                    await deleteDoc(doc(db, 'companies', company.id));
+                                    await supabase.from('companies').delete().eq('id', company.id);
                                     toast.success('تم حذف الشركة');
                                   } catch (err: any) {
                                     toast.error('خطأ: ' + err.message);
@@ -2349,11 +2635,11 @@ export default function App() {
                           const address = (form.elements.namedItem('address') as HTMLInputElement).value;
                           
                           try {
-                            await updateDoc(doc(db, 'companies', editingCompany.id), {
+                            await supabase.from('companies').update({
                               name,
                               phone,
                               address
-                            });
+                            }).eq('id', editingCompany.id);
                             toast.success('تم تحديث بيانات الشركة بنجاح');
                             setIsEditingCompany(false);
                           } catch (err: any) {
@@ -2421,32 +2707,56 @@ export default function App() {
                           
                           try {
                             const generatedEmail = email || usernameToEmail(username);
-                            
+
                             // Check if user already exists
-                            const q = query(collection(db, 'users'), where('email', '==', generatedEmail));
-                            const snapshot = await getDocs(q);
-                            
-                            if (!snapshot.empty) {
+                            const { data: existingUsers } = await supabase
+                              .from('user_profiles')
+                              .select('*')
+                              .eq('email', generatedEmail);
+
+                            if (existingUsers && existingUsers.length > 0) {
                               toast.error('هذا المستخدم مسجل بالفعل.');
                               return;
                             }
 
-                            // Create user in Firebase Auth using secondary app
-                            const userCredential = await createUserWithEmailAndPassword(secondaryAuth, generatedEmail, password);
-                            
-                            // Create user profile in Firestore
-                            await setDoc(doc(db, 'users', userCredential.user.uid), {
-                              uid: userCredential.user.uid,
-                              email: generatedEmail,
-                              displayName: username,
-                              role: role,
-                              companyId: targetCompanyForUser.id,
-                              phone: phone || '',
-                              createdAt: new Date().toISOString()
+                            // Get session for creating user via API
+                            const { data: { session } } = await supabase.auth.getSession();
+                            const token = session?.access_token || '';
+
+                            // Create user via admin API endpoint
+                            const response = await fetch('/api/admin/create-user', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                email: generatedEmail,
+                                password: password,
+                                username: username,
+                                companyId: targetCompanyForUser.id,
+                                role: role,
+                                idToken: token
+                              })
                             });
-                            
-                            // Sign out the secondary auth to prevent session issues
-                            await signOut(secondaryAuth);
+
+                            if (!response.ok) {
+                              const error = await response.json();
+                              throw new Error(error.message || 'Failed to create user');
+                            }
+
+                            const result = await response.json();
+                            const userId = result.user?.id;
+
+                            if (userId) {
+                              // Create user profile in Supabase
+                              await supabase.from('user_profiles').insert({
+                                id: userId,
+                                email: generatedEmail,
+                                display_name: username,
+                                role: role,
+                                company_id: targetCompanyForUser.id,
+                                phone: phone || '',
+                                created_at: new Date().toISOString()
+                              });
+                            }
 
                             toast.success('تمت إضافة المستخدم بنجاح.');
                             setIsAddingUserToCompany(false);
@@ -2542,32 +2852,57 @@ export default function App() {
                           return;
                         }
                         const generatedEmail = email || usernameToEmail(username);
-                        
+
                         // Check if user already exists
-                        const q = query(collection(db, 'users'), where('email', '==', generatedEmail));
-                        const snapshot = await getDocs(q);
-                        
-                        if (!snapshot.empty) {
+                        const { data: existingUsers } = await supabase
+                          .from('user_profiles')
+                          .select('*')
+                          .eq('email', generatedEmail);
+
+                        if (existingUsers && existingUsers.length > 0) {
                           toast.error('هذا المستخدم مسجل بالفعل.');
                           return;
                         }
 
-                        // Create user in Firebase Auth using secondary app
-                        const userCredential = await createUserWithEmailAndPassword(secondaryAuth, generatedEmail, password);
-                        
-                        // Create user profile in Firestore
-                        await setDoc(doc(db, 'users', userCredential.user.uid), {
-                          uid: userCredential.user.uid,
-                          email: generatedEmail,
-                          displayName: username,
-                          role: role,
-                          companyId: isSuperAdmin ? (form.elements.namedItem('companyId') as HTMLSelectElement).value : user?.companyId,
-                          phone: phone || '',
-                          createdAt: new Date().toISOString()
+                        // Get session for creating user via API
+                        const { data: { session } } = await supabase.auth.getSession();
+                        const token = session?.access_token || '';
+                        const companyId = isSuperAdmin ? (form.elements.namedItem('companyId') as HTMLSelectElement).value : user?.companyId;
+
+                        // Create user via admin API endpoint
+                        const response = await fetch('/api/admin/create-user', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            email: generatedEmail,
+                            password: password,
+                            username: username,
+                            companyId: companyId,
+                            role: role,
+                            idToken: token
+                          })
                         });
-                        
-                        // Sign out the secondary auth to prevent session issues
-                        await signOut(secondaryAuth);
+
+                        if (!response.ok) {
+                          const error = await response.json();
+                          throw new Error(error.message || 'Failed to create user');
+                        }
+
+                        const result = await response.json();
+                        const userId = result.user?.id;
+
+                        if (userId) {
+                          // Create user profile in Supabase
+                          await supabase.from('user_profiles').insert({
+                            id: userId,
+                            email: generatedEmail,
+                            display_name: username,
+                            role: role,
+                            company_id: companyId,
+                            phone: phone || '',
+                            created_at: new Date().toISOString()
+                          });
+                        }
 
                         toast.success('تمت إضافة المستخدم بنجاح.');
                         form.reset();
@@ -2691,12 +3026,12 @@ export default function App() {
                                   onClick={async () => {
                                     if (!editUserName.trim()) return;
                                     try {
-                                      // Update Firestore data
-                                      await setDoc(doc(db, 'users', emp.uid), { 
-                                        displayName: editUserName.trim(),
+                                      // Update Supabase data
+                                      await supabase.from('user_profiles').update({
+                                        display_name: editUserName.trim(),
                                         phone: editUserPhone.trim(),
                                         email: editUserEmail.trim()
-                                      }, { merge: true });
+                                      }).eq('id', emp.uid);
 
                                       // Update Password if provided
                                       if (editUserPassword.trim()) {
@@ -2704,12 +3039,13 @@ export default function App() {
                                           toast.error('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
                                           return;
                                         }
-                                        const idToken = await auth.currentUser?.getIdToken();
+                                        const { data: { session } } = await supabase.auth.getSession();
+                                        const token = session?.access_token;
                                         const response = await fetch('/api/update-user-password', {
                                           method: 'POST',
                                           headers: { 'Content-Type': 'application/json' },
                                           body: JSON.stringify({
-                                            idToken,
+                                            idToken: token,
                                             targetUid: emp.uid,
                                             newPassword: editUserPassword.trim()
                                           })
@@ -2933,19 +3269,25 @@ export default function App() {
     const isFav = favorites.includes(propertyId);
     if (isFav) {
       try {
-        const q = query(collection(db, 'favorites'), where('userId', '==', user.uid), where('propertyId', '==', propertyId));
-        const snapshot = await getDocs(q);
-        const deletePromises = snapshot.docs.map(d => deleteDoc(doc(db, 'favorites', d.id)));
+        const { data: favs } = await supabase
+          .from('favorites')
+          .select('id')
+          .eq('user_id', user.uid)
+          .eq('property_id', propertyId);
+
+        const deletePromises = (favs || []).map(fav =>
+          supabase.from('favorites').delete().eq('id', fav.id)
+        );
         await Promise.all(deletePromises);
       } catch (error) {
         console.error("Error removing favorite:", error);
       }
     } else {
       try {
-        await addDoc(collection(db, 'favorites'), {
-          userId: user.uid,
-          propertyId,
-          createdAt: serverTimestamp()
+        await supabase.from('favorites').insert({
+          user_id: user.uid,
+          property_id: propertyId,
+          created_at: new Date().toISOString()
         });
       } catch (error) {
         console.error("Error adding favorite:", error);
@@ -2958,19 +3300,16 @@ export default function App() {
       toast.error("ليس لديك صلاحية لعمل نسخة احتياطية");
       return;
     }
-    
+
     toast.loading("جاري تجهيز النسخة الاحتياطية...", { id: 'backup' });
     try {
       const backupData: any = {};
-      
-      const collectionsToBackup = ['properties', 'users', 'comments', 'companies', 'notifications'];
-      
-      for (const colName of collectionsToBackup) {
-        const querySnapshot = await getDocs(collection(db, colName));
-        backupData[colName] = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
+
+      const tablesToBackup = ['properties', 'user_profiles', 'comments', 'companies', 'notifications'];
+
+      for (const tableName of tablesToBackup) {
+        const { data: tableData } = await supabase.from(tableName).select('*');
+        backupData[tableName] = tableData || [];
       }
       
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
@@ -2994,10 +3333,10 @@ export default function App() {
       return;
     }
     try {
-      await updateDoc(doc(db, 'properties', id), {
+      await supabase.from('properties').update({
         status: 'approved',
-        deletedAt: null
-      });
+        deleted_at: null
+      }).eq('id', id);
       toast.success('تم استعادة العقار بنجاح');
     } catch (error) {
       console.error("Error restoring property:", error);
@@ -3012,23 +3351,24 @@ export default function App() {
     }
     if (window.confirm('هل أنت متأكد من حذف هذا العقار نهائياً؟ لا يمكن التراجع عن هذا الإجراء.')) {
       try {
-        const docRef = doc(db, 'properties', id);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          if (data.images && Array.isArray(data.images)) {
-            await Promise.all(data.images.map(async (img: any) => {
+        const { data: propertyData } = await supabase.from('properties').select('*').eq('id', id).single();
+        if (propertyData) {
+          if (propertyData.images && Array.isArray(propertyData.images)) {
+            await Promise.all(propertyData.images.map(async (img: any) => {
               try {
                 const url = typeof img === 'string' ? img : img.url;
-                const storageRef = ref(storage, url);
-                await deleteObject(storageRef);
+                // Extract storage path from URL and delete from Supabase storage
+                const pathMatch = url.match(/\/storage\/v1\/object\/public\/[^\/]+\/(.+)$/);
+                if (pathMatch) {
+                  await supabase.storage.from('property-images').remove([pathMatch[1]]);
+                }
               } catch (e) {
                 console.error("Error deleting file:", e);
               }
             }));
           }
         }
-        await deleteDoc(docRef);
+        await supabase.from('properties').delete().eq('id', id);
         toast.success('تم حذف العقار نهائياً');
         if (view === 'details') setView('list');
       } catch (error) {
@@ -3050,10 +3390,10 @@ export default function App() {
     }
     if (deleteConfirm.propertyId) {
       try {
-        await updateDoc(doc(db, 'properties', deleteConfirm.propertyId), {
+        await supabase.from('properties').update({
           status: 'deleted',
-          deletedAt: serverTimestamp()
-        });
+          deleted_at: new Date().toISOString()
+        }).eq('id', deleteConfirm.propertyId);
         setDeleteConfirm({ isOpen: false, propertyId: null });
         if (view === 'details') setView('list');
         toast.success('تم نقل العقار إلى سلة المحذوفات');
@@ -3072,37 +3412,38 @@ export default function App() {
     }
     if (commentDeleteConfirm.commentId && commentDeleteConfirm.propertyId) {
       try {
-        const commentRef = doc(db, 'comments', commentDeleteConfirm.commentId);
-        const commentSnap = await getDoc(commentRef);
-        if (commentSnap.exists()) {
-          const data = commentSnap.data();
-          if (data.images && Array.isArray(data.images)) {
-            await Promise.all(data.images.map(async (img: any) => {
+        const { data: commentData } = await supabase.from('comments').select('*').eq('id', commentDeleteConfirm.commentId).single();
+        if (commentData) {
+          if (commentData.images && Array.isArray(commentData.images)) {
+            await Promise.all(commentData.images.map(async (img: any) => {
               try {
                 const url = typeof img === 'string' ? img : img.url;
-                const storageRef = ref(storage, url);
-                await deleteObject(storageRef);
+                // Extract storage path from URL and delete from Supabase storage
+                const pathMatch = url.match(/\/storage\/v1\/object\/public\/[^\/]+\/(.+)$/);
+                if (pathMatch) {
+                  await supabase.storage.from('comment-images').remove([pathMatch[1]]);
+                }
               } catch (e) {
                 console.error("Error deleting file:", e);
               }
             }));
           }
         }
-        await deleteDoc(commentRef);
-        
+        await supabase.from('comments').delete().eq('id', commentDeleteConfirm.commentId);
+
         // Update last comment on property card
-        const q = query(
-          collection(db, 'comments'), 
-          where('propertyId', '==', commentDeleteConfirm.propertyId),
-          orderBy('createdAt', 'desc'),
-          limit(1)
-        );
-        const snapshot = await getDocs(q);
-        const newLastComment = !snapshot.empty ? snapshot.docs[0].data().text : '';
-        
-        await updateDoc(doc(db, 'properties', commentDeleteConfirm.propertyId), {
-          lastComment: newLastComment
-        });
+        const { data: comments } = await supabase
+          .from('comments')
+          .select('text')
+          .eq('property_id', commentDeleteConfirm.propertyId)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        const newLastComment = comments && comments.length > 0 ? comments[0].text : '';
+
+        await supabase.from('properties').update({
+          last_comment: newLastComment
+        }).eq('id', commentDeleteConfirm.propertyId);
 
         setCommentDeleteConfirm({ isOpen: false, commentId: null, propertyId: null });
         toast.success("تم حذف التعليق بنجاح");
@@ -3121,17 +3462,19 @@ export default function App() {
     }
     try {
       if (userActionConfirm.action === 'bulk-delete') {
-        const deletePromises = employees.map(emp => deleteDoc(doc(db, 'users', emp.uid)));
+        const deletePromises = employees.map(emp =>
+          supabase.from('user_profiles').delete().eq('id', emp.uid)
+        );
         await Promise.all(deletePromises);
       } else if (userActionConfirm.userId) {
         if (userActionConfirm.action === 'delete') {
-          await deleteDoc(doc(db, 'users', userActionConfirm.userId));
+          await supabase.from('user_profiles').delete().eq('id', userActionConfirm.userId);
         } else if (userActionConfirm.action === 'approve') {
-          await setDoc(doc(db, 'users', userActionConfirm.userId), { role: 'employee' }, { merge: true });
+          await supabase.from('user_profiles').update({ role: 'employee' }).eq('id', userActionConfirm.userId);
         } else if (userActionConfirm.action === 'reject') {
-          await setDoc(doc(db, 'users', userActionConfirm.userId), { role: 'rejected' }, { merge: true });
+          await supabase.from('user_profiles').update({ role: 'rejected' }).eq('id', userActionConfirm.userId);
         } else if (userActionConfirm.action === 'change-role') {
-          await setDoc(doc(db, 'users', userActionConfirm.userId), { role: userActionConfirm.extraData.newRole }, { merge: true });
+          await supabase.from('user_profiles').update({ role: userActionConfirm.extraData.newRole }).eq('id', userActionConfirm.userId);
         }
       }
       setUserActionConfirm({ isOpen: false, userId: null, action: null });
@@ -3421,22 +3764,17 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-      tenantId: auth.currentUser?.tenantId,
-      providerInfo: auth.currentUser?.providerData.map(provider => ({
-        providerId: provider.providerId,
-        displayName: provider.displayName,
-        email: provider.email,
-        photoUrl: provider.photoURL
-      })) || []
+      userId: undefined,
+      email: null,
+      emailVerified: undefined,
+      isAnonymous: undefined,
+      tenantId: null,
+      providerInfo: []
     },
     operationType,
     path
   }
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  console.error('Supabase Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
 
@@ -3512,29 +3850,45 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
   const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
-    if (!auth.currentUser) return;
-    
-    let q;
-    if (isSuperAdmin) {
-      const targetCompanyId = property?.companyId || selectedCompanyId;
-      if (targetCompanyId) {
-        q = query(collection(db, 'users'), where('role', '==', 'employee'), where('companyId', '==', targetCompanyId));
-      } else {
-        q = query(collection(db, 'users'), where('role', '==', 'employee'));
-      }
-    } else {
-      q = query(collection(db, 'users'), where('role', '==', 'employee'), where('companyId', '==', user?.companyId));
-    }
+    if (!user) return;
 
-    const unsubscribe = onSnapshot(q, 
-      (snapshot) => {
-        setEmployees(snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile)));
-      },
-      (error) => {
+    (async () => {
+      try {
+        let query = supabase.from('user_profiles').select('*').eq('role', 'employee');
+
+        if (isSuperAdmin) {
+          const targetCompanyId = property?.companyId || selectedCompanyId;
+          if (targetCompanyId) {
+            query = query.eq('company_id', targetCompanyId);
+          }
+        } else {
+          query = query.eq('company_id', user?.companyId);
+        }
+
+        const { data: employeesData, error } = await query;
+
+        if (error) throw error;
+
+        setEmployees((employeesData || []).map(doc => ({ uid: doc.id, ...doc })) as UserProfile[]);
+
+        // Subscribe to changes
+        const channel = supabase.channel('employees-changes');
+        channel.on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'user_profiles' },
+          () => {
+            // Re-fetch on any change
+            query.then(({ data: updated }) => {
+              setEmployees((updated || []).map(doc => ({ uid: doc.id, ...doc })) as UserProfile[]);
+            });
+          }
+        ).subscribe();
+
+        return () => { channel.unsubscribe(); };
+      } catch (error) {
         console.error("PropertyForm employees listener error:", error);
       }
-    );
-    return unsubscribe;
+    })();
   }, [isSuperAdmin, selectedCompanyId, user?.companyId, property?.companyId]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -3559,10 +3913,18 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
           fileToUpload = file;
         }
 
-        const storageRef = ref(storage, `properties/${Date.now()}_${file.name}`);
-        await uploadBytes(storageRef, fileToUpload);
-        const url = await getDownloadURL(storageRef);
-        newImages.push({ url, type: file.type.startsWith('video/') ? 'video' : 'image' });
+        const fileName = `${Date.now()}_${file.name}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('property-images')
+          .upload(`properties/${fileName}`, fileToUpload);
+
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrl } = supabase.storage
+          .from('property-images')
+          .getPublicUrl(`properties/${fileName}`);
+
+        newImages.push({ url: publicUrl.publicUrl, type: file.type.startsWith('video/') ? 'video' : 'image' });
       }
       setFormData(prevData => ({ ...prevData, images: newImages }));
     } catch (error) {
@@ -3606,19 +3968,27 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
     setShowConfirm(false);
     
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
       let empId = formData.assignedEmployeeId;
       let empName = formData.assignedEmployeeName;
 
       // If we have a name but no ID, it means it's a new marketer
       if (empName && !empId) {
         try {
-          const newEmpRef = await addDoc(collection(db, 'users'), {
-            displayName: empName,
-            role: 'employee',
-            companyId: isSuperAdmin ? selectedCompanyId : user?.companyId,
-            createdAt: serverTimestamp()
-          });
-          empId = newEmpRef.id;
+          const { data: newEmp, error: insertError } = await supabase
+            .from('user_profiles')
+            .insert({
+              display_name: empName,
+              role: 'employee',
+              company_id: isSuperAdmin ? selectedCompanyId : user?.companyId,
+              created_at: new Date().toISOString()
+            })
+            .select('id')
+            .single();
+
+          if (insertError) throw insertError;
+          empId = newEmp?.id;
         } catch (error) {
           handleFirestoreError(error, OperationType.CREATE, 'users');
         }
@@ -3626,39 +3996,42 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
 
       const data = {
         ...formData,
-        companyId: isSuperAdmin ? selectedCompanyId : user?.companyId,
-        assignedEmployeeId: empId,
-        assignedEmployeeName: empName,
+        company_id: isSuperAdmin ? selectedCompanyId : user?.companyId,
+        assigned_employee_id: empId,
+        assigned_employee_name: empName,
         images: formData.images,
-        locationLink: formData.locationLink.trim(),
-        isSold: formData.isSold,
-        updatedAt: serverTimestamp(),
-        createdAt: property ? property.createdAt : serverTimestamp(),
-        createdBy: property ? property.createdBy : auth.currentUser?.uid,
+        location_link: formData.locationLink.trim(),
+        is_sold: formData.isSold,
+        updated_at: new Date().toISOString(),
+        created_at: property ? property.created_at : new Date().toISOString(),
+        created_by: property ? property.created_by : userId,
         status: isAdmin ? (property?.status || 'approved') : 'pending'
       };
 
       try {
         if (property) {
-          await updateDoc(doc(db, 'properties', property.id), data);
-          
+          await supabase.from('properties').update(data).eq('id', property.id);
+
           // Check for significant updates to notify interested users
           const priceChanged = property.price !== data.price;
-          const statusChanged = property.isSold !== data.isSold || property.statusLabel !== data.statusLabel;
-          
+          const statusChanged = property.is_sold !== data.is_sold || property.statusLabel !== data.statusLabel;
+
           if (priceChanged || statusChanged) {
             // Find all users who favorited this property
-            const favQuery = query(collection(db, 'favorites'), where('propertyId', '==', property.id));
-            const favSnapshot = await getDocs(favQuery);
-            const interestedUserIds = favSnapshot.docs.map(d => d.data().userId);
-            
+            const { data: favs } = await supabase
+              .from('favorites')
+              .select('user_id')
+              .eq('property_id', property.id);
+
+            const interestedUserIds = (favs || []).map(f => f.user_id);
+
             for (const recipientId of interestedUserIds) {
-              if (recipientId === auth.currentUser?.uid) continue; // Don't notify the updater
-              
+              if (recipientId === userId) continue; // Don't notify the updater
+
               let title = 'تحديث في عقار يهمك';
               let message = `تم تحديث بيانات العقار: ${generatePropertyTitle(property)}`;
               let type: 'price-change' | 'status-change' = 'status-change';
-              
+
               if (priceChanged && statusChanged) {
                 message = `تم تغيير السعر والحالة للعقار: ${generatePropertyTitle(property)}`;
               } else if (priceChanged) {
@@ -3669,20 +4042,20 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
                 message = `تغيرت حالة العقار: ${generatePropertyTitle(property)}`;
               }
 
-              await addDoc(collection(db, 'notifications'), {
+              await supabase.from('notifications').insert({
                 type,
                 title,
                 message,
-                recipientId,
-                userId: auth.currentUser?.uid,
-                propertyId: property.id,
+                recipient_id: recipientId,
+                user_id: userId,
+                property_id: property.id,
                 read: false,
-                createdAt: serverTimestamp()
+                created_at: new Date().toISOString()
               });
             }
           }
         } else {
-          await addDoc(collection(db, 'properties'), data);
+          await supabase.from('properties').insert(data);
         }
       } catch (error) {
         handleFirestoreError(error, property ? OperationType.UPDATE : OperationType.CREATE, 'properties');
@@ -4071,16 +4444,42 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
 
   useEffect(() => {
     if (!property.id) return;
-    const q = query(collection(db, 'comments'), where('propertyId', '==', property.id), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, 
-      (snapshot) => {
-        setComments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Comment)));
-      },
-      (error) => {
+
+    (async () => {
+      try {
+        const { data: commentsData, error } = await supabase
+          .from('comments')
+          .select('*')
+          .eq('property_id', property.id)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        setComments((commentsData || []).map(doc => ({ id: doc.id, ...doc })) as Comment[]);
+
+        // Subscribe to changes
+        const channel = supabase.channel(`comments-${property.id}`);
+        channel.on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'comments', filter: `property_id=eq.${property.id}` },
+          () => {
+            // Re-fetch on any change
+            supabase
+              .from('comments')
+              .select('*')
+              .eq('property_id', property.id)
+              .order('created_at', { ascending: false })
+              .then(({ data: updated }) => {
+                setComments((updated || []).map(doc => ({ id: doc.id, ...doc })) as Comment[]);
+              });
+          }
+        ).subscribe();
+
+        return () => { channel.unsubscribe(); };
+      } catch (error) {
         console.error("Comments listener error:", error);
       }
-    );
-    return unsubscribe;
+    })();
   }, [property.id]);
 
   const handleAddComment = async (e: React.FormEvent) => {
@@ -4091,44 +4490,47 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
       toast.error('عذراً، التعليقات متاحة للموظفين فقط.');
       return;
     }
-    
+
     setIsUploading(true);
     try {
-      await addDoc(collection(db, 'comments'), {
-        propertyId: property.id,
-        userId: user.uid,
-        userName: user.displayName,
-        userPhone: user.phone || '',
+      await supabase.from('comments').insert({
+        property_id: property.id,
+        user_id: user.uid,
+        user_name: user.displayName,
+        user_phone: user.phone || '',
         text: newComment,
         images: commentImages,
-        createdAt: serverTimestamp()
-      });
-      
-      // Update last comment on property
-      await updateDoc(doc(db, 'properties', property.id), {
-        lastComment: newComment || (commentImages.length > 0 ? 'تم إضافة صور' : '')
+        created_at: new Date().toISOString()
       });
 
+      // Update last comment on property
+      await supabase.from('properties').update({
+        last_comment: newComment || (commentImages.length > 0 ? 'تم إضافة صور' : '')
+      }).eq('id', property.id);
+
       // Notify interested users (who favorited the property)
-      const favQuery = query(collection(db, 'favorites'), where('propertyId', '==', property.id));
-      const favSnapshot = await getDocs(favQuery);
-      const interestedUserIds = favSnapshot.docs.map(d => d.data().userId);
-      
+      const { data: favs } = await supabase
+        .from('favorites')
+        .select('user_id')
+        .eq('property_id', property.id);
+
+      const interestedUserIds = (favs || []).map(f => f.user_id);
+
       for (const recipientId of interestedUserIds) {
         if (recipientId === user.uid) continue; // Don't notify the commenter
-        
-        await addDoc(collection(db, 'notifications'), {
+
+        await supabase.from('notifications').insert({
           type: 'new-comment',
           title: 'تعليق جديد على عقار يهمك',
           message: `أضاف ${user.displayName} تعليقاً جديداً على العقار: ${generatePropertyTitle(property)}`,
-          recipientId,
-          userId: user.uid,
-          propertyId: property.id,
+          recipient_id: recipientId,
+          user_id: user.uid,
+          property_id: property.id,
           read: false,
-          createdAt: serverTimestamp()
+          created_at: new Date().toISOString()
         });
       }
-      
+
       setNewComment('');
       setCommentImages([]);
       toast.success('تم إضافة التعليق بنجاح');
@@ -4182,11 +4584,19 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
         } else {
           fileToUpload = file;
         }
-        
-        const storageRef = ref(storage, `comments/${Date.now()}_${file.name}`);
-        await uploadBytes(storageRef, fileToUpload);
-        const url = await getDownloadURL(storageRef);
-        newImages.push({ url, type: file.type.startsWith('video/') ? 'video' : 'image' });
+
+        const fileName = `${Date.now()}_${file.name}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('comment-images')
+          .upload(`comments/${fileName}`, fileToUpload);
+
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrl } = supabase.storage
+          .from('comment-images')
+          .getPublicUrl(`comments/${fileName}`);
+
+        newImages.push({ url: publicUrl.publicUrl, type: file.type.startsWith('video/') ? 'video' : 'image' });
       }
       setCommentImages(newImages);
     } catch (error) {
@@ -4522,23 +4932,25 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                             onClick={async () => {
                               if (!editCommentText.trim()) return;
                               try {
-                                await updateDoc(doc(db, 'comments', c.id), {
+                                await supabase.from('comments').update({
                                   text: editCommentText,
-                                  updatedAt: serverTimestamp()
-                                });
-                                
+                                  updated_at: new Date().toISOString()
+                                }).eq('id', c.id);
+
                                 // Update last comment on property card if this was the latest
                                 const sorted = [...comments].sort((a, b) => {
-                                  const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
-                                  const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+                                  const createdAtA = (a as any).created_at || a.createdAt;
+                                  const createdAtB = (b as any).created_at || b.createdAt;
+                                  const timeA = new Date(createdAtA).getTime();
+                                  const timeB = new Date(createdAtB).getTime();
                                   return timeB - timeA;
                                 });
                                 if (c.id === sorted[0]?.id) {
-                                  await updateDoc(doc(db, 'properties', property.id), {
-                                    lastComment: editCommentText
-                                  });
+                                  await supabase.from('properties').update({
+                                    last_comment: editCommentText
+                                  }).eq('id', property.id);
                                 }
-                                
+
                                 setEditingCommentId(null);
                               } catch (error) {
                                 console.error("Error updating comment:", error);
