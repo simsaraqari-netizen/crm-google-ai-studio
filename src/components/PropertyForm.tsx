@@ -1,4 +1,4 @@
-import React, { useState, useEffect, memo } from 'react';
+import React, { useState, useEffect, memo, useMemo } from 'react';
 import { 
   Edit, 
   Plus, 
@@ -30,9 +30,12 @@ import {
 import { UserProfile } from '../types';
 
 export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selectedCompanyId, companies, onCancel, onSave }: any) {
-  const isSuperAdmin = user?.role === 'super_admin' || 
+  const isSuperAdmin = React.useMemo(() =>
+    user?.role === 'super_admin' ||
     (user?.email && SUPER_ADMIN_EMAILS.includes(user.email)) ||
-    (user?.phone && SUPER_ADMIN_PHONES.includes(user.phone));
+    (user?.phone && SUPER_ADMIN_PHONES.includes(user.phone)),
+    [user?.role, user?.email, user?.phone]
+  );
     
   const [formData, setFormData] = useState({
     name: property?.name || '',
@@ -93,14 +96,18 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []) as File[];
-    if (formData.images.length + files.length > 20) {
-      toast.error('لا يمكن رفع أكثر من 20 ملفاً');
-      return;
-    }
-
     setIsUploading(true);
     try {
-      const newImages = [...formData.images];
+      setFormData(prevData => {
+        if (prevData.images.length + files.length > 20) {
+          toast.error('لا يمكن رفع أكثر من 20 ملفاً');
+          setIsUploading(false);
+          return prevData;
+        }
+        return prevData;
+      });
+
+      const newImages = [...(formData.images || [])];
       for (const file of files) {
         let fileToUpload: Blob;
         if (file.type.startsWith('image/')) {
@@ -108,15 +115,15 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
         } else {
           fileToUpload = file;
         }
-        
+
         const filePath = `properties/${Date.now()}_${file.name}`;
         const { data, error } = await supabase.storage.from('properties').upload(filePath, fileToUpload);
         if (error) throw error;
-        
+
         const { data: { publicUrl } } = supabase.storage.from('properties').getPublicUrl(filePath);
         newImages.push({ url: publicUrl, type: file.type.startsWith('video/') ? 'video' : 'image' });
       }
-      setFormData({ ...formData, images: newImages });
+      setFormData(prevData => ({ ...prevData, images: newImages }));
     } catch (error) {
       console.error("Upload error:", error);
       toast.error("حدث خطأ أثناء رفع الملفات");

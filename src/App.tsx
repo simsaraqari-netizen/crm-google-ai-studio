@@ -622,10 +622,15 @@ export default function App() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
-  const isSuperAdmin = user?.role === 'super_admin' || (user?.email && SUPER_ADMIN_EMAILS.includes(user.email));
-  const isAdmin = user?.role === 'admin' || isSuperAdmin;
-  const isEmployee = user?.role === 'employee' || isAdmin;
-  const isPending = user?.role === 'pending';
+
+  // Memoize derived role values to prevent unnecessary listener re-registration
+  const isSuperAdmin = useMemo(() =>
+    user?.role === 'super_admin' || (user?.email && SUPER_ADMIN_EMAILS.includes(user.email)),
+    [user?.role, user?.email]
+  );
+  const isAdmin = useMemo(() => user?.role === 'admin' || isSuperAdmin, [user?.role, isSuperAdmin]);
+  const isEmployee = useMemo(() => user?.role === 'employee' || isAdmin, [user?.role, isAdmin]);
+  const isPending = useMemo(() => user?.role === 'pending', [user?.role]);
   const [loading, setLoading] = useState(true);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [username, setUsername] = useState('');
@@ -3474,7 +3479,10 @@ const compressImage = (file: File): Promise<Blob> => {
 };
 
 const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selectedCompanyId, companies, onCancel, onSave }: any) {
-  const isSuperAdmin = user?.role === 'super_admin' || (user?.email && SUPER_ADMIN_EMAILS.includes(user.email));
+  const isSuperAdmin = useMemo(() =>
+    user?.role === 'super_admin' || (user?.email && SUPER_ADMIN_EMAILS.includes(user.email)),
+    [user?.role, user?.email]
+  );
   const [formData, setFormData] = useState({
     name: property?.name || '',
     governorate: property?.governorate || '',
@@ -3531,14 +3539,18 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []) as File[];
-    if (formData.images.length + files.length > 20) {
-      toast.error('لا يمكن رفع أكثر من 20 ملفاً');
-      return;
-    }
-
     setIsUploading(true);
     try {
-      const newImages = [...formData.images];
+      setFormData(prevData => {
+        if (prevData.images.length + files.length > 20) {
+          toast.error('لا يمكن رفع أكثر من 20 ملفاً');
+          setIsUploading(false);
+          return prevData;
+        }
+        return prevData;
+      });
+
+      const newImages = [...(formData.images || [])];
       for (const file of files) {
         let fileToUpload: Blob;
         if (file.type.startsWith('image/')) {
@@ -3546,13 +3558,13 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
         } else {
           fileToUpload = file;
         }
-        
+
         const storageRef = ref(storage, `properties/${Date.now()}_${file.name}`);
         await uploadBytes(storageRef, fileToUpload);
         const url = await getDownloadURL(storageRef);
         newImages.push({ url, type: file.type.startsWith('video/') ? 'video' : 'image' });
       }
-      setFormData({ ...formData, images: newImages });
+      setFormData(prevData => ({ ...prevData, images: newImages }));
     } catch (error) {
       console.error("Upload error:", error);
       toast.error("حدث خطأ أثناء رفع الملفات");
