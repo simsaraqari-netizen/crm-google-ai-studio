@@ -3723,7 +3723,9 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
             <div className="relative">
               <UserIcon className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
               <input 
-                placeholder="اسم العميل (الاسم الثلاثي)"
+                type="text"
+                autoComplete="off"
+                placeholder="اسم العميل"
                 className="w-full pr-10 pl-4 py-3 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all outline-none text-sm"
                 value={formData.name}
                 onChange={(e) => setFormData({...formData, name: e.target.value})}

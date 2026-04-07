@@ -158,6 +158,13 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
     setShowConfirm(false);
     
     try {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      const normalizeUuid = (value: any): string | null => {
+        const v = String(value || '').trim();
+        if (!v) return null;
+        return uuidRegex.test(v) ? v : null;
+      };
+
       let empId = formData.assignedEmployeeId;
       let empName = formData.assignedEmployeeName;
 
@@ -180,28 +187,39 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
       const data = {
         ...formData,
         companyId: isSuperAdmin ? selectedCompanyId : user?.companyId,
-        assignedEmployeeId: empId,
+        assignedEmployeeId: normalizeUuid(empId),
         assignedEmployeeName: empName,
         images: formData.images,
         locationLink: formData.locationLink.trim(),
         isSold: formData.isSold,
         updatedAt: new Date().toISOString(),
-        createdAt: property ? property.createdAt : new Date().toISOString(),
-        createdBy: property ? property.createdBy : (await supabase.auth.getUser()).data.user?.id,
         status: isAdmin ? (property?.status || 'approved') : 'pending'
       };
 
       try {
         if (property) {
-          await supabase.from('properties').update(data).eq('id', property.id);
+          const updatePayload = {
+            ...data,
+            createdAt: property.createdAt
+          };
+          const { error } = await supabase.from('properties').update(updatePayload).eq('id', property.id);
+          if (error) throw error;
           
           // Notify interested users
           await notifyFavoriteUsers(property.id, property, data);
         } else {
-          await supabase.from('properties').insert(data);
+          const sessionUserId = (await supabase.auth.getUser()).data.user?.id;
+          const insertPayload = {
+            ...data,
+            createdAt: new Date().toISOString(),
+            createdBy: normalizeUuid(sessionUserId),
+          };
+          const { error } = await supabase.from('properties').insert(insertPayload);
+          if (error) throw error;
         }
       } catch (error) {
         console.error("Error saving property:", error);
+        throw error;
       }
       toast.success(property ? 'تم تحديث العقار بنجاح' : 'تمت إضافة العقار بنجاح');
       onSave();
@@ -263,7 +281,9 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="relative">
               <input 
-                placeholder="اسم العميل (الاسم الثلاثي)"
+                type="text"
+                autoComplete="off"
+                placeholder="اسم العميل"
                 className="w-full px-4 py-2 bg-stone-50 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all outline-none text-sm"
                 value={formData.name}
                 onChange={(e) => setFormData({...formData, name: e.target.value})}
