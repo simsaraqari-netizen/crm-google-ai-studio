@@ -471,16 +471,16 @@ export default function App() {
       const { data, error } = await supabase
         .from('settings')
         .select('*')
-        .eq('id', 'sync')
-        .maybeSingle();
+        .in('id', ['sync', '1']);
       
       if (error) {
         console.error("Error fetching sync settings:", error);
         return;
       }
       
-      if (data) {
-        setSpreadsheetId(data.spreadsheet_id || '');
+      if (data && data.length > 0) {
+        const preferred = data.find((row: any) => row.id === 'sync') || data.find((row: any) => row.id === '1') || data[0];
+        setSpreadsheetId(preferred?.spreadsheet_id || '');
       }
     };
 

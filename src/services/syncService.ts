@@ -13,8 +13,14 @@ export const syncSupabaseWithSheets = async () => {
 
   try {
     // 1. Get the target spreadsheet ID
-    const { data: settings, error: settingsError } = await supabaseAdmin.from('settings').select('spreadsheet_id').eq('id', 'sync').maybeSingle();
-    
+    const { data: settingsRows, error: settingsError } = await supabaseAdmin
+      .from('settings')
+      .select('id,spreadsheet_id')
+      .in('id', ['sync', '1']);
+    const settings = settingsRows && settingsRows.length > 0
+      ? (settingsRows.find((row: any) => row.id === 'sync') || settingsRows.find((row: any) => row.id === '1') || settingsRows[0])
+      : null;
+
     if (settingsError || !settings?.spreadsheet_id) {
       console.log('[SYNC] No spreadsheet_id found in settings. Skipping sync.');
       return;

@@ -9,9 +9,10 @@ export function SyncModal({ isOpen, onClose, onSyncFrom, onSyncTo }: any) {
   
   useEffect(() => {
     if (isOpen) {
-      supabase.from('settings').select('*').eq('id', 'sync').single().then(({ data }) => {
-        if (data) {
-          setSpreadsheetId(data.spreadsheet_id || data.spreadsheetId || '');
+      supabase.from('settings').select('*').in('id', ['sync', '1']).then(({ data }) => {
+        if (data && data.length > 0) {
+          const preferred = data.find((row: any) => row.id === 'sync') || data.find((row: any) => row.id === '1') || data[0];
+          setSpreadsheetId(preferred?.spreadsheet_id || preferred?.spreadsheetId || '');
         }
       });
     }
