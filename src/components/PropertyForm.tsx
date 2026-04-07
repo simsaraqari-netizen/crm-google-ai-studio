@@ -192,6 +192,7 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
 
       const data = {
         ...formData,
+        governorate: formData.area ? inferGovernorate(formData.area, formData.governorate) : formData.governorate,
         company_id: isSuperAdmin ? selectedCompanyId : user?.company_id,
         assigned_employee_id: empId,
         assigned_employee_name: empName,
@@ -278,7 +279,7 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="relative">
               <input 
-                placeholder="اسم العميل (الاسم الثلاثي)"
+                placeholder="اسم العميل"
                 className="w-full px-4 py-2 bg-stone-50 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all outline-none text-sm"
                 value={formData.name}
                 onChange={(e) => {
@@ -291,7 +292,8 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
 
                   setFormData(prev => ({
                     ...prev, 
-                    name: cleanNameText(newName),
+                    // Keep input natural while typing; normalization happens in submit/sync logic.
+                    name: newName,
                     // Auto-fill if current value is empty
                     area: prev.area || inferredArea || '',
                     governorate: prev.governorate || inferredGov || '',
@@ -334,7 +336,11 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
               placeholder="المنطقة"
               options={formData.governorate ? AREAS[formData.governorate] : Array.from(new Set(Object.values(AREAS).flat())).sort()}
               value={formData.area}
-              onChange={(val) => setFormData({...formData, area: val})}
+              onChange={(val) => setFormData({
+                ...formData,
+                area: val,
+                governorate: val ? inferGovernorate(val, formData.governorate) : formData.governorate
+              })}
             />
             <SearchableFilter 
               placeholder="الموقع"

@@ -6,6 +6,7 @@ export interface PropertyImage {
 
 export interface Property {
   id: string;
+  property_code?: string;
   name: string;
   governorate: string;
   area: string;

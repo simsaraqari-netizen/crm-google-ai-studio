@@ -23,6 +23,13 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
       <h3 className="text-xs font-bold text-stone-900 mb-2 line-clamp-2 leading-tight w-full text-right">
         {generatePropertyTitle(property)}
       </h3>
+      {property.property_code && (
+        <div className="mb-2 text-right">
+          <span className="inline-block text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded px-2 py-0.5">
+            كود العقار: {property.property_code}
+          </span>
+        </div>
+      )}
 
       <div className="flex gap-3 flex-1 items-end mb-3">
         {/* Image on the right (first child in RTL) - Smaller and at bottom */}

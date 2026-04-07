@@ -18,3 +18,11 @@ View your app in AI Studio: https://ai.studio/apps/38bbca2f-69c6-470c-b976-716ae
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## Property Code Migration (4-digit unique)
+
+To enable automatic non-repeating 4-digit property codes for existing and new properties, run:
+
+`sql/property_code_migration.sql`
+
+in your Supabase SQL Editor.

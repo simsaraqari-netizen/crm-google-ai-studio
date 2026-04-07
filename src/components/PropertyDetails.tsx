@@ -393,6 +393,11 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
               <div className="space-y-4">
                 <div className="flex flex-col gap-1">
                   <h1 className="text-lg font-bold serif text-stone-900 text-right">{generatePropertyTitle(property)}</h1>
+                  {property.property_code && (
+                    <p className="text-[11px] font-bold text-emerald-700 text-right">
+                      كود العقار: {property.property_code}
+                    </p>
+                  )}
                   {property.created_at && (
                     <p className="text-[10px] text-stone-400 text-right">
                       تم الإضافة {formatRelativeDate(property.created_at)}

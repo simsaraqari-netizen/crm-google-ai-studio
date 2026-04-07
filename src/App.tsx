@@ -99,6 +99,7 @@ const handleError = (error: any, operation: OperationType, entity: string) => {
 
 interface Property {
   id: string;
+  property_code?: string;
   name: string;
   governorate: string;
   area: string;
@@ -809,6 +810,7 @@ export default function App() {
       if (activeSearchQuery) {
         const extracted = extractDetailsFromName(p.name);
         const searchableText = [
+          p.property_code,
           p.name,
           p.area,
           p.plot_number,
@@ -1699,7 +1701,11 @@ export default function App() {
                             placeholder="المنطقة..."
                             options={availableFilterOptions.areas}
                             value={filters.area}
-                            onChange={(val) => setFilters({...filters, area: val})}
+                            onChange={(val) => setFilters({
+                              ...filters,
+                              area: val,
+                              governorate: val ? inferGovernorate(val, filters.governorate) : filters.governorate
+                            })}
                           />
 
                           <SearchableFilter 
