@@ -48,17 +48,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { GOVERNORATES, AREAS, PROPERTY_TYPES, PURPOSES, LOCATIONS } from './constants';
 import { normalizeArabic, cleanAreaName, searchMatch, normalizeDigits, generatePropertyTitle, usernameToEmail, extractSpreadsheetId, formatRelativeDate, formatDateTime } from './utils';
-import { db, auth, storage, secondaryAuth } from './lib/firebaseClient';
-import {
-  collection, doc, query, where, orderBy, limit,
-  onSnapshot, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc,
-  serverTimestamp,
-} from 'firebase/firestore';
-import {
-  onAuthStateChanged, signOut, signInWithEmailAndPassword,
-  createUserWithEmailAndPassword, updateProfile, deleteUser,
-} from 'firebase/auth';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
