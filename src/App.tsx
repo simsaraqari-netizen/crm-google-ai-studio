@@ -846,6 +846,12 @@ export default function App() {
     console.log("Setting up Auth Listener...");
 
     const setupAuth = async () => {
+      // Force loading to end after 5 seconds regardless of what happens
+      const timeoutId = setTimeout(() => {
+        console.log("Auth setup timed out, forcing UI to load...");
+        setLoading(false);
+      }, 5000);
+
       try {
         // Get initial session
         const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
@@ -874,6 +880,7 @@ export default function App() {
               await supabase.auth.signOut();
               setUser(null);
               setLoading(false);
+              clearTimeout(timeoutId);
               return;
             }
 
@@ -883,6 +890,7 @@ export default function App() {
               await supabase.auth.signOut();
               setUser(null);
               setLoading(false);
+              clearTimeout(timeoutId);
               return;
             }
 
@@ -892,6 +900,7 @@ export default function App() {
               await supabase.auth.signOut();
               setUser(null);
               setLoading(false);
+              clearTimeout(timeoutId);
               return;
             }
 
@@ -968,6 +977,7 @@ export default function App() {
         setUser(null);
       } finally {
         setLoading(false);
+        clearTimeout(timeoutId);
       }
     };
 
