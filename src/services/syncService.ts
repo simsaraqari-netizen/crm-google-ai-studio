@@ -149,6 +149,11 @@ export const syncSupabaseWithSheets = async () => {
       }
     }
 
+    if (allProps.length === 0) {
+      console.log('[SYNC] No properties found in Supabase. Skipping sheet overwrite to prevent data loss.');
+      return;
+    }
+
     const header = [
       "ID", "الاسم", "المحافظة", "المنطقة", "النوع", "الغرض", "تليفون",
       "المسؤول الرقمي", "المسؤول", "الصور", "الروابط", 
@@ -188,6 +193,7 @@ export const syncSupabaseWithSheets = async () => {
       ])
     ];
 
+    console.log(`[SYNC] Writing ${allProps.length} properties to sheet...`);
     await writeToSheet(spreadsheetId, range, writeData);
     console.log('[SYNC] Sync process completed successfully!');
   } catch (e: any) {

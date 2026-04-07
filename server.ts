@@ -67,16 +67,6 @@ async function startServer() {
     }
   });
 
-  app.get("/api/admin/normalize-sheet", async (req, res) => {
-    try {
-      console.log('[ADMIN] Triggering manual normalization and sync...');
-      await syncSupabaseWithSheets();
-      res.send('<h1>Success</h1><p>Arabic digits have been normalized and the sheet has been synchronized.</p>');
-    } catch (e: any) {
-      res.status(500).send(`Error: ${e.message}`);
-    }
-  });
-
   app.post("/api/sync/auto", async (req, res) => {
     const { idToken } = req.body;
     try {
