@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { readSheet } from './googleSheetsService.ts';
+import { readSheet, writeToSheet } from './googleSheetsService.ts';
 import { cleanAreaName, inferGovernorate, inferPurpose, inferType, cleanNameText, cleanNameWithContext, normalizeDigits, splitMultiValue } from '../utils.ts';
 
 const supabaseAdmin = createClient(
@@ -195,32 +195,199 @@ async function syncSheetCommentsForProperty(
   }
 }
 
+const DEFAULT_SYNC_RANGE = 'Sheet1!A1:Z5000';
+
+async function getSyncSettings() {
+  const { data: settingsRows, error: settingsError } = await supabaseAdmin
+    .from('settings')
+    .select('id,spreadsheet_id')
+    .in('id', ['sync', '1']);
+  const settings = settingsRows && settingsRows.length > 0
+    ? (settingsRows.find((row: any) => row.id === 'sync') || settingsRows.find((row: any) => row.id === '1') || settingsRows[0])
+    : null;
+
+  if (settingsError || !settings?.spreadsheet_id) return null;
+  return { spreadsheetId: settings.spreadsheet_id as string, range: DEFAULT_SYNC_RANGE };
+}
+
+async function saveSyncSnapshot(params: {
+  direction: 'app_to_sheet' | 'sheet_to_app' | 'rollback';
+  spreadsheetId: string;
+  range: string;
+  payload: any[][];
+  triggeredBy?: string;
+  note?: string;
+}) {
+  const rowCount = Math.max(0, (params.payload?.length || 0) - 1);
+  const { error } = await supabaseAdmin.from('sync_snapshots').insert({
+    direction: params.direction,
+    spreadsheet_id: params.spreadsheetId,
+    sheet_range: params.range,
+    payload: params.payload,
+    row_count: rowCount,
+    triggered_by: params.triggeredBy || null,
+    note: params.note || null,
+  });
+  if (error) {
+    // The table may not exist yet until migration is applied.
+    console.warn('[SYNC] Snapshot insert skipped:', error.message);
+  }
+}
+
+function buildSheetHeader() {
+  return [
+    "ID", "الاسم", "المحافظة", "المنطقة", "النوع", "الغرض", "تليفون",
+    "المسؤول الرقمي", "المسؤول", "الصور", "الروابط",
+    "رابط الموقع", "مباع؟", "القطاع", "القطعة", "الشارع", "الجادة",
+    "القسيمة", "المنزل", "الموقع", "التفاصيل", "آخر تعليق",
+    "حالة الحجز", "بواسطة", "تاريخ الإضافة"
+  ];
+}
+
+async function buildSupabaseSheetPayload(): Promise<any[][]> {
+  let allProps: any[] = [];
+  let from = 0;
+  const step = 1000;
+  let fetchMore = true;
+
+  while (fetchMore) {
+    const { data: dbData, error: dbError } = await supabaseAdmin
+      .from('properties')
+      .select('*')
+      .eq('is_deleted', false)
+      .neq('status', 'deleted')
+      .order('created_at', { ascending: false })
+      .range(from, from + step - 1);
+
+    if (dbError) throw dbError;
+    if (dbData && dbData.length > 0) {
+      allProps = [...allProps, ...dbData];
+      from += step;
+      if (dbData.length < step) fetchMore = false;
+    } else {
+      fetchMore = false;
+    }
+  }
+
+  const header = buildSheetHeader();
+  const rows = allProps.map(p => [
+    p.id,
+    normalizeDigits(p.name || ''),
+    normalizeDigits(p.governorate || ''),
+    normalizeDigits(p.area || ''),
+    normalizeDigits(p.type || ''),
+    normalizeDigits(p.purpose || ''),
+    normalizeDigits(p.phone || ''),
+    p.assigned_employee_id || '',
+    normalizeDigits(p.assigned_employee_name || ''),
+    (p.images || []).map((img: any) => typeof img === 'string' ? img : (img.url || '')).filter(Boolean).join(','),
+    (p.links || []).join(','),
+    p.location_link || '',
+    p.is_sold ? "مباع" : "متاح",
+    normalizeDigits(p.sector || ''),
+    normalizeDigits(p.block || ''),
+    normalizeDigits(p.street || ''),
+    normalizeDigits(p.avenue || ''),
+    normalizeDigits(p.plot_number || ''),
+    normalizeDigits(p.house_number || ''),
+    normalizeDigits(p.location || ''),
+    normalizeDigits(p.details || ''),
+    normalizeDigits(p.last_comment || ''),
+    normalizeDigits(p.status_label || ''),
+    normalizeDigits(p.created_by || ''),
+    p.created_at ? new Date(p.created_at).toLocaleString('ar-KW') : '',
+  ]);
+
+  return [header, ...rows];
+}
+
+export async function syncAppToSheets(options?: { triggeredBy?: string; note?: string }) {
+  const settings = await getSyncSettings();
+  if (!settings) {
+    console.log('[SYNC] No spreadsheet_id found in settings. Skipping app->sheet sync.');
+    return;
+  }
+  const payload = await buildSupabaseSheetPayload();
+  await writeToSheet(settings.spreadsheetId, settings.range, payload);
+  await saveSyncSnapshot({
+    direction: 'app_to_sheet',
+    spreadsheetId: settings.spreadsheetId,
+    range: settings.range,
+    payload,
+    triggeredBy: options?.triggeredBy,
+    note: options?.note,
+  });
+}
+
+export async function getSyncHistory(limit = 20) {
+  const safeLimit = Math.min(Math.max(limit, 1), 100);
+  const { data, error } = await supabaseAdmin
+    .from('sync_snapshots')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(safeLimit);
+  if (error) {
+    console.warn('[SYNC] History read skipped:', error.message);
+    return [];
+  }
+  return data || [];
+}
+
+export async function rollbackSyncSnapshot(snapshotId: string, triggeredBy?: string) {
+  const settings = await getSyncSettings();
+  if (!settings) throw new Error('Spreadsheet settings are missing.');
+
+  const { data: snapshot, error } = await supabaseAdmin
+    .from('sync_snapshots')
+    .select('*')
+    .eq('id', snapshotId)
+    .single();
+  if (error || !snapshot) throw new Error(error?.message || 'Snapshot not found.');
+
+  const payload = Array.isArray(snapshot.payload) ? snapshot.payload : null;
+  if (!payload || payload.length === 0) throw new Error('Snapshot payload is empty.');
+
+  await writeToSheet(settings.spreadsheetId, settings.range, payload);
+  await saveSyncSnapshot({
+    direction: 'rollback',
+    spreadsheetId: settings.spreadsheetId,
+    range: settings.range,
+    payload,
+    triggeredBy,
+    note: `rollback:${snapshotId}`,
+  });
+
+  // Align application data with the restored sheet version.
+  await syncSupabaseWithSheets();
+}
+
 export const syncSupabaseWithSheets = async () => {
   console.log('[SYNC] Starting Google Sheets Sync at', new Date().toISOString());
 
   try {
-    // 1. Get the target spreadsheet ID
-    const { data: settingsRows, error: settingsError } = await supabaseAdmin
-      .from('settings')
-      .select('id,spreadsheet_id')
-      .in('id', ['sync', '1']);
-    const settings = settingsRows && settingsRows.length > 0
-      ? (settingsRows.find((row: any) => row.id === 'sync') || settingsRows.find((row: any) => row.id === '1') || settingsRows[0])
-      : null;
-
-    if (settingsError || !settings?.spreadsheet_id) {
+    const settings = await getSyncSettings();
+    if (!settings) {
       console.log('[SYNC] No spreadsheet_id found in settings. Skipping sync.');
       return;
     }
-    
-    const spreadsheetId = settings.spreadsheet_id;
-    const range = 'Sheet1!A1:Z5000'; // Default range
+
+    const spreadsheetId = settings.spreadsheetId;
+    const range = settings.range;
 
     // ============================================
     // STEP A: SYNC FROM SHEET TO SUPABASE
     // ============================================
     console.log('[SYNC] Reading sheet data...');
     const sheetData = await readSheet(spreadsheetId, range);
+    if (sheetData && Array.isArray(sheetData) && sheetData.length > 0) {
+      await saveSyncSnapshot({
+        direction: 'sheet_to_app',
+        spreadsheetId,
+        range,
+        payload: sheetData as any[][],
+        note: 'sheet-priority-import',
+      });
+    }
     
     if (sheetData && Array.isArray(sheetData)) {
       const headerRow = (sheetData[0] || []).map((h: any) => String(h || '').trim());

@@ -1,9 +1,6 @@
 import cron from 'node-cron';
 import { createClient } from '@supabase/supabase-js';
-import { readSheet, writeToSheet } from './googleSheetsService.ts';
-import { cleanAreaName, inferGovernorate, inferPurpose, inferType } from '../utils.ts';
-import { syncSupabaseWithSheets } from './syncService.ts';
-import { AREAS } from '../constants.ts';
+import { syncAppToSheets } from './syncService.ts';
 
 const supabaseAdmin = createClient(
   process.env.VITE_SUPABASE_URL!,
@@ -15,7 +12,7 @@ export const initializeCronJobs = () => {
   // Run daily at 03:00 server time.
   cron.schedule('0 3 * * *', async () => {
     try {
-      await syncSupabaseWithSheets();
+      await syncAppToSheets({ triggeredBy: 'cron', note: 'daily-auto-app-to-sheet' });
     } catch (e: any) {
       console.error('[CRON] Error during synchronization:', e);
     }

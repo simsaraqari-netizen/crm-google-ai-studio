@@ -26,3 +26,11 @@ To enable automatic non-repeating 4-digit property codes for existing and new pr
 `sql/property_code_migration.sql`
 
 in your Supabase SQL Editor.
+
+## Sync History Migration
+
+To enable sync history and rollback, run:
+
+`sql/sync_history_migration.sql`
+
+in your Supabase SQL Editor.

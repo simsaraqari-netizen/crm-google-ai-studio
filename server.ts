@@ -6,7 +6,7 @@ import { fileURLToPath } from "url";
 import { createClient } from '@supabase/supabase-js';
 import { readSheet, writeToSheet, createSheet, getGoogleSheetsServiceAccountEmail } from "./src/services/googleSheetsService.ts";
 import { initializeCronJobs } from "./src/services/cronService.ts";
-import { syncSupabaseWithSheets } from "./src/services/syncService.ts";
+import { syncSupabaseWithSheets, syncAppToSheets, getSyncHistory, rollbackSyncSnapshot } from "./src/services/syncService.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -15,6 +15,8 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || '',
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
+
+const ADMIN_EMAILS = ["simsaraqari@gmail.com", "mostafasoliman550@gmail.com"];
 
 function escapeHtml(text: string): string {
   if (!text) return '';
@@ -34,6 +36,24 @@ async function startServer() {
   initializeCronJobs();
 
   app.use(express.json());
+
+  const requireAdmin = async (idToken?: string) => {
+    if (!idToken) return { ok: false, status: 401, message: 'Unauthorized', caller: null as any };
+    const { data: { user: caller } } = await supabaseAdmin.auth.getUser(idToken);
+    if (!caller) return { ok: false, status: 401, message: 'Unauthorized', caller: null as any };
+
+    const { data: userDoc } = await supabaseAdmin
+      .from('user_profiles')
+      .select('role')
+      .eq('id', caller.id)
+      .maybeSingle();
+
+    const isAdminEmail = ADMIN_EMAILS.includes(caller.email || '');
+    if (userDoc?.role !== 'admin' && !isAdminEmail) {
+      return { ok: false, status: 403, message: 'Unauthorized', caller };
+    }
+    return { ok: true, status: 200, message: 'OK', caller };
+  };
 
   app.get("/api/google-sheets-service-account-email", (_req, res) => {
     const email = getGoogleSheetsServiceAccountEmail();
@@ -75,15 +95,8 @@ async function startServer() {
   app.post("/api/sync/auto", async (req, res) => {
     const { idToken } = req.body;
     try {
-      const { data: { user: caller } } = await supabaseAdmin.auth.getUser(idToken);
-      if (!caller) return res.status(401).send('Unauthorized');
-
-      const { data: userDoc } = await supabaseAdmin.from('user_profiles').select('role').eq('id', caller.id).maybeSingle();
-      const isAdminEmail = ["simsaraqari@gmail.com", "mostafasoliman550@gmail.com"].includes(caller.email!);
-      
-      if (userDoc?.role !== 'admin' && !isAdminEmail) {
-        return res.status(403).send('Unauthorized');
-      }
+      const check = await requireAdmin(idToken);
+      if (!check.ok) return res.status(check.status).send(check.message);
 
       await syncSupabaseWithSheets();
       res.send('Auto-sync completed successfully');
@@ -93,21 +106,54 @@ async function startServer() {
     }
   });
 
+  app.post("/api/sync/push", async (req, res) => {
+    const { idToken } = req.body;
+    try {
+      const check = await requireAdmin(idToken);
+      if (!check.ok) return res.status(check.status).send(check.message);
+      await syncAppToSheets({ triggeredBy: check.caller?.id || check.caller?.email || 'admin', note: 'manual-admin-push' });
+      res.send('App-to-sheet sync completed successfully');
+    } catch (e: any) {
+      console.error('Push-sync error:', e);
+      res.status(500).send(e.message || 'Error during app-to-sheet sync');
+    }
+  });
+
+  app.get("/api/sync/history", async (req, res) => {
+    const idToken = String(req.headers.authorization || '').replace('Bearer ', '');
+    try {
+      const check = await requireAdmin(idToken);
+      if (!check.ok) return res.status(check.status).send(check.message);
+      const limit = Number(req.query.limit || 20);
+      const history = await getSyncHistory(limit);
+      res.json(history);
+    } catch (e: any) {
+      console.error('Sync-history error:', e);
+      res.status(500).send(e.message || 'Error loading sync history');
+    }
+  });
+
+  app.post("/api/sync/rollback", async (req, res) => {
+    const { idToken, snapshotId } = req.body;
+    try {
+      const check = await requireAdmin(idToken);
+      if (!check.ok) return res.status(check.status).send(check.message);
+      if (!snapshotId) return res.status(400).send('snapshotId is required');
+      await rollbackSyncSnapshot(snapshotId, check.caller?.id || check.caller?.email || 'admin');
+      res.send('Rollback completed successfully');
+    } catch (e: any) {
+      console.error('Rollback error:', e);
+      res.status(500).send(e.message || 'Error during rollback');
+    }
+  });
+
   app.post("/api/sync", async (req, res) => {
     const { idToken, spreadsheet_id, spreadsheetId, range, data } = req.body;
     const targetSpreadsheetId = spreadsheet_id || spreadsheetId;
     console.log(`Sync request received for spreadsheet: ${targetSpreadsheetId}, range: ${range}`);
     try {
-      const { data: { user: caller } } = await supabaseAdmin.auth.getUser(idToken);
-      if (!caller) return res.status(401).send('Unauthorized');
-
-      const { data: userDoc } = await supabaseAdmin.from('user_profiles').select('role').eq('id', caller.id).maybeSingle();
-      const isAdminEmail = ["simsaraqari@gmail.com", "mostafasoliman550@gmail.com"].includes(caller.email!);
-      
-      if (userDoc?.role !== 'admin' && !isAdminEmail) {
-        console.warn(`Unauthorized sync attempt by user: ${caller.id} (${caller.email})`);
-        return res.status(403).send('Unauthorized: You must be an admin to sync.');
-      }
+      const check = await requireAdmin(idToken);
+      if (!check.ok) return res.status(check.status).send(check.message);
       
       if (!process.env.GOOGLE_SHEETS_CREDENTIALS) {
         return res.status(500).send('Google Sheets credentials are not configured in the server.');
@@ -136,15 +182,8 @@ async function startServer() {
   app.post("/api/create-sheet", async (req, res) => {
     const { idToken, title } = req.body;
     try {
-      const { data: { user: caller } } = await supabaseAdmin.auth.getUser(idToken);
-      if (!caller) return res.status(401).send('Unauthorized');
-
-      const { data: userDoc } = await supabaseAdmin.from('user_profiles').select('role').eq('id', caller.id).maybeSingle();
-      const isAdminEmail = ["simsaraqari@gmail.com", "mostafasoliman550@gmail.com"].includes(caller.email!);
-      
-      if (userDoc?.role !== 'admin' && !isAdminEmail) {
-        return res.status(403).send('Unauthorized');
-      }
+      const check = await requireAdmin(idToken);
+      if (!check.ok) return res.status(check.status).send(check.message);
 
       if (!process.env.GOOGLE_SHEETS_CREDENTIALS) {
         return res.status(500).send('Google Sheets credentials are not configured.');

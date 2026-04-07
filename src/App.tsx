@@ -1016,50 +1016,15 @@ export default function App() {
     const idToken = session?.access_token;
     if (!idToken) return;
     
-    // Prepare data from properties state
-    const header = [
-      'ID', 'الاسم', 'المحافظة', 'المنطقة', 'النوع', 'الغرض', 'الهاتف', 
-      'ID الموظف', 'اسم الموظف', 'الصور', 'الروابط', 'رابط الموقع', 
-      'مباع', 'القطاع', 'القطعة', 'الشارع', 'الجادة', 'القسيمة', 
-      'المنزل', 'الموقع الوصفي', 'التفاصيل', 'آخر تعليق', 'ملصق الحالة', 
-      'أنشئ بواسطة', 'تاريخ الإنشاء'
-    ];
-    
-    const data = [header, ...properties.map(p => [
-      p.id, 
-      p.name || '', 
-      p.governorate || '', 
-      p.area || '', 
-      p.type || '', 
-      p.purpose || '', 
-      p.phone || '', 
-      p.assigned_employee_id || '', 
-      p.assigned_employee_name || '', 
-      (p.images || [])
-        .map((img: any) => typeof img === 'string' ? img : (img?.url || ''))
-        .filter(Boolean)
-        .join(','), 
-      p.location_link || '', 
-      p.is_sold ? 'TRUE' : 'FALSE', 
-      p.sector || '', 
-      p.block || '', 
-      p.street || '', 
-      p.avenue || '', 
-      p.plot_number || '', 
-      p.house_number || '', 
-      p.location || '', 
-      p.details || '', 
-      p.last_comment || '', 
-      p.status_label || '', 
-      p.created_by || '', 
-      p.created_at ? (typeof p.created_at === 'string' ? p.created_at : new Date(p.created_at).toISOString()) : ''
-    ])];
-    
     try {
-      const response = await fetch('/api/sync', {
+      // Ensure selected sheet is persisted first.
+      await supabase.from('settings').upsert({ id: 'sync', spreadsheet_id: targetId });
+      await supabase.from('settings').upsert({ id: '1', spreadsheet_id: targetId });
+
+      const response = await fetch('/api/sync/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken, spreadsheetId: targetId, range: rng, data })
+        body: JSON.stringify({ idToken })
       });
       if (!response.ok) {
         const errorText = await response.text();
