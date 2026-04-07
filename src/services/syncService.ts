@@ -8,6 +8,193 @@ const supabaseAdmin = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
+const KNOWN_EMPLOYEE_ALIASES = [
+  'ابوبدر',
+  'ابو بدر',
+  'ابوحفني',
+  'ابو حفني',
+  'ابوادم',
+  'ابو ادم',
+  'ابوزياد',
+  'ابو زياد',
+  'ابوفارس',
+  'ابو فارس',
+  'مصادقة',
+  'ابومروان',
+  'ابو مروان',
+  'ابوسارة',
+  'ابو سارة',
+  'ابواحمد',
+  'ابو احمد',
+  'ام احمد',
+];
+
+function normalizeLoose(text: string): string {
+  return (text || '')
+    .toLowerCase()
+    .replace(/[أإآ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function toArabicDigits(input: string): string {
+  const map: Record<string, string> = {
+    '0': '٠',
+    '1': '١',
+    '2': '٢',
+    '3': '٣',
+    '4': '٤',
+    '5': '٥',
+    '6': '٦',
+    '7': '٧',
+    '8': '٨',
+    '9': '٩',
+  };
+  return String(input).replace(/[0-9]/g, d => map[d] ?? d);
+}
+
+function parseIssueDate(value: any): Date | null {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+
+  const iso = raw.match(/(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+  if (iso) {
+    const y = Number(iso[1]);
+    const m = Number(iso[2]);
+    const d = Number(iso[3]);
+    const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+    return Number.isNaN(dt.getTime()) ? null : dt;
+  }
+
+  const dmy = raw.match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
+  if (dmy) {
+    const d = Number(dmy[1]);
+    const m = Number(dmy[2]);
+    const y = Number(dmy[3]);
+    const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+    return Number.isNaN(dt.getTime()) ? null : dt;
+  }
+
+  return null;
+}
+
+function formatDateArabic(date: Date): string {
+  const d = date.getUTCDate();
+  const m = date.getUTCMonth() + 1;
+  const y = date.getUTCFullYear();
+  return `${toArabicDigits(String(d))}-${toArabicDigits(String(m))}-${toArabicDigits(String(y))}`;
+}
+
+function extractSheetComment(rawBlock: any, rawDate: any, rawInterviewer: any) {
+  const block = String(rawBlock || '').trim();
+  const issueDate =
+    parseIssueDate(rawDate) ||
+    parseIssueDate(block.match(/ISSUE\s*DATE\s*:\s*([0-9\-\/]+)/i)?.[1]) ||
+    parseIssueDate(block.match(/تاريخ\s*[:：]\s*([0-9\-\/]+)/i)?.[1]);
+
+  let textBody = String(rawInterviewer || block || '').trim();
+  textBody = textBody
+    .replace(/ISSUE\s*DATE\s*:\s*[0-9\-\/]+/gi, '')
+    .replace(/INTERVIEWER\s*:\s*/gi, '')
+    .replace(/تاريخ\s*[:：]\s*[0-9\-\/]+/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!textBody) return null;
+
+  const finalText = issueDate ? `${formatDateArabic(issueDate)} - ${textBody}` : textBody;
+  const createdAt = issueDate ? issueDate.toISOString() : null;
+  return { finalText, createdAt, rawText: textBody };
+}
+
+async function syncSheetCommentsForProperty(
+  propertyId: string,
+  row: any[],
+  readCell: (row: any[], aliases: string[], fallbackIndex: number) => any
+) {
+  const commentCells = [
+    {
+      raw: readCell(row, ['التعليق 1', 'تعليق 1', 'COMMENT 1', 'COMMENT1', 'comment 1'], 25),
+      date: readCell(row, ['ISSUE DATE 1', 'تاريخ التعليق 1', 'تاريخ 1'], 26),
+      interviewer: readCell(row, ['INTERVIEWER 1', 'المعلق 1', 'الموظف 1'], 27),
+    },
+    {
+      raw: readCell(row, ['التعليق 2', 'تعليق 2', 'COMMENT 2', 'COMMENT2', 'comment 2'], 28),
+      date: readCell(row, ['ISSUE DATE 2', 'تاريخ التعليق 2', 'تاريخ 2'], 29),
+      interviewer: readCell(row, ['INTERVIEWER 2', 'المعلق 2', 'الموظف 2'], 30),
+    },
+    {
+      raw: readCell(row, ['التعليق 3', 'تعليق 3', 'COMMENT 3', 'COMMENT3', 'comment 3'], 31),
+      date: readCell(row, ['ISSUE DATE 3', 'تاريخ التعليق 3', 'تاريخ 3'], 32),
+      interviewer: readCell(row, ['INTERVIEWER 3', 'المعلق 3', 'الموظف 3'], 33),
+    },
+  ];
+
+  const { data: existingComments } = await supabaseAdmin
+    .from('comments')
+    .select('id,text,user_name,created_at')
+    .eq('property_id', propertyId)
+    .order('created_at', { ascending: false })
+    .limit(200);
+
+  const { data: users } = await supabaseAdmin
+    .from('user_profiles')
+    .select('id,full_name,display_name')
+    .in('role', ['employee', 'admin', 'super_admin']);
+
+  const userPool = users || [];
+  const insertedComments: Array<{ text: string; created_at: string }> = [];
+
+  for (const cell of commentCells) {
+    const parsed = extractSheetComment(cell.raw, cell.date, cell.interviewer);
+    if (!parsed) continue;
+
+    const textNorm = normalizeLoose(parsed.finalText);
+    const duplicate = (existingComments || []).some((c: any) => normalizeLoose(c.text || '') === textNorm);
+    if (duplicate) continue;
+
+    const aliases = KNOWN_EMPLOYEE_ALIASES.filter(alias =>
+      normalizeLoose(parsed.rawText).includes(normalizeLoose(alias))
+    );
+    const uniqueAliases = Array.from(new Set(aliases));
+
+    const matchedUsers = userPool.filter((u: any) => {
+      const name = normalizeLoose(u.full_name || u.display_name || '');
+      return uniqueAliases.some(alias => name.includes(normalizeLoose(alias)));
+    });
+
+    const userNames = matchedUsers.length > 0
+      ? matchedUsers.map((u: any) => u.full_name || u.display_name).filter(Boolean)
+      : uniqueAliases;
+    const userName = userNames.length > 0 ? Array.from(new Set(userNames)).join('، ') : 'مزامنة الشيت';
+    const userId = matchedUsers.length === 1 ? matchedUsers[0].id : null;
+
+    const payload: any = {
+      property_id: propertyId,
+      user_id: userId,
+      user_name: userName,
+      text: parsed.finalText,
+      images: [],
+      created_at: parsed.createdAt || new Date().toISOString(),
+    };
+
+    const { error } = await supabaseAdmin.from('comments').insert(payload);
+    if (!error) {
+      insertedComments.push({ text: parsed.finalText, created_at: payload.created_at });
+    }
+  }
+
+  if (insertedComments.length > 0) {
+    const latest = insertedComments.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+    await supabaseAdmin
+      .from('properties')
+      .update({ last_comment: latest.text, last_comment_at: latest.created_at })
+      .eq('id', propertyId);
+  }
+}
+
 export const syncSupabaseWithSheets = async () => {
   console.log('[SYNC] Starting Google Sheets Sync at', new Date().toISOString());
 
@@ -171,14 +358,23 @@ export const syncSupabaseWithSheets = async () => {
         if (created_by) propertyData.created_by = created_by;
         if (created_atStr) propertyData.created_at = new Date(created_atStr).toISOString();
 
+        let targetPropertyId = '';
         if (id) {
           const { error: updateError } = await supabaseAdmin.from('properties').update(propertyData).eq('id', id);
           if (updateError) {
              // Handle case where ID might not exist yet but was provided
-            await supabaseAdmin.from('properties').insert({ ...propertyData, id });
+            const { data: inserted } = await supabaseAdmin.from('properties').insert({ ...propertyData, id }).select('id').single();
+            targetPropertyId = inserted?.id || id;
+          } else {
+            targetPropertyId = id;
           }
         } else {
-          await supabaseAdmin.from('properties').insert({ ...propertyData });
+          const { data: inserted } = await supabaseAdmin.from('properties').insert({ ...propertyData }).select('id').single();
+          targetPropertyId = inserted?.id || '';
+        }
+
+        if (targetPropertyId) {
+          await syncSheetCommentsForProperty(targetPropertyId, row, readCell);
         }
       }
       console.log('[SYNC] Successfully imported data from Sheets with Priority logic.');
