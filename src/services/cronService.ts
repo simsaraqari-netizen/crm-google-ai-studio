@@ -12,9 +12,8 @@ const supabaseAdmin = createClient(
 );
 
 export const initializeCronJobs = () => {
-  // Run daily at midnight '0 0 * * *'
-  // Run every 5 minutes for auto-sync '*/5 * * * *'
-  cron.schedule('*/5 * * * *', async () => {
+  // Run daily at 03:00 server time.
+  cron.schedule('0 3 * * *', async () => {
     try {
       await syncSupabaseWithSheets();
     } catch (e: any) {

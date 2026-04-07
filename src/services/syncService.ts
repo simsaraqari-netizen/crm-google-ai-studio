@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { readSheet, writeToSheet } from './googleSheetsService.ts';
+import { readSheet } from './googleSheetsService.ts';
 import { cleanAreaName, inferGovernorate, inferPurpose, inferType, cleanNameText, cleanNameWithContext, normalizeDigits, splitMultiValue } from '../utils.ts';
 
 const supabaseAdmin = createClient(
@@ -36,20 +36,48 @@ export const syncSupabaseWithSheets = async () => {
     const sheetData = await readSheet(spreadsheetId, range);
     
     if (sheetData && Array.isArray(sheetData)) {
-      const headerRow = sheetData[0];
-      const startIdx = (headerRow && headerRow[0] === 'ID') ? 1 : 0;
+      const headerRow = (sheetData[0] || []).map((h: any) => String(h || '').trim());
+      const startIdx = headerRow.length > 0 ? 1 : 0;
+      const headerMap = new Map<string, number>();
+      headerRow.forEach((h: string, i: number) => headerMap.set(h, i));
+
+      const readCell = (row: any[], aliases: string[], fallbackIndex: number) => {
+        for (const alias of aliases) {
+          const idx = headerMap.get(alias);
+          if (idx !== undefined) return row[idx];
+        }
+        return row[fallbackIndex];
+      };
       
       for (let i = startIdx; i < sheetData.length; i++) {
         const row = sheetData[i];
         if (!row || row.length < 2) continue;
         
-        const [
-          id, name, governorate, area, type, purpose, phone, 
-          assigned_employee_id, assigned_employee_name, imagesStr, linksStr, 
-          location_link, is_soldStr, sector, block, street, avenue, 
-          plot_number, house_number, location, details, last_comment, 
-          status_label, created_by, created_atStr
-        ] = row;
+        const id = readCell(row, ['ID', 'Id', 'id'], 0);
+        const name = readCell(row, ['الاسم', 'اسم العميل', 'name'], 1);
+        const governorate = readCell(row, ['المحافظة', 'governorate'], 2);
+        const area = readCell(row, ['المنطقة', 'area'], 3);
+        const type = readCell(row, ['النوع', 'type'], 4);
+        const purpose = readCell(row, ['الغرض', 'الغرض من العملية', 'purpose'], 5);
+        const phone = readCell(row, ['الهاتف', 'تليفون', 'phone'], 6);
+        const assigned_employee_id = readCell(row, ['ID الموظف', 'المسؤول الرقمي', 'assigned_employee_id'], 7);
+        const assigned_employee_name = readCell(row, ['اسم الموظف', 'المسؤول', 'assigned_employee_name'], 8);
+        const imagesStr = readCell(row, ['الصور', 'images'], 9);
+        const linksStr = readCell(row, ['الروابط', 'links'], 10);
+        const location_link = readCell(row, ['رابط الموقع', 'location_link'], 11);
+        const is_soldStr = readCell(row, ['مباع', 'مباع؟', 'is_sold'], 12);
+        const sector = readCell(row, ['القطاع', 'sector'], 13);
+        const block = readCell(row, ['القطعة', 'block'], 14);
+        const street = readCell(row, ['الشارع', 'street'], 15);
+        const avenue = readCell(row, ['الجادة', 'avenue'], 16);
+        const plot_number = readCell(row, ['القسيمة', 'plot_number'], 17);
+        const house_number = readCell(row, ['المنزل', 'house_number'], 18);
+        const location = readCell(row, ['الموقع الوصفي', 'الموقع', 'location'], 19);
+        const details = readCell(row, ['التفاصيل', 'details'], 20);
+        const last_comment = readCell(row, ['آخر تعليق', 'last_comment'], 21);
+        const status_label = readCell(row, ['ملصق الحالة', 'حالة الحجز', 'status_label'], 22);
+        const created_by = readCell(row, ['أنشئ بواسطة', 'بواسطة', 'created_by'], 23);
+        const created_atStr = readCell(row, ['تاريخ الإنشاء', 'تاريخ الإضافة', 'created_at'], 24);
 
         // Fetch existing record to preserve fields if sheet is empty
         let existing: any = null;
@@ -155,83 +183,7 @@ export const syncSupabaseWithSheets = async () => {
       }
       console.log('[SYNC] Successfully imported data from Sheets with Priority logic.');
     }
-
-    // ============================================
-    // STEP B: SYNC FROM SUPABASE TO SHEET
-    // ============================================
-    console.log('[SYNC] Overwriting sheet with latest Supabase data...');
-    
-    let allProps: any[] = [];
-    let from = 0;
-    let step = 1000;
-    let fetchMore = true;
-
-    while (fetchMore) {
-      const { data: dbData, error: dbError } = await supabaseAdmin
-        .from('properties')
-        .select('*')
-        .eq('is_deleted', false)
-        .neq('status', 'deleted')
-        .order('created_at', { ascending: false })
-        .range(from, from + step - 1);
-        
-      if (dbError) throw dbError;
-      if (dbData && dbData.length > 0) {
-        allProps = [...allProps, ...dbData];
-        from += step;
-        if (dbData.length < step) fetchMore = false;
-      } else {
-        fetchMore = false;
-      }
-    }
-
-    if (allProps.length === 0) {
-      console.log('[SYNC] No properties found in Supabase. Skipping sheet overwrite to prevent data loss.');
-      return;
-    }
-
-    const header = [
-      "ID", "الاسم", "المحافظة", "المنطقة", "النوع", "الغرض", "تليفون",
-      "المسؤول الرقمي", "المسؤول", "الصور", "الروابط", 
-      "رابط الموقع", "مباع؟", "القطاع", "القطعة", "الشارع", "الجادة", 
-      "القسيمة", "المنزل", "الموقع", "التفاصيل", "آخر تعليق", 
-      "حالة الحجز", "بواسطة", "تاريخ الإضافة"
-    ];
-
-    const writeData = [
-      header,
-      ...allProps.map(p => [
-        p.id,
-        normalizeDigits(p.name || ''),
-        normalizeDigits(p.governorate || ''),
-        normalizeDigits(p.area || ''),
-        normalizeDigits(p.type || ''),
-        normalizeDigits(p.purpose || ''),
-        normalizeDigits(p.phone || ''),
-        p.assigned_employee_id || '',
-        normalizeDigits(p.assigned_employee_name || ''),
-        (p.images || []).map((img: any) => typeof img === 'string' ? img : (img.url || '')).filter(Boolean).join(','),
-        (p.links || []).join(','),
-        p.location_link || '',
-        p.is_sold ? "مباع" : "متاح",
-        normalizeDigits(p.sector || ''),
-        normalizeDigits(p.block || ''),
-        normalizeDigits(p.street || ''),
-        normalizeDigits(p.avenue || ''),
-        normalizeDigits(p.plot_number || ''),
-        normalizeDigits(p.house_number || ''),
-        normalizeDigits(p.location || ''),
-        normalizeDigits(p.details || ''),
-        normalizeDigits(p.last_comment || ''),
-        normalizeDigits(p.status_label || ''),
-        normalizeDigits(p.created_by || ''),
-        new Date(p.created_at).toLocaleString('ar-KW')
-      ])
-    ];
-
-    console.log(`[SYNC] Writing ${allProps.length} properties to sheet...`);
-    await writeToSheet(spreadsheetId, range, writeData);
-    console.log('[SYNC] Sync process completed successfully!');
+    console.log('[SYNC] Sync process completed successfully (Sheet -> Supabase only).');
   } catch (e: any) {
     console.error('[SYNC] Error during synchronization:', e);
   }

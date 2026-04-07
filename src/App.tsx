@@ -1004,7 +1004,17 @@ export default function App() {
         const { data: existingProperties } = await supabase.from('properties').select('*');
         const propertiesMap = new Map((existingProperties || []).map(p => [p.id, p]));
 
-        const startIdx = (data[0] && data[0][0] === 'ID') ? 1 : 0;
+        const headerRow = (data[0] || []).map((h: any) => String(h || '').trim());
+        const startIdx = headerRow.length > 0 ? 1 : 0;
+        const headerMap = new Map<string, number>();
+        headerRow.forEach((h: string, i: number) => headerMap.set(h, i));
+        const readCell = (row: any[], aliases: string[], fallbackIndex: number) => {
+          for (const alias of aliases) {
+            const idx = headerMap.get(alias);
+            if (idx !== undefined) return row[idx];
+          }
+          return row[fallbackIndex];
+        };
         let updateCount = 0;
         let insertCount = 0;
         
@@ -1012,13 +1022,31 @@ export default function App() {
           const row = data[i];
           if (!row || row.length < 2) continue;
           
-          const [
-            id, name, governorate, area, type, purpose, phone, 
-            assigned_employee_id, assigned_employee_name, imagesStr, linksStr, 
-            location_link, is_soldStr, sector, block, street, avenue, 
-            plot_number, house_number, location, details, last_comment, 
-            status_label, created_by, created_atStr
-          ] = row;
+          const id = readCell(row, ['ID', 'Id', 'id'], 0);
+          const name = readCell(row, ['الاسم', 'اسم العميل', 'name'], 1);
+          const governorate = readCell(row, ['المحافظة', 'governorate'], 2);
+          const area = readCell(row, ['المنطقة', 'area'], 3);
+          const type = readCell(row, ['النوع', 'type'], 4);
+          const purpose = readCell(row, ['الغرض', 'الغرض من العملية', 'purpose'], 5);
+          const phone = readCell(row, ['الهاتف', 'تليفون', 'phone'], 6);
+          const assigned_employee_id = readCell(row, ['ID الموظف', 'المسؤول الرقمي', 'assigned_employee_id'], 7);
+          const assigned_employee_name = readCell(row, ['اسم الموظف', 'المسؤول', 'assigned_employee_name'], 8);
+          const imagesStr = readCell(row, ['الصور', 'images'], 9);
+          const linksStr = readCell(row, ['الروابط', 'links'], 10);
+          const location_link = readCell(row, ['رابط الموقع', 'location_link'], 11);
+          const is_soldStr = readCell(row, ['مباع', 'مباع؟', 'is_sold'], 12);
+          const sector = readCell(row, ['القطاع', 'sector'], 13);
+          const block = readCell(row, ['القطعة', 'block'], 14);
+          const street = readCell(row, ['الشارع', 'street'], 15);
+          const avenue = readCell(row, ['الجادة', 'avenue'], 16);
+          const plot_number = readCell(row, ['القسيمة', 'plot_number'], 17);
+          const house_number = readCell(row, ['المنزل', 'house_number'], 18);
+          const location = readCell(row, ['الموقع الوصفي', 'الموقع', 'location'], 19);
+          const details = readCell(row, ['التفاصيل', 'details'], 20);
+          const last_comment = readCell(row, ['آخر تعليق', 'last_comment'], 21);
+          const status_label = readCell(row, ['ملصق الحالة', 'حالة الحجز', 'status_label'], 22);
+          const created_by = readCell(row, ['أنشئ بواسطة', 'بواسطة', 'created_by'], 23);
+          const created_atStr = readCell(row, ['تاريخ الإنشاء', 'تاريخ الإضافة', 'created_at'], 24);
 
           const existing = id ? propertiesMap.get(id) : null;
           const clean = (val: any) => typeof val === 'string' ? val.trim() : (val || '');
