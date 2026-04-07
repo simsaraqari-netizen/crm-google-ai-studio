@@ -44,6 +44,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { supabase } from './lib/supabaseClient';
+import { API_BASE } from './lib/apiBase';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { GOVERNORATES, AREAS, PROPERTY_TYPES, PURPOSES, LOCATIONS } from './constants';
@@ -157,7 +158,7 @@ function SyncModal({ isOpen, onClose, onSyncFrom, onSyncTo }: any) {
             return;
           }
           // Use absolute URL if needed or handle 404 gracefully
-          const response = await fetch('/api/sync/history?limit=12', {
+          const response = await fetch(`${API_BASE}/api/sync/history?limit=12`, {
             headers: { Authorization: `Bearer ${token}` }
           }).catch(() => null); // Silent fail for network errors
           
@@ -182,7 +183,7 @@ function SyncModal({ isOpen, onClose, onSyncFrom, onSyncTo }: any) {
       const session = (await supabase.auth.getSession()).data.session;
       const idToken = session?.access_token;
       if (!idToken) return;
-      const response = await fetch('/api/sync/rollback', {
+      const response = await fetch(`${API_BASE}/api/sync/rollback`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ idToken, snapshotId })
@@ -233,7 +234,7 @@ function SyncModal({ isOpen, onClose, onSyncFrom, onSyncTo }: any) {
     if (!idToken) return;
     
     try {
-      const response = await fetch('/api/create-sheet', {
+      const response = await fetch(`${API_BASE}/api/create-sheet`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ idToken, title })
@@ -1295,7 +1296,7 @@ export default function App() {
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token || '';
 
-        const response = await fetch('/api/admin/create-user', {
+        const response = await fetch(`${API_BASE}/api/admin/create-user`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1397,7 +1398,7 @@ export default function App() {
       const userUid = session.user.id;
 
       // Call server endpoint to delete user with service role
-      const response = await fetch('/api/admin/delete-user', {
+      const response = await fetch(`${API_BASE}/api/admin/delete-user`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1628,7 +1629,7 @@ export default function App() {
     if (!idToken) return;
     
     try {
-      const response = await fetch('/api/sync/auto', {
+      const response = await fetch(`${API_BASE}/api/sync/auto`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ idToken, spreadsheetId, range })
@@ -1658,7 +1659,7 @@ export default function App() {
     if (!idToken) return;
     
     try {
-      const response = await fetch('/api/sync/push', {
+      const response = await fetch(`${API_BASE}/api/sync/push`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ idToken, spreadsheetId: targetSpreadsheetId, range: rng })
@@ -2739,7 +2740,7 @@ export default function App() {
                             const token = session?.access_token || '';
 
                             // Create user via admin API endpoint
-                            const response = await fetch('/api/admin/create-user', {
+                            const response = await fetch(`${API_BASE}/api/admin/create-user`, {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({
@@ -2885,7 +2886,7 @@ export default function App() {
                         const companyId = isSuperAdmin ? (form.elements.namedItem('companyId') as HTMLSelectElement).value : user?.companyId;
 
                         // Create user via admin API endpoint
-                        const response = await fetch('/api/admin/create-user', {
+                        const response = await fetch(`${API_BASE}/api/admin/create-user`, {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({
@@ -3056,7 +3057,7 @@ export default function App() {
                                         }
                                         const { data: { session } } = await supabase.auth.getSession();
                                         const token = session?.access_token;
-                                        const response = await fetch('/api/update-user-password', {
+                                        const response = await fetch(`${API_BASE}/api/update-user-password`, {
                                           method: 'POST',
                                           headers: { 'Content-Type': 'application/json' },
                                           body: JSON.stringify({

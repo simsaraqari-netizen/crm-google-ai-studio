@@ -27,6 +27,7 @@ jobs:
         env:
           VITE_SUPABASE_URL: "https://ixtwffjepcnfjehzpiyf.supabase.co"
           VITE_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4dHdmZmplcGNuZmplaHpwaXlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxNDY0NTUsImV4cCI6MjA5MDcyMjQ1NX0.SW9D-2AVUfb3DgfdifHYqr5D_0zqfnDBNlVShKfwEJ4"
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: './dist'

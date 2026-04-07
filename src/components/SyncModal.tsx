@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { API_BASE } from '../lib/apiBase';
 import { extractSpreadsheetId } from '../utils';
 import { toast } from 'react-hot-toast';
 
@@ -46,7 +47,7 @@ export function SyncModal({ isOpen, onClose, onSyncFrom, onSyncTo }: any) {
     if (!idToken) return;
     
     try {
-      const response = await fetch('/api/create-sheet', {
+      const response = await fetch(`${API_BASE}/api/create-sheet`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ idToken, title })

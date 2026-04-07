@@ -18,7 +18,24 @@ const supabaseAdmin = createClient(
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
+
+  // CORS - allow GitHub Pages frontend and localhost
+  app.use((req, res, next) => {
+    const allowedOrigins = [
+      'https://simsaraqari-netizen.github.io',
+      'http://localhost:3000',
+      'http://localhost:5173',
+    ];
+    const origin = req.headers.origin || '';
+    if (allowedOrigins.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
+    next();
+  });
 
   app.use(express.json());
 

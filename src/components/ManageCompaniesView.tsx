@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabaseClient';
+import { API_BASE } from '../lib/apiBase';
 import { Company, UserProfile } from '../types';
 
 interface ManageCompaniesViewProps {
@@ -129,7 +130,7 @@ export const ManageCompaniesView: React.FC<ManageCompaniesViewProps> = ({
     const role = (form.elements.namedItem('role') as HTMLSelectElement).value;
 
     try {
-      const response = await fetch('/api/create-user', {
+      const response = await fetch(`${API_BASE}/api/create-user`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
