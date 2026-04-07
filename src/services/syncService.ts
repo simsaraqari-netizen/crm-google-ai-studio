@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { readSheet, writeToSheet } from './googleSheetsService.ts';
-import { cleanAreaName, inferGovernorate, inferPurpose, inferType, cleanNameText, cleanNameWithContext, normalizeDigits, extractDetailsFromName } from '../utils.ts';
+import { cleanAreaName, inferGovernorate, inferPurpose, inferType, cleanNameText, cleanNameWithContext, normalizeDigits } from '../utils.ts';
 
 const supabaseAdmin = createClient(
   process.env.VITE_SUPABASE_URL!,
@@ -37,12 +37,12 @@ export const syncSupabaseWithSheets = async () => {
         if (!row || row.length < 2) continue;
         
         const [
-          created_atStr, name, purpose, phone, phone2, area, type, 
-          governorate, sector, distribution, block, street, avenue, 
-          plot_number, house_number, details, last_comment
+          id, name, governorate, area, type, purpose, phone, 
+          assigned_employee_id, assigned_employee_name, imagesStr, linksStr, 
+          location_link, is_soldStr, sector, block, street, avenue, 
+          plot_number, house_number, location, details, last_comment, 
+          status_label, created_by, created_atStr
         ] = row;
-
-        if (!name || name.trim() === '') continue;
 
         const cleanVal = (val: string) => {
           if (!val) return '';
@@ -82,29 +82,37 @@ export const syncSupabaseWithSheets = async () => {
           type: newType,
           purpose: newPurpose,
           phone: cleanVal(phone),
-          sector: cleanVal(sector) || extractDetailsFromName(cName).sector || '',
-          block: cleanVal(block) || extractDetailsFromName(cName).block || '',
-          street: cleanVal(street) || extractDetailsFromName(cName).street || '',
-          avenue: cleanVal(avenue) || extractDetailsFromName(cName).avenue || '',
-          plot_number: cleanVal(plot_number) || extractDetailsFromName(cName).plot_number || '',
-          house_number: cleanVal(house_number) || extractDetailsFromName(cName).house_number || '',
-          details: cleanVal(details) || row[15] || '', // Using index since destructuring might miss some
+          assigned_employee_id: assigned_employee_id || null,
+          assigned_employee_name: assigned_employee_name || '',
+          images: imagesStr ? imagesStr.split(',').filter(Boolean).map(url => ({ 
+            url, 
+            type: (url.includes('.mp4') || url.includes('.mov') || url.includes('video')) ? 'video' : 'image',
+            comment: '' 
+          })) : [],
+          links: linksStr ? linksStr.split(',').filter(Boolean) : [],
+          location_link: location_link || '',
+          is_sold: is_soldStr === 'TRUE' || is_soldStr === 'نعم' || is_soldStr === 'مباع',
+          sector: cleanVal(sector),
+          block: cleanVal(block),
+          street: cleanVal(street),
+          avenue: cleanVal(avenue),
+          plot_number: cleanVal(plot_number),
+          house_number: cleanVal(house_number),
+          location: cleanVal(location),
+          details: cleanVal(details),
+          status_label: cleanVal(status_label),
           updated_at: new Date().toISOString()
         };
 
-        // Add additional fields if they exist
         if (last_comment) propertyData.last_comment = cleanVal(last_comment);
+        if (created_by) propertyData.created_by = created_by;
         if (created_atStr) propertyData.created_at = new Date(created_atStr).toISOString();
 
-        // Find existing property in Supabase by name and area to avoid duplicates if ID is missing
-        const { data: existing } = await supabaseAdmin.from('properties')
-          .select('id')
-          .eq('name', finalName)
-          .eq('area', cArea)
-          .maybeSingle();
-
-        if (existing) {
-          await supabaseAdmin.from('properties').update(propertyData).eq('id', existing.id);
+        if (id) {
+          const { error: updateError } = await supabaseAdmin.from('properties').update(propertyData).eq('id', id);
+          if (updateError) {
+            await supabaseAdmin.from('properties').insert({ ...propertyData, id });
+          }
         } else {
           await supabaseAdmin.from('properties').insert({ ...propertyData });
         }
@@ -142,31 +150,41 @@ export const syncSupabaseWithSheets = async () => {
     }
 
     const header = [
-      "تاريخ الادخال", "الاسم", "الغرض", "الهاتف", "الهاتف 2", "المنطقة", "نوع العقار", 
-      "المحافظة", "القطاع", "التوزيعة", "القطعة", "الشارع", "الجادة", 
-      "رقم القسيمة", "المنزل", "التفاصيل", "آخر تعليق"
+      "ID", "الاسم", "المحافظة", "المنطقة", "النوع", "الغرض", "تليفون",
+      "المسؤول الرقمي", "المسؤول", "الصور", "الروابط", 
+      "رابط الموقع", "مباع؟", "القطاع", "القطعة", "الشارع", "الجادة", 
+      "القسيمة", "المنزل", "الموقع", "التفاصيل", "آخر تعليق", 
+      "حالة الحجز", "بواسطة", "تاريخ الإضافة"
     ];
 
     const writeData = [
       header,
       ...allProps.map(p => [
-        p.created_at ? new Date(p.created_at).toLocaleString('ar-KW') : '',
+        p.id,
         normalizeDigits(p.name || ''),
-        normalizeDigits(p.purpose || ''),
-        normalizeDigits(p.phone || ''),
-        '', // Phone 2 (not in DB yet)
+        normalizeDigits(p.governorate || ''),
         normalizeDigits(p.area || ''),
         normalizeDigits(p.type || ''),
-        normalizeDigits(p.governorate || ''),
+        normalizeDigits(p.purpose || ''),
+        normalizeDigits(p.phone || ''),
+        p.assigned_employee_id || '',
+        normalizeDigits(p.assigned_employee_name || ''),
+        (p.images || []).map((img: any) => typeof img === 'string' ? img : (img.url || '')).filter(Boolean).join(','),
+        (p.links || []).join(','),
+        p.location_link || '',
+        p.is_sold ? "مباع" : "متاح",
         normalizeDigits(p.sector || ''),
-        '', // Distribution (not in DB yet)
         normalizeDigits(p.block || ''),
         normalizeDigits(p.street || ''),
         normalizeDigits(p.avenue || ''),
         normalizeDigits(p.plot_number || ''),
         normalizeDigits(p.house_number || ''),
+        normalizeDigits(p.location || ''),
         normalizeDigits(p.details || ''),
-        normalizeDigits(p.last_comment || '')
+        normalizeDigits(p.last_comment || ''),
+        normalizeDigits(p.status_label || ''),
+        normalizeDigits(p.created_by || ''),
+        new Date(p.created_at).toLocaleString('ar-KW')
       ])
     ];
 
