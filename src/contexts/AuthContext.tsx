@@ -125,13 +125,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => handleSession(session));
-    
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      handleSession(session);
+    let mounted = true;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (mounted) handleSession(session);
     });
 
-    return () => subscription.unsubscribe();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (mounted) handleSession(session);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleLogout = async () => {
