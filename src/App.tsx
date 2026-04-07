@@ -988,136 +988,18 @@ export default function App() {
     
     try {
       toast.loading('بدء المزامنة من الشيت...', { id: 'sync-progress' });
-      const response = await fetch('/api/sync', {
+      const response = await fetch('/api/sync/auto', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken, spreadsheetId: spreadsheet_id, range })
+        body: JSON.stringify({ idToken })
       });
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(errorText || 'Sync failed');
       }
-      const data = await response.json();
-      
-      if (data && Array.isArray(data)) {
-        // Fetch all existing properties to handle priority logic
-        const { data: existingProperties } = await supabase.from('properties').select('*');
-        const propertiesMap = new Map((existingProperties || []).map(p => [p.id, p]));
-
-        const headerRow = (data[0] || []).map((h: any) => String(h || '').trim());
-        const startIdx = headerRow.length > 0 ? 1 : 0;
-        const headerMap = new Map<string, number>();
-        headerRow.forEach((h: string, i: number) => headerMap.set(h, i));
-        const readCell = (row: any[], aliases: string[], fallbackIndex: number) => {
-          for (const alias of aliases) {
-            const idx = headerMap.get(alias);
-            if (idx !== undefined) return row[idx];
-          }
-          return row[fallbackIndex];
-        };
-        let updateCount = 0;
-        let insertCount = 0;
-        
-        for (let i = startIdx; i < data.length; i++) {
-          const row = data[i];
-          if (!row || row.length < 2) continue;
-          
-          const id = readCell(row, ['ID', 'Id', 'id'], 0);
-          const name = readCell(row, ['الاسم', 'اسم العميل', 'name'], 1);
-          const governorate = readCell(row, ['المحافظة', 'governorate'], 2);
-          const area = readCell(row, ['المنطقة', 'area'], 3);
-          const type = readCell(row, ['النوع', 'type'], 4);
-          const purpose = readCell(row, ['الغرض', 'الغرض من العملية', 'purpose'], 5);
-          const phone = readCell(row, ['الهاتف', 'تليفون', 'phone'], 6);
-          const assigned_employee_id = readCell(row, ['ID الموظف', 'المسؤول الرقمي', 'assigned_employee_id'], 7);
-          const assigned_employee_name = readCell(row, ['اسم الموظف', 'المسؤول', 'assigned_employee_name'], 8);
-          const imagesStr = readCell(row, ['الصور', 'images'], 9);
-          const linksStr = readCell(row, ['الروابط', 'links'], 10);
-          const location_link = readCell(row, ['رابط الموقع', 'location_link'], 11);
-          const is_soldStr = readCell(row, ['مباع', 'مباع؟', 'is_sold'], 12);
-          const sector = readCell(row, ['القطاع', 'sector'], 13);
-          const block = readCell(row, ['القطعة', 'block'], 14);
-          const street = readCell(row, ['الشارع', 'street'], 15);
-          const avenue = readCell(row, ['الجادة', 'avenue'], 16);
-          const plot_number = readCell(row, ['القسيمة', 'plot_number'], 17);
-          const house_number = readCell(row, ['المنزل', 'house_number'], 18);
-          const location = readCell(row, ['الموقع الوصفي', 'الموقع', 'location'], 19);
-          const details = readCell(row, ['التفاصيل', 'details'], 20);
-          const last_comment = readCell(row, ['آخر تعليق', 'last_comment'], 21);
-          const status_label = readCell(row, ['ملصق الحالة', 'حالة الحجز', 'status_label'], 22);
-          const created_by = readCell(row, ['أنشئ بواسطة', 'بواسطة', 'created_by'], 23);
-          const created_atStr = readCell(row, ['تاريخ الإنشاء', 'تاريخ الإضافة', 'created_at'], 24);
-
-          const existing = id ? propertiesMap.get(id) : null;
-          const clean = (val: any) => typeof val === 'string' ? val.trim() : (val || '');
-
-          // Priority Logic: Use sheet value if not empty, otherwise use existing DB value
-          const getValue = (sheetVal: any, dbVal: any) => {
-            const s = clean(sheetVal);
-            return s !== '' ? s : (dbVal || '');
-          };
-
-          const sArea = clean(area);
-          const sName = clean(name);
-          const sType = clean(type);
-          const sPurpose = clean(purpose);
-
-          // Multi-value handling for areas and governorates
-          let finalArea = getValue(sArea, existing?.area);
-          let finalGov = getValue(clean(governorate), existing?.governorate);
-
-          if (sArea !== '') {
-            // If sheet has area, re-infer governorates
-            finalGov = inferGovernorate(sArea, clean(governorate));
-          }
-
-          // Image and links merging/priority
-          const parseList = (str: string) => str ? str.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean) : [];
-          const sheetImages = parseList(imagesStr);
-          const finalImages = sheetImages.length > 0 ? sheetImages : (existing?.images || []);
-
-          const propertyData: any = {
-            name: getValue(sName, existing?.name),
-            governorate: finalGov,
-            area: finalArea,
-            type: getValue(sType, existing?.type) || inferType(sName) || existing?.type,
-            purpose: getValue(sPurpose, existing?.purpose) || inferPurpose(sName) || existing?.purpose,
-            phone: getValue(phone, existing?.phone),
-            assigned_employee_id: getValue(assigned_employee_id, existing?.assigned_employee_id),
-            assigned_employee_name: getValue(assigned_employee_name, existing?.assigned_employee_name),
-            images: finalImages,
-            location_link: getValue(location_link, existing?.location_link),
-            is_sold: is_soldStr !== '' ? (is_soldStr === 'TRUE' || is_soldStr === 'نعم' || is_soldStr === 'مباع') : (existing?.is_sold || false),
-            sector: getValue(sector, existing?.sector),
-            block: getValue(block, existing?.block),
-            street: getValue(street, existing?.street),
-            avenue: getValue(avenue, existing?.avenue),
-            plot_number: getValue(plot_number, existing?.plot_number),
-            house_number: getValue(house_number, existing?.house_number),
-            location: getValue(location, existing?.location),
-            details: getValue(details, existing?.details),
-            status_label: getValue(status_label, existing?.status_label),
-            last_comment: getValue(last_comment, existing?.last_comment)
-          };
-
-          if (existing) {
-            const { error: updateError } = await supabase.from('properties').update(propertyData).eq('id', id);
-            if (!updateError) updateCount++;
-          } else {
-            const { error: insertError } = await supabase.from('properties').insert({
-              ...propertyData,
-              created_at: created_atStr ? new Date(created_atStr).toISOString() : new Date().toISOString(),
-              created_by: created_by || user?.id,
-              status: 'approved'
-            });
-            if (!insertError) insertCount++;
-          }
-        }
-        
-        toast.success(`تمت المزامنة: تحديث ${updateCount}، إضافة ${insertCount}`, { id: 'sync-progress' });
-        setSpreadsheetId(spreadsheet_id);
-        setIsSyncModalOpen(false);
-      }
+      toast.success('تمت المزامنة من الشيت بنجاح', { id: 'sync-progress' });
+      if (spreadsheet_id) setSpreadsheetId(spreadsheet_id);
+      setIsSyncModalOpen(false);
     } catch (e: any) {
       console.error(e);
       toast.error(`حدث خطأ أثناء المزامنة: ${e.message}`, { id: 'sync-progress' });
