@@ -27,7 +27,7 @@ export function PropertiesProvider({ children }: { children: React.ReactNode }) 
       }, (payload) => {
         const newProp = payload.new as Property;
         // Only update if it belongs to the user's company or if superadmin
-        if (isSuperAdmin || newProp.company_id === (selectedCompanyId || user.company_id)) {
+        if (isSuperAdmin || newProp.companyId === (selectedCompanyId || user.companyId)) {
           queryClient.setQueryData(['properties'], (old: Property[] | undefined) => {
             if (!old) return [newProp];
             // Avoid duplicates
@@ -69,7 +69,7 @@ export function PropertiesProvider({ children }: { children: React.ReactNode }) 
   }, [user?.id, selectedCompanyId, isSuperAdmin, queryClient]);
 
   const refreshProperties = async (companyId?: string | null) => {
-    const cid = companyId !== undefined ? companyId : (selectedCompanyId || user?.company_id);
+    const cid = companyId !== undefined ? companyId : (selectedCompanyId || user?.companyId);
     await queryClient.invalidateQueries({ queryKey: ['properties'] });
   };
 

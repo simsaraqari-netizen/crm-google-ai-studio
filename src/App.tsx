@@ -47,7 +47,20 @@ import { supabase } from './lib/supabaseClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { GOVERNORATES, AREAS, PROPERTY_TYPES, PURPOSES, LOCATIONS } from './constants';
-import { normalizeArabic, cleanAreaName, searchMatch, normalizeDigits, generatePropertyTitle, usernameToEmail, extractSpreadsheetId } from './utils';
+import { normalizeArabic, cleanAreaName, searchMatch, normalizeDigits, generatePropertyTitle, usernameToEmail, extractSpreadsheetId, formatRelativeDate, formatDateTime } from './utils';
+import { db, auth, storage, secondaryAuth } from './lib/firebaseClient';
+import {
+  collection, doc, query, where, orderBy, limit,
+  onSnapshot, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc,
+  serverTimestamp,
+} from 'firebase/firestore';
+import {
+  onAuthStateChanged, signOut, signInWithEmailAndPassword,
+  createUserWithEmailAndPassword, updateProfile, deleteUser,
+} from 'firebase/auth';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 // --- Types ---
 
@@ -139,12 +152,10 @@ function SyncModal({ isOpen, onClose, onSyncFrom, onSyncTo }: any) {
         .from('settings')
         .select('id,spreadsheet_id')
         .in('id', ['sync', '1'])
-        .then(({ data }) => {
+        .then(({ data, error }) => {
+          if (error) { console.error(error); return; }
           const row = (data || []).find((r: any) => r.id === 'sync') || (data || [])[0];
           setSpreadsheetId(row?.spreadsheet_id || '');
-        })
-        .catch(err => {
-          console.error(err);
         });
 
       (async () => {

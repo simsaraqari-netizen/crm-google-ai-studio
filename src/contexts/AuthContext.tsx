@@ -114,7 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             read: false
           });
         }
-        setUser(newProfile as UserProfile);
+        setUser(newProfile as unknown as UserProfile);
       }
     } catch (err: any) {
       setAuthError(`خطأ في الوصول لقاعدة البيانات: ${err.message}`);
