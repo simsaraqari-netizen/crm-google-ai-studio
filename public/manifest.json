@@ -2,7 +2,7 @@
   "name": "سمسار عقاري",
   "short_name": "سمسار",
   "description": "تطبيق إدارة العقارات والسمسرة",
-  "start_url": "/",
+  "start_url": ".",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",

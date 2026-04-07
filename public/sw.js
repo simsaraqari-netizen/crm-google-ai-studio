@@ -1,9 +1,9 @@
 // Simple Service Worker for PWA installation
 const CACHE_NAME = 'simsar-v1';
 const ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json'
+  './',
+  'index.html',
+  'manifest.json'
 ];
 
 self.addEventListener('install', (event) => {

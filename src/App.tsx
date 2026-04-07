@@ -156,14 +156,19 @@ function SyncModal({ isOpen, onClose, onSyncFrom, onSyncTo }: any) {
             setHistory([]);
             return;
           }
+          // Use absolute URL if needed or handle 404 gracefully
           const response = await fetch('/api/sync/history?limit=12', {
             headers: { Authorization: `Bearer ${token}` }
-          });
-          if (!response.ok) throw new Error(await response.text());
-          const body = await response.json();
-          setHistory(body?.data || []);
+          }).catch(() => null); // Silent fail for network errors
+          
+          if (response && response.ok) {
+            const body = await response.json();
+            setHistory(body?.data || []);
+          } else {
+            setHistory([]);
+          }
         } catch (err) {
-          console.error(err);
+          console.error("Sync history fetch failed (background task):", err);
           setHistory([]);
         } finally {
           setLoadingHistory(false);
