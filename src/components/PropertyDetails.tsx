@@ -23,16 +23,10 @@ import {
   generatePropertyTitle, 
   formatRelativeDate, 
   cleanAreaName, 
-  extractSpreadsheetId,
-  formatDateTime,
-  isImageVideo,
-  getImageUrl,
-  normalizeArabic,
   compressImage,
-  formatPropertyDate,
-  inferGovernorate
+  formatDateTime,
+  formatPropertyDate
 } from '../utils';
-import { PROPERTY_TYPES } from '../constants';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Comment } from '../types';
@@ -55,13 +49,13 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
   useEffect(() => {
     if (!property.id) return;
     async function fetchComments() {
-      const { data, error } = await supabase.from('comments').select('*').eq('property_id', property.id).order('created_at', { ascending: false });
-      if (data) setComments((data as Comment[]).filter(c => !c.is_deleted));
+      const { data, error } = await supabase.from('comments').select('*').eq('propertyId', property.id).order('createdAt', { ascending: false });
+      if (data) setComments((data as Comment[]).filter(c => !c.isDeleted));
     }
     fetchComments();
     
     const channel = supabase.channel(`comments-${property.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'comments', filter: `property_id=eq.${property.id}` }, payload => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comments', filter: `propertyId=eq.${property.id}` }, payload => {
         fetchComments();
       })
       .subscribe();
@@ -83,38 +77,36 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
     setIsUploading(true);
     try {
       await supabase.from('comments').insert({
-        property_id: property.id,
-        user_id: user.id,
-        user_name: user.full_name || user.display_name || 'مستخدم',
-        user_phone: user.phone || '',
+        propertyId: property.id,
+        userId: user.uid,
+        userName: user.full_name,
+        userPhone: user.phone || '',
         text: newComment,
         images: commentImages,
-        created_at: new Date().toISOString()
+        createdAt: new Date().toISOString()
       });
       
       // Update last comment on property
-      const now = new Date().toISOString();
       await supabase.from('properties').update({
-        last_comment: newComment || (commentImages.length > 0 ? 'تم إضافة صور' : ''),
-        last_comment_at: now
+        lastComment: newComment || (commentImages.length > 0 ? 'تم إضافة صور' : '')
       }).eq('id', property.id);
 
       // Notify interested users (who favorited the property)
-      const { data: favorites, error: favError } = await supabase.from('favorites').select('user_id').eq('property_id', property.id);
-      const interestedUserIds = (favorites || []).map(d => d.user_id);
+      const { data: favorites, error: favError } = await supabase.from('favorites').select('userId').eq('propertyId', property.id);
+      const interestedUserIds = (favorites || []).map(d => d.userId);
       
-      for (const recipient_id of interestedUserIds) {
-        if (recipient_id === user.id) continue; // Don't notify the commenter
+      for (const recipientId of interestedUserIds) {
+        if (recipientId === user.uid) continue; // Don't notify the commenter
         
         await supabase.from('notifications').insert({
           type: 'new-comment',
           title: 'تعليق جديد على عقار يهمك',
-          message: `أضاف ${user.full_name || user.display_name || 'مستخدم'} تعليقاً جديداً على العقار: ${generatePropertyTitle(property)}`,
-          recipient_id,
-          user_id: user.id,
-          property_id: property.id,
+          message: `أضاف ${user.full_name} تعليقاً جديداً على العقار: ${generatePropertyTitle(property)}`,
+          recipientId,
+          userId: user.uid,
+          propertyId: property.id,
           read: false,
-          created_at: new Date().toISOString()
+          createdAt: new Date().toISOString()
         });
       }
       
@@ -152,7 +144,7 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
     }, 0);
   };
 
-  const whatsappUrl = `https://wa.me/${(property.assigned_employee?.phone || property.assigned_employee_phone || property.phone || '').replace(/[^0-9]/g, '')}`;
+  const whatsappUrl = `https://wa.me/${(property.assignedEmployeePhone || property.phone || '').replace(/\+/g, '').replace(/\s/g, '')}`;
 
   const handleCommentImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []) as File[];
@@ -163,34 +155,26 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
 
     setIsUploading(true);
     try {
-      const uploadPromises = files.map(async (file) => {
+      const newImages = [...commentImages];
+      for (const file of files) {
         let fileToUpload: Blob;
-        let fileType = file.type;
-        if (file.type && typeof file.type === 'string' && file.type.startsWith('image/')) {
+        if (file.type.startsWith('image/')) {
           fileToUpload = await compressImage(file);
-          fileType = 'image/jpeg';
         } else {
           fileToUpload = file;
         }
-
-        const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '') || 'file';
-        const filePath = `comments/${Date.now()}_${Math.random().toString(36).slice(2)}_${safeName}`;
-        const { data, error } = await supabase.storage
-          .from('properties_media')
-          .upload(filePath, fileToUpload, { contentType: fileType });
-        if (error) throw new Error(error.message || 'فشل الرفع');
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('properties_media').getPublicUrl(filePath);
-        const isVideo = file.type && typeof file.type === 'string' && file.type.startsWith('video/');
-        return { url: publicUrl, type: (isVideo ? 'video' : 'image') as 'video' | 'image' };
-      });
-
-      const newUploadedImages = await Promise.all(uploadPromises);
-      setCommentImages(prev => [...prev, ...newUploadedImages]);
-    } catch (error: any) {
+        
+        const filePath = `comments/${Date.now()}_${file.name}`;
+        const { data, error } = await supabase.storage.from('comments').upload(filePath, fileToUpload);
+        if (error) throw error;
+        
+        const { data: { publicUrl } } = supabase.storage.from('comments').getPublicUrl(filePath);
+        newImages.push({ url: publicUrl, type: file.type.startsWith('video/') ? 'video' : 'image' });
+      }
+      setCommentImages(newImages);
+    } catch (error) {
       console.error("Comment media upload error:", error);
-      toast.error("خطأ الرفع: " + (error.message || "حدث خطأ أثناء رفع الملفات"));
+      toast.error("حدث خطأ أثناء رفع الملفات");
     } finally {
       setIsUploading(false);
       if (e.target) e.target.value = '';
@@ -230,7 +214,7 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
           images={viewerImages} 
           initialIndex={viewerIndex} 
           onClose={() => setShowViewer(false)} 
-          isSold={property.is_sold}
+          isSold={property.isSold}
         />
       )}
 
@@ -303,47 +287,27 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
           <div className="relative aspect-square bg-stone-50 group">
              {property.images?.[activeImageIndex] ? (
               <>
-                 {(() => {
-                   const img = property.images[activeImageIndex];
-                   const url = typeof img === 'string' ? img : img.url;
-                   const isVideo = typeof img === 'string' ? img.startsWith('data:video/') : img.type === 'video';
-                   const comment = typeof img === 'string' ? null : img.comment;
-                   
-                   return (
-                     <>
-                       {isVideo ? (
-                         <video 
-                           src={url} 
-                           controls 
-                           className={`w-full h-full object-cover ${property.is_sold ? 'grayscale opacity-60' : ''}`}
-                         />
-                       ) : (
-                         <div className="relative w-full h-full">
-                           <img 
-                             loading="lazy"
-                             src={url} 
-                             alt={generatePropertyTitle(property)} 
-                             className={`w-full h-full object-cover cursor-zoom-in ${property.is_sold ? 'grayscale opacity-60' : ''}`}
-                             referrerPolicy="no-referrer"
-                             onClick={() => {
-                               setViewerImages(property.images.map(i => typeof i === 'string' ? i : i.url));
-                               setViewerIndex(activeImageIndex);
-                               setShowViewer(true);
-                             }}
-                           />
-                           {comment && (
-                             <div className="absolute bottom-4 right-4 left-4 p-3 bg-black/60 backdrop-blur-md rounded-xl border border-white/20">
-                               <p className="text-white text-xs font-bold text-center leading-relaxed">
-                                 {comment}
-                               </p>
-                             </div>
-                           )}
-                         </div>
-                       )}
-                     </>
-                   );
-                 })()}
-                {property.is_sold && (
+                {property.images[activeImageIndex].startsWith('data:video/') ? (
+                  <video 
+                    src={property.images[activeImageIndex]} 
+                    controls 
+                    className={`w-full h-full object-cover ${property.isSold ? 'grayscale opacity-60' : ''}`}
+                  />
+                ) : (
+                  <img 
+                    loading="lazy"
+                    src={property.images[activeImageIndex]} 
+                    alt={generatePropertyTitle(property)} 
+                    className={`w-full h-full object-cover cursor-zoom-in ${property.isSold ? 'grayscale opacity-60' : ''}`}
+                    referrerPolicy="no-referrer"
+                    onClick={() => {
+                      setViewerImages(property.images);
+                      setViewerIndex(activeImageIndex);
+                      setShowViewer(true);
+                    }}
+                  />
+                )}
+                {property.isSold && (
                   <div className="absolute inset-0 flex items-center justify-center bg-stone-700/80 backdrop-blur-sm pointer-events-none z-10">
                     <span className="text-white font-black text-4xl tracking-wider transform -rotate-12 border-4 border-white px-6 py-2 rounded-xl shadow-2xl">مباع</span>
                   </div>
@@ -352,7 +316,7 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
             ) : (
               <div className="w-full h-full flex items-center justify-center text-stone-300 relative">
                 <ImageIcon size={48} />
-                {property.is_sold && (
+                {property.isSold && (
                   <div className="absolute inset-0 flex items-center justify-center bg-stone-700/80 backdrop-blur-sm pointer-events-none z-10">
                     <span className="text-white font-black text-4xl tracking-wider transform -rotate-12 border-4 border-white px-6 py-2 rounded-xl shadow-2xl">مباع</span>
                   </div>
@@ -360,17 +324,17 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
               </div>
             )}
             
-            {(property.images || []).length > 1 && (
+            {property.images.length > 1 && (
               <div className="absolute inset-0 flex items-center justify-between p-4 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button 
-                  onClick={() => setActiveImageIndex(prev => (prev === 0 ? (property.images || []).length - 1 : prev - 1))}
-                  className="p-2 bg-white rounded-full text-stone-800 hover:bg-stone-50 transition-all shadow-md"
+                  onClick={() => setActiveImageIndex(prev => (prev === 0 ? property.images.length - 1 : prev - 1))}
+                  className="p-2 bg-white/80 backdrop-blur rounded-full text-stone-800 hover:bg-white transition-all shadow-md"
                 >
                   <ChevronRight size={20} />
                 </button>
                 <button 
-                  onClick={() => setActiveImageIndex(prev => (prev === (property.images || []).length - 1 ? 0 : prev + 1))}
-                  className="p-2 bg-white rounded-full text-stone-800 hover:bg-stone-50 transition-all shadow-md"
+                  onClick={() => setActiveImageIndex(prev => (prev === property.images.length - 1 ? 0 : prev + 1))}
+                  className="p-2 bg-white/80 backdrop-blur rounded-full text-stone-800 hover:bg-white transition-all shadow-md"
                 >
                   <ChevronLeft size={20} />
                 </button>
@@ -378,7 +342,7 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
             )}
 
             <div className="absolute bottom-4 right-4 flex gap-1.5">
-              {(property.images || []).map((_: any, i: number) => (
+              {property.images.map((_: any, i: number) => (
                 <button 
                   key={i}
                   onClick={() => setActiveImageIndex(i)}
@@ -393,14 +357,9 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
               <div className="space-y-4">
                 <div className="flex flex-col gap-1">
                   <h1 className="text-lg font-bold serif text-stone-900 text-right">{generatePropertyTitle(property)}</h1>
-                  {property.property_code && (
-                    <p className="text-[11px] font-bold text-emerald-700 text-right">
-                      كود العقار: {property.property_code}
-                    </p>
-                  )}
-                  {property.created_at && (
+                  {property.createdAt && (
                     <p className="text-[10px] text-stone-400 text-right">
-                      تم الإضافة {formatRelativeDate(property.created_at)}
+                      تم الإضافة {formatRelativeDate(property.createdAt)}
                     </p>
                   )}
                 </div>
@@ -413,10 +372,10 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
               
               <div className="flex flex-col md:flex-row gap-3 w-full">
                 <a 
-                  href={`tel:${(property.assigned_employee?.phone || property.assigned_employee_phone || property.phone || '').replace(/[^0-9]/g, '')}`}
+                  href={`tel:${property.assignedEmployeePhone || property.phone || ''}`}
                   className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-xl hover:bg-emerald-700 transition-all font-bold text-sm shadow-sm"
                 >
-                  <span>{property.assigned_employee?.phone || property.assigned_employee_phone || property.phone || ''}</span>
+                  <span>{property.assignedEmployeePhone || property.phone || ''}</span>
                   <Phone size={16} />
                 </a>
                 <a 
@@ -431,37 +390,28 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
               </div>
             </div>
 
-            {(property.images || []).length > 1 && (
+            {property.images.length > 1 && (
               <div className="mt-8 pt-6 border-t border-stone-100">
                 <h3 className="text-sm font-bold text-stone-900 mb-4 flex items-center gap-2 justify-center">
                   <ImageIcon size={16} className="text-emerald-600" />
-                  معرض الصور ({(property.images || []).length})
+                  معرض الصور ({property.images.length})
                 </h3>
                 <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                  {(property.images || []).map((img: any, i: number) => (
+                  {property.images.map((img: string, i: number) => (
                     <button 
                       key={i} 
                       onClick={() => {
-                        setViewerImages((property.images || []).map((item: any) => typeof item === 'string' ? item : item.url));
+                        setViewerImages(property.images);
                         setViewerIndex(i);
                         setShowViewer(true);
                       }}
                       className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${i === activeImageIndex ? 'border-emerald-500 scale-95' : 'border-transparent hover:border-stone-300'}`}
                     >
-                      {(() => {
-                        const url = typeof img === 'string' ? img : img.url;
-                        const isVideo = typeof img === 'string' ? img.startsWith('data:video/') : img.type === 'video';
-                        return isVideo ? (
-                          <div className="w-full h-full bg-stone-100 flex items-center justify-center">
-                            <video src={url} className="w-full h-full object-cover" />
-                            <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                              <span className="text-[10px] font-black text-white bg-black/40 px-1.5 py-0.5 rounded-md backdrop-blur-sm">VIDEO</span>
-                            </div>
-                          </div>
-                        ) : (
-                          <img loading="lazy" src={url} alt="" className="w-full h-full object-cover" />
-                        );
-                      })()}
+                      {img.startsWith('data:video/') ? (
+                        <video src={img} className="w-full h-full object-cover" />
+                      ) : (
+                        <img loading="lazy" src={img} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" />
+                      )}
                     </button>
                   ))}
                 </div>
@@ -491,26 +441,26 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
             ) : (
               comments.map((c) => (
                 <div key={c.id} className="flex flex-col items-start w-full">
-                  <div className={`w-full p-4 rounded-xl shadow-sm ${c.user_id === user.id ? 'bg-emerald-50 border border-emerald-100' : 'bg-stone-50 border border-stone-100'}`}>
+                  <div className={`w-full p-4 rounded-xl shadow-sm ${c.userId === user.uid ? 'bg-emerald-50 border border-emerald-100' : 'bg-stone-50 border border-stone-100'}`}>
                     <div className="flex items-center justify-between gap-4 mb-2">
-                      <p className="text-sm font-bold text-stone-900">{c.user_name}</p>
-                      {c.user_phone && (
+                      <p className="text-sm font-bold text-stone-900">{c.userName}</p>
+                      {c.userPhone && (
                         <a
-                          href={`https://wa.me/${c.user_phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`السلام عليكم، بخصوص هذا العقار: ${window.location.href}`)}`}
+                          href={`https://wa.me/${c.userPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`السلام عليكم، بخصوص هذا العقار: ${window.location.href}`)}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-xs text-green-700 flex items-center gap-1 hover:underline"
                         >
-                          {c.user_phone}
+                          {c.userPhone}
                           <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
                         </a>
                       )}
                       <div className="flex items-center gap-3">
                         <p className="text-xs text-stone-500 text-center w-full">
-                          {formatDateTime(c.created_at) || 'جاري التحميل...'}
+                          {formatDateTime(c.createdAt) || 'جاري التحميل...'}
                         </p>
                         <div className="flex items-center gap-2">
-                          {(c.user_id === user.id || isAdmin) && (
+                          {(c.userId === user.uid || isAdmin) && (
                             <button 
                               onClick={() => {
                                 setEditingCommentId(c.id);
@@ -558,18 +508,18 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                               try {
                                 await supabase.from('comments').update({
                                   text: editCommentText,
-                                  updated_at: new Date().toISOString()
+                                  updatedAt: new Date().toISOString()
                                 }).eq('id', c.id);
                                 
                                 // Update last comment on property card if this was the latest
                                 const sorted = [...comments].sort((a, b) => {
-                                  const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
-                                  const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+                                  const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+                                  const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
                                   return timeB - timeA;
                                 });
                                 if (c.id === sorted[0]?.id) {
                                   await supabase.from('properties').update({
-                                    last_comment: editCommentText
+                                    lastComment: editCommentText
                                   }).eq('id', property.id);
                                 }
                                 
@@ -607,23 +557,38 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                                 whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.98 }}
                                 onClick={() => {
-                                  setViewerImages(c.images!.map(i => typeof i === 'string' ? i : i.url));
+                                  setViewerImages(c.images!);
                                   setViewerIndex(idx);
                                   setShowViewer(true);
                                 }}
                                 className="relative w-16 h-16 rounded-lg overflow-hidden border border-stone-200 cursor-pointer shadow-sm"
                               >
-                                {(() => {
-                                  const url = img.url;
-                                  const isVideo = img.type === 'video';
-                                  return isVideo ? (
-                                    <video src={url} className="w-full h-full object-cover" />
-                                  ) : (
-                                    <img loading="lazy" src={url} alt="" className="w-full h-full object-cover" />
-                                  );
-                                })()}
+                                {img.startsWith('data:video/') ? (
+                                  <video src={img} className="w-full h-full object-cover" />
+                                ) : (
+                                  <img loading="lazy" src={img} alt="" className="w-full h-full object-cover" />
+                                )}
                               </motion.div>
                             ))}
+                          </div>
+                        ) : c.imageUrl ? (
+                          <div className="mt-2">
+                            <motion.div
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => {
+                                setViewerImages([c.imageUrl!]);
+                                setViewerIndex(0);
+                                setShowViewer(true);
+                              }}
+                              className="relative w-16 h-16 rounded-lg overflow-hidden border border-stone-200 cursor-pointer shadow-sm"
+                            >
+                              {c.imageUrl.startsWith('data:video/') ? (
+                                <video src={c.imageUrl} className="w-full h-full object-cover" />
+                              ) : (
+                                <img loading="lazy" src={c.imageUrl} alt="" className="w-full h-full object-cover" />
+                              )}
+                            </motion.div>
                           </div>
                         ) : null}
                       </div>
@@ -654,7 +619,7 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
                 />
-                <div className="absolute bottom-3 right-3 left-3 flex gap-3 items-center">
+                <div className="absolute bottom-3 right-3 flex gap-3">
                   <input 
                     id="comment-image-upload"
                     type="file" 
@@ -674,11 +639,11 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                       <ImageIcon size={24} />
                     )}
                   </label>
-                  <div className="flex-1 flex items-center gap-2">
+                  <div className="flex items-center gap-2">
                     <input 
                       type="text"
                       placeholder="رابط الصورة/الفيديو..."
-                      className="w-full p-2 text-sm border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                      className="p-2 text-sm border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
                       onBlur={(e) => {
                         if (e.target.value) {
                           insertAtCursor(`[رابط](${e.target.value})`);
@@ -727,7 +692,7 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
             </form>
           ) : (
             <div className="p-3 bg-stone-50 rounded-lg border border-stone-100 text-center">
-              <p className="text-[10px] text-stone-500">التعليقات متاحة للموظفين فقط</p>
+              <p className="text-[10px] text-stone-500">التعليقات متاحة للمستخدمين فقط</p>
             </div>
           )}
         </div>
@@ -738,17 +703,17 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
             <div className="flex flex-col items-end text-right gap-0.5">
               <button 
                 onClick={() => {
-                  if (onUserClick && property.assigned_employee_id) {
-                    onUserClick(property.assigned_employee_id);
+                  if (onUserClick && property.assignedEmployeeId) {
+                    onUserClick(property.assignedEmployeeId);
                   }
                 }}
                 className="text-sm font-bold text-stone-900 hover:text-emerald-700 transition-colors truncate block"
               >
-                {property.assigned_employee?.full_name || property.assigned_employee_name || 'غير محدد'}
+                {property.assignedEmployeeName || 'غير محدد'}
               </button>
-              <p className="text-[10px] text-stone-500">موظف معتمد</p>
+              <p className="text-[10px] text-stone-500">مستخدم معتمد</p>
               <span className="text-xs font-bold text-stone-600 mt-1">
-                {property.assigned_employee?.phone || property.assigned_employee_phone || property.phone}
+                {property.assignedEmployeePhone || property.phone}
               </span>
             </div>
             
@@ -756,7 +721,7 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
             <div className="flex flex-col items-start gap-2">
               <div className="flex items-center gap-2" dir="ltr">
                 <a
-                  href={`https://wa.me/${(property.assigned_employee_phone || property.phone || '').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`السلام عليكم، بخصوص هذا العقار: ${window.location.href}`)}`}
+                  href={`https://wa.me/${(property.assignedEmployeePhone || property.phone).replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`السلام عليكم، بخصوص هذا العقار: ${window.location.href}`)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-8 h-8 flex items-center justify-center text-green-600 bg-stone-50 border border-stone-100 hover:bg-green-50 rounded-full transition-colors shadow-sm"
@@ -765,16 +730,16 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                   <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
                 </a>
                 <a 
-                  href={`tel:${property.assigned_employee_phone || property.phone || ''}`}
+                  href={`tel:${property.assignedEmployeePhone || property.phone}`}
                   className="w-8 h-8 flex items-center justify-center text-emerald-600 bg-stone-50 border border-stone-100 hover:bg-emerald-50 rounded-full transition-colors shadow-sm"
                   title="اتصال"
                 >
                   <Phone size={20} />
                 </a>
               </div>
-              {property.created_at && (
+              {property.createdAt && (
                 <p className="text-[10px] text-stone-400 mt-1">
-                  {formatPropertyDate(property.created_at) || 'جاري التحميل...'}
+                  {formatPropertyDate(property.createdAt) || 'جاري التحميل...'}
                 </p>
               )}
             </div>
@@ -796,40 +761,15 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
               <span className="text-xs font-bold text-stone-800">{cleanAreaName(property.area)}</span>
             </button>
             {/* Type */}
-            {(() => {
-              const type = property.type;
-              if (!PROPERTY_TYPES.includes(type)) return null;
-              
-              const normalizedContent = normalizeArabic((property.name || '') + ' ' + (property.details || '')).toLowerCase();
-              const normalizedType = normalizeArabic(type).toLowerCase();
-              
-              // Hide if already mentioned in name or details
-              if (normalizedContent.includes(normalizedType)) return null;
-              
-              return (
-                <button onClick={() => onFilter('type', type)} className="flex items-center justify-center p-2 bg-stone-50/50 rounded-lg border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98]">
-                  <span className="text-xs font-bold text-stone-800">{type}</span>
-                </button>
-              );
-            })()}
-
+            <button onClick={() => onFilter('type', property.type)} className="flex items-center justify-center p-2 bg-stone-50/50 rounded-lg border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98]">
+              <span className="text-xs font-bold text-stone-800">{property.type}</span>
+            </button>
             {/* Purpose */}
-            {(() => {
-              const purpose = property.purpose;
-              if (!purpose || purpose === 'بيع') return null; // 'بيع' is usually default/implied
-              
-              const normalizedContent = normalizeArabic((property.name || '') + ' ' + (property.details || '')).toLowerCase();
-              const normalizedPurpose = normalizeArabic(purpose).toLowerCase();
-              
-              // Hide if already mentioned in name or details
-              if (normalizedContent.includes(normalizedPurpose)) return null;
-              
-              return (
-                <button onClick={() => onFilter('purpose', purpose)} className="flex items-center justify-center p-2 bg-stone-50/50 rounded-lg border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98]">
-                  <span className="text-xs font-bold text-stone-800">{purpose}</span>
-                </button>
-              );
-            })()}
+            {property.purpose !== 'بيع' && (
+              <button onClick={() => onFilter('purpose', property.purpose)} className="flex items-center justify-center p-2 bg-stone-50/50 rounded-lg border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98]">
+                <span className="text-xs font-bold text-stone-800">{property.purpose}</span>
+              </button>
+            )}
             {/* Sector */}
             {property.sector && (
               <div className="flex items-center justify-center p-2 bg-stone-50/50 rounded-lg border border-stone-100">
@@ -844,10 +784,10 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
               </button>
             )}
             {/* Plot Number */}
-            {property.plot_number && (
-              <button onClick={() => onFilter('plot_number', property.plot_number)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
+            {property.plotNumber && (
+              <button onClick={() => onFilter('plotNumber', property.plotNumber)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
                 <span className="text-[10px] text-stone-500 mb-1">القسيمة</span>
-                <span className="text-xs font-bold text-stone-800">{property.plot_number}</span>
+                <span className="text-xs font-bold text-stone-800">{property.plotNumber}</span>
               </button>
             )}
             {/* Street */}
@@ -865,10 +805,10 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
               </button>
             )}
             {/* House Number */}
-            {property.house_number && (
-              <button onClick={() => onFilter('house_number', property.house_number)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
+            {property.houseNumber && (
+              <button onClick={() => onFilter('houseNumber', property.houseNumber)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
                 <span className="text-[10px] text-stone-500 mb-1">المنزل</span>
-                <span className="text-xs font-bold text-stone-800">{property.house_number}</span>
+                <span className="text-xs font-bold text-stone-800">{property.houseNumber}</span>
               </button>
             )}
             {/* Location */}
@@ -879,10 +819,10 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
               </button>
             )}
             {/* Location Link */}
-            {property.location_link && (
+            {property.locationLink && (
               <div className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 text-right col-span-2">
                 <span className="text-[10px] text-stone-500 mb-1">رابط العنوان</span>
-                <a href={property.location_link} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-blue-600 hover:underline truncate w-full" dir="ltr">
+                <a href={property.locationLink} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-blue-600 hover:underline truncate w-full" dir="ltr">
                   عرض على الخريطة
                 </a>
               </div>

@@ -1,4 +1,3 @@
-import { ErrorBoundary } from './components/ErrorBoundary';
 import React, { useState, useEffect, useMemo, useRef, memo } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import { 
@@ -47,87 +46,40 @@ import { ar } from 'date-fns/locale';
 import { supabase } from './lib/supabaseClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
-import { propertyService } from './services/propertyService';
-import { userService } from './services/userService';
-import { GOVERNORATES, AREAS, PROPERTY_TYPES, PURPOSES, LOCATIONS, SUPER_ADMIN_EMAILS } from './constants';
-import { 
-  normalizeArabic, 
-  cleanAreaName, 
-  inferGovernorate,
-  inferPurpose,
-  inferType,
-  searchMatch, 
-  normalizeDigits, 
-  generatePropertyTitle, 
-  usernameToEmail, 
-  extractSpreadsheetId,
-  formatRelativeDate,
-  formatDateTime,
-  isImageVideo,
-  getImageUrl,
-  triggerAutoSync,
-  extractDetailsFromName
-} from './utils';
-import Markdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { PropertyForm } from './components/PropertyForm';
-import { PropertyDetails } from './components/PropertyDetails';
-import { SearchableFilter } from './components/SearchableFilter';
-import { LoadingSpinner } from './components/LoadingSpinner';
-import { SyncModal } from './components/SyncModal';
-import { ConfirmModal } from './components/ConfirmModal';
-import { ImageViewer } from './components/ImageViewer';
-import { PropertyCard } from './components/PropertyCard';
-import { useAuth } from './contexts/AuthContext';
-
-// --- Global Helpers ---
-
-enum OperationType {
-  CREATE = 'CREATE',
-  UPDATE = 'UPDATE',
-  DELETE = 'DELETE',
-  GET = 'GET',
-  WRITE = 'WRITE'
-}
-
-const handleError = (error: any, operation: OperationType, entity: string) => {
-  console.error(`Error during ${operation} on ${entity}:`, error);
-  toast.error(`حدث خطأ أثناء ${operation === OperationType.CREATE ? 'إضافة' : operation === OperationType.UPDATE ? 'تعديل' : operation === OperationType.DELETE ? 'حذف' : 'جلب'} ${entity}`);
-};
+import { GOVERNORATES, AREAS, PROPERTY_TYPES, PURPOSES, LOCATIONS } from './constants';
+import { normalizeArabic, cleanAreaName, searchMatch, normalizeDigits, generatePropertyTitle, usernameToEmail, extractSpreadsheetId } from './utils';
 
 // --- Types ---
 
 interface Property {
   id: string;
-  property_code?: string;
   name: string;
   governorate: string;
   area: string;
   type: string;
   purpose: string;
   phone: string;
-  company_id: string;
-  assigned_employee_id?: string;
-  assigned_employee_name?: string;
+  companyId: string;
+  assignedEmployeeId?: string;
+  assignedEmployeeName?: string;
   images: string[];
-  location_link?: string;
-  is_sold?: boolean;
-  description?: string;
+  locationLink?: string;
+  isSold?: boolean;
   sector?: string;
   block?: string;
   street?: string;
   avenue?: string;
-  plot_number?: string;
-  house_number?: string;
-  location?: string;
+  plotNumber?: string;
+  houseNumber?: string;
+  location: string;
   price?: string;
   details?: string;
-  last_comment?: string;
-  status_label?: string;
+  lastComment?: string;
+  statusLabel?: string;
   status: 'pending' | 'approved' | 'rejected' | 'deleted';
-  created_by: string;
-  created_at: any;
-  deleted_at?: any;
+  createdBy: string;
+  createdAt: any;
+  deletedAt?: any;
 }
 
 interface Company {
@@ -135,29 +87,29 @@ interface Company {
   name: string;
   phone?: string;
   address?: string;
-  created_at: any;
+  createdAt: any;
 }
 
 interface Comment {
   id: string;
-  property_id: string;
-  user_id: string;
-  user_name: string;
+  propertyId: string;
+  userId: string;
+  userName: string;
   text: string;
   images?: string[];
-  image_url?: string;
-  user_phone?: string;
-  created_at: any;
+  imageUrl?: string;
+  userPhone?: string;
+  createdAt: any;
 }
 
 interface UserProfile {
-  id: string;
+  uid: string;
   email: string;
-  display_name: string;
+  displayName: string;
   role: 'super_admin' | 'admin' | 'employee' | 'pending' | 'rejected';
-  company_id?: string;
-  created_at?: string;
-  force_sign_out?: boolean;
+  companyId?: string;
+  createdAt?: string;
+  forceSignOut?: boolean;
   phone?: string;
 }
 
@@ -166,36 +118,433 @@ interface Notification {
   type: 'new-user' | 'property-update' | 'price-change' | 'status-change' | 'new-comment';
   title: string;
   message: string;
-  user_id?: string; // Triggering user
-  recipient_id?: string; // Target user (if null, it's for admins)
-  property_id?: string;
+  userId?: string; // Triggering user
+  recipientId?: string; // Target user (if null, it's for admins)
+  propertyId?: string;
   read: boolean;
-  created_at: any;
+  createdAt: any;
 }
 
 // --- Components ---
 
-export default function App() {
-  const { 
-    user, 
-    loading, 
-    authError: contextAuthError, 
-    isSuperAdmin, 
-    isAdmin, 
-    selectedCompanyId, 
-    setSelectedCompanyId, 
-    handleLogout,
-    isPending
-  } = useAuth();
+function SyncModal({ isOpen, onClose, onSyncFrom, onSyncTo }: any) {
+  const [spreadsheetId, setSpreadsheetId] = useState('');
+  const [range, setRange] = useState('Sheet1!A1:Z5000');
+  
+  useEffect(() => {
+    if (isOpen) {
+      getDoc(doc(db, 'settings', 'sync')).then(docSnap => {
+        if (docSnap.exists()) {
+          setSpreadsheetId(docSnap.data().spreadsheetId || '');
+        }
+      }).catch(err => handleFirestoreError(err, OperationType.GET, 'settings/sync'));
+    }
+  }, [isOpen]);
 
-  const isEmployee = user?.role === 'employee' || isAdmin;
-  const isPopState = useRef(false);
+  const handleSyncFrom = async (id: string, rng: string) => {
+    const extractedId = extractSpreadsheetId(id);
+    try {
+      await setDoc(doc(db, 'settings', 'sync'), { spreadsheetId: extractedId }, { merge: true });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, 'settings/sync');
+    }
+    onSyncFrom(extractedId, rng);
+  };
+
+  const handleSyncTo = async (id: string, rng: string) => {
+    const extractedId = extractSpreadsheetId(id);
+    try {
+      await setDoc(doc(db, 'settings', 'sync'), { spreadsheetId: extractedId }, { merge: true });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, 'settings/sync');
+    }
+    onSyncTo(extractedId, rng);
+  };
+  
+  const handleCreateSheet = async () => {
+    const title = prompt('أدخل اسم الملف الجديد:');
+    if (!title) return;
+    
+    const idToken = await auth.currentUser?.getIdToken();
+    if (!idToken) return;
+    
+    try {
+      const response = await fetch('/api/create-sheet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken, title })
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to create sheet');
+      }
+      const { spreadsheetId } = await response.json();
+      setSpreadsheetId(spreadsheetId);
+      try {
+        await setDoc(doc(db, 'settings', 'sync'), { spreadsheetId }, { merge: true });
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, 'settings/sync');
+      }
+      toast.success('تم إنشاء الملف بنجاح');
+    } catch (e: any) {
+      console.error(e);
+      toast.error(`حدث خطأ أثناء إنشاء الملف: ${e.message}`);
+    }
+  };
+
+  if (!isOpen) return null;
+  
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl p-6 max-w-2xl w-full shadow-2xl border border-stone-200">
+        <h3 className="text-xl font-bold mb-4 text-stone-900 text-center">مزامنة Google Sheets</h3>
+        
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-100 rounded-lg text-[11px] text-amber-800 leading-relaxed">
+          <p className="font-bold mb-1">الخطوات المطلوبة:</p>
+          <ol className="list-decimal list-inside space-y-1">
+            <li>قم بإنشاء ملف Google Sheet جديد.</li>
+            <li>اضغط على "Share" في الملف.</li>
+            <li>أضف البريد الخاص بـ Service Account (الموجود في ملف JSON الخاص بك) كـ Editor:</li>
+            <li className="font-mono bg-white p-1 rounded border border-amber-200 break-all select-all text-[9px]">
+              {/* This will be replaced by the user with their own service account email */}
+              يمكنك العثور على البريد في ملف الـ JSON (حقل client_email)
+            </li>
+            <li>انسخ رابط الملف أو الـ ID الخاص به وضعه بالأسفل.</li>
+          </ol>
+        </div>
+
+        <input 
+          type="text" 
+          placeholder="Spreadsheet ID أو رابط الملف" 
+          className="w-full p-3 bg-stone-50 border border-stone-200 rounded-lg mb-3"
+          value={spreadsheetId}
+          onChange={(e) => setSpreadsheetId(e.target.value)}
+        />
+        <button 
+          onClick={handleCreateSheet}
+          className="w-full mb-4 text-emerald-600 text-sm font-bold hover:underline"
+        >
+          أو إنشاء ملف جديد
+        </button>
+        <input 
+          type="text" 
+          placeholder="Range (e.g., Sheet1!A1:Z100)" 
+          className="w-full p-3 bg-stone-50 border border-stone-200 rounded-lg mb-6"
+          value={range}
+          onChange={(e) => setRange(e.target.value)}
+        />
+        <div className="flex gap-3 mb-3">
+          <button 
+            onClick={() => handleSyncFrom(spreadsheetId, range)}
+            className="flex-1 bg-emerald-600 text-white py-3 rounded-full font-bold hover:bg-emerald-700 transition-all"
+          >
+            مزامنة من الشيت
+          </button>
+          <button 
+            onClick={() => handleSyncTo(spreadsheetId, range)}
+            className="flex-1 bg-stone-600 text-white py-3 rounded-full font-bold hover:bg-stone-700 transition-all"
+          >
+            مزامنة إلى الشيت
+          </button>
+        </div>
+        <button 
+          onClick={onClose}
+          className="w-full bg-stone-100 text-stone-600 py-3 rounded-full font-bold hover:bg-stone-200 transition-all"
+        >
+          إلغاء
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ConfirmModal({ isOpen, onConfirm, onCancel, title, message, confirmText = "تأكيد الحذف", confirmColor = "bg-red-600 hover:bg-red-700" }: any) {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-white rounded-2xl p-6 max-w-2xl w-full shadow-2xl border border-stone-200"
+      >
+        <h3 className="text-xl font-bold mb-2 text-stone-900 text-center">{title}</h3>
+        <p className="text-stone-600 mb-6 leading-relaxed">{message}</p>
+        <div className="flex gap-3">
+          <button 
+            onClick={onConfirm}
+            className={`flex-1 ${confirmColor} text-white py-3 rounded-xl font-bold transition-all`}
+          >
+            {confirmText}
+          </button>
+          <button 
+            onClick={onCancel}
+            className="flex-1 bg-stone-100 text-stone-600 py-3 rounded-xl font-bold hover:bg-stone-200 transition-all"
+          >
+            إلغاء
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+function ImageViewer({ images, initialIndex, onClose, isSold }: any) {
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+
+  return (
+    <div className="fixed inset-0 z-[110] bg-black/95 flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
+      <button 
+        onClick={(e) => {
+          e.stopPropagation();
+          onClose();
+        }}
+        className="absolute top-6 right-6 text-white/70 hover:text-white p-3 bg-white/20 hover:bg-white/30 rounded-full transition-all z-[120]"
+      >
+        <X size={32} />
+      </button>
+
+      {images.length > 1 && (
+        <>
+          <button 
+            onClick={() => setCurrentIndex((prev: number) => (prev === 0 ? images.length - 1 : prev - 1))}
+            className="absolute left-6 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-3 bg-white/10 rounded-full transition-all"
+          >
+            <ChevronLeft size={32} />
+          </button>
+          <button 
+            onClick={() => setCurrentIndex((prev: number) => (prev === images.length - 1 ? 0 : prev + 1))}
+            className="absolute right-6 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-3 bg-white/10 rounded-full transition-all"
+          >
+            <ChevronRight size={32} />
+          </button>
+        </>
+      )}
+
+        <div className="max-w-5xl w-full h-full flex items-center justify-center relative">
+        {images[currentIndex]?.startsWith('data:video/') ? (
+          <video 
+            src={images[currentIndex]} 
+            controls 
+            autoPlay
+            className={`max-w-full max-h-full object-contain rounded-lg shadow-2xl ${isSold ? 'grayscale opacity-60' : ''}`}
+          />
+        ) : (
+          <img 
+            src={images[currentIndex]} 
+            className={`max-w-full max-h-full object-contain rounded-lg shadow-2xl ${isSold ? 'grayscale opacity-60' : ''}`} 
+            referrerPolicy="no-referrer"
+            alt=""
+          />
+        )}
+        {isSold && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+            <span className="text-white font-black text-6xl tracking-wider transform -rotate-12 border-4 border-white px-8 py-3 rounded-2xl shadow-2xl bg-stone-700/80 backdrop-blur-sm">مباع</span>
+          </div>
+        )}
+      </div>
+
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/50 text-sm font-bold">
+        {currentIndex + 1} / {images.length}
+      </div>
+    </div>
+  );
+}
+
+function SearchableFilter({ 
+  label, 
+  options, 
+  value, 
+  onChange, 
+  placeholder,
+  disabled = false,
+  creatable = false
+}: { 
+  label?: string, 
+  options: string[], 
+  value: string, 
+  onChange: (val: string) => void,
+  placeholder: string,
+  disabled?: boolean,
+  creatable?: boolean
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState(value || '');
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setSearch(value || '');
+  }, [value]);
+
+  const filteredOptions = options.filter(opt => 
+    normalizeArabic(opt).includes(normalizeArabic(search))
+  );
+
+  const showCreateOption = creatable && search && !options.some(opt => normalizeArabic(opt) === normalizeArabic(search));
+
+  return (
+    <div className="relative">
+      <div className={`relative bg-white/70 backdrop-blur-md border border-stone-200 rounded-lg p-2 px-4 flex flex-col justify-center focus-within:border-emerald-500 focus-within:ring-4 focus-within:ring-emerald-500/10 transition-all shadow-sm hover:border-stone-300 hover:shadow-md ${disabled ? 'opacity-50' : ''} ${!label ? 'h-[46px]' : ''}`}>
+        {label && <label className="text-[10px] font-bold text-stone-500 text-right px-1 mb-0.5">{label}</label>}
+        <div className="relative flex items-center">
+          <input
+            ref={inputRef}
+            type="text"
+            disabled={disabled}
+            placeholder={placeholder}
+            className={`w-full bg-transparent border-none p-0 text-sm text-right outline-none focus:ring-0 ${disabled ? 'cursor-not-allowed' : ''}`}
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setIsOpen(true);
+              if (e.target.value === '') {
+                onChange('');
+              }
+            }}
+            onFocus={() => setIsOpen(true)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                if (filteredOptions.length > 0) {
+                  onChange(filteredOptions[0]);
+                  setSearch(filteredOptions[0]);
+                  setIsOpen(false);
+                } else if (showCreateOption) {
+                  onChange(search);
+                  setIsOpen(false);
+                }
+              }
+            }}
+          />
+          <Filter size={12} className="mr-2 text-stone-300 shrink-0" />
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            <div className="fixed inset-0 z-[80]" onClick={() => {
+              setIsOpen(false);
+              if (!options.includes(search) && !creatable) {
+                setSearch(value || '');
+              } else if (creatable && search !== value) {
+                onChange(search);
+              }
+            }} />
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="absolute top-full right-0 left-0 mt-2 bg-white/90 backdrop-blur-xl border border-stone-100 rounded-lg shadow-xl z-[90] overflow-hidden"
+            >
+              <div className="max-h-60 overflow-y-auto p-1">
+                {!creatable && (
+                  <button
+                    type="button"
+                    onClick={() => { onChange(''); setIsOpen(false); setSearch(''); }}
+                    className="w-full text-right p-2 text-sm hover:bg-white/50 rounded-lg text-stone-500"
+                  >
+                    الكل
+                  </button>
+                )}
+                
+                {showCreateOption && (
+                  <button
+                    type="button"
+                    onClick={() => { onChange(search); setIsOpen(false); }}
+                    className="w-full text-right p-2 text-sm hover:bg-emerald-50/50 rounded-lg text-emerald-600 font-bold border-b border-white/10"
+                  >
+                    إضافة: "{search}"
+                  </button>
+                )}
+
+                {filteredOptions.map(opt => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => { onChange(opt); setIsOpen(false); setSearch(opt); }}
+                    className={`w-full text-right p-2 text-sm rounded-lg transition-colors ${value === opt ? 'bg-emerald-50/50 text-emerald-700 font-bold' : 'hover:bg-white/50 text-stone-600'}`}
+                  >
+                    {opt}
+                  </button>
+                ))}
+                
+                {filteredOptions.length === 0 && !showCreateOption && (
+                  <div className="p-3 text-sm text-stone-500 text-center">لا توجد نتائج</div>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+const SUPER_ADMIN_EMAILS = ["simsaraqari@gmail.com", "mostafasoliman550@gmail.com"];
+
+export class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error: Error | null }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-stone-50 p-4">
+          <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center border border-red-100">
+            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+              <AlertTriangle className="w-8 h-8 text-red-500" />
+            </div>
+            <h2 className="text-2xl font-bold text-stone-900 mb-2">عذراً، حدث خطأ غير متوقع</h2>
+            <p className="text-stone-600 mb-6">
+              واجه التطبيق مشكلة تقنية. يرجى محاولة تحديث الصفحة أو العودة لاحقاً.
+            </p>
+            {this.state.error && (
+              <div className="bg-stone-50 rounded-lg p-4 mb-6 text-left overflow-auto max-h-40">
+                <code className="text-xs text-red-600 font-mono">
+                  {this.state.error.toString()}
+                </code>
+              </div>
+            )}
+            <button
+              onClick={() => window.location.reload()}
+              className="w-full bg-stone-900 text-white py-3 rounded-xl font-medium hover:bg-stone-800 transition-colors flex items-center justify-center gap-2"
+            >
+              <RefreshCw className="w-5 h-5" />
+              تحديث الصفحة
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+export default function App() {
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
+  const isSuperAdmin = user?.role === 'super_admin' || (user?.email && SUPER_ADMIN_EMAILS.includes(user.email));
+  const isAdmin = user?.role === 'admin' || isSuperAdmin;
+  const isEmployee = user?.role === 'employee' || isAdmin;
+  const isPending = user?.role === 'pending';
+  const [loading, setLoading] = useState(true);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [localAuthError, setLocalAuthError] = useState(''); // Specifically for form errors
+  const [authError, setAuthError] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [properties, setProperties] = useState<Property[]>([]);
   const [deletedProperties, setDeletedProperties] = useState<Property[]>([]);
@@ -212,12 +561,15 @@ export default function App() {
   const [isSyncManagementOpen, setIsSyncManagementOpen] = useState(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [spreadsheet_id, setSpreadsheetId] = useState('');
+  const [spreadsheetId, setSpreadsheetId] = useState('');
   const [tempSpreadsheetId, setTempSpreadsheetId] = useState('');
-  const [googleServiceAccountEmail, setGoogleServiceAccountEmail] = useState('');
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeSearchQuery, setActiveSearchQuery] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+  const [editUserName, setEditUserName] = useState('');
+  const [editUserPhone, setEditUserPhone] = useState('');
+  const [editUserEmail, setEditUserEmail] = useState('');
   const [editUserPassword, setEditUserPassword] = useState('');
   const [filters, setFilters] = useState({
     governorate: '',
@@ -225,156 +577,89 @@ export default function App() {
     type: '',
     purpose: '',
     location: '',
-    plot_number: '',
-    house_number: '',
     marketer: '',
     status: '' // '', 'available', 'sold'
   });
 
-  const searchSuggestions = []; // Dropdown disabled per user request
+  const searchSuggestions = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const query = normalizeArabic(searchQuery);
+    const suggestions = new Set<string>();
+    
+    properties.forEach(p => {
+      if (normalizeArabic(p.name).includes(query)) suggestions.add(p.name);
+      if (normalizeArabic(p.phone).includes(query)) suggestions.add(p.phone);
+      if (normalizeArabic(p.area).includes(query)) suggestions.add(p.area);
+      if (p.assignedEmployeeName && normalizeArabic(p.assignedEmployeeName).includes(query)) suggestions.add(p.assignedEmployeeName);
+    });
+    
+    return Array.from(suggestions).slice(0, 8);
+  }, [searchQuery, properties]);
 
   const [users, setUsers] = useState<UserProfile[]>([]);
   
   useEffect(() => {
     if (isAdmin) {
-      const fetchEmployees = async () => {
-        let query = supabase.from('user_profiles').select('*');
-        if (isSuperAdmin) {
-          if (selectedCompanyId) {
-            query = query.eq('company_id', selectedCompanyId);
-          }
+      let q;
+      if (isSuperAdmin) {
+        if (selectedCompanyId) {
+          q = query(collection(db, 'users'), where('companyId', '==', selectedCompanyId));
         } else {
-          query = query.eq('company_id', user?.company_id);
+          q = query(collection(db, 'users'));
         }
-        
-        const { data, error } = await query;
-        if (error) {
-          handleError(error, OperationType.GET, 'users');
-          return;
-        }
-        setEmployees(data.filter(u => u.id !== user?.id) as UserProfile[]);
-      };
-
-      fetchEmployees();
-      
-      // Real-time subscription for users
-      const subscription = supabase
-        .channel('users_changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'user_profiles' }, () => {
-          fetchEmployees();
-        })
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(subscription);
-      };
+      } else {
+        q = query(collection(db, 'users'), where('companyId', '==', user?.companyId));
+      }
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const usersData = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
+        setEmployees(usersData.filter(u => u.uid !== user?.uid));
+      });
+      return () => unsubscribe();
     }
-  }, [isAdmin, isSuperAdmin, selectedCompanyId, user?.company_id, user?.id]);
+  }, [isAdmin, isSuperAdmin, selectedCompanyId, user?.companyId, user?.uid]);
 
   const [visibleCount, setVisibleCount] = useState(50);
   const [previewImages, setPreviewImages] = useState<string[]>([]);
   const [previewIndex, setPreviewIndex] = useState<number>(0);
-  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; property_id: string | null }>({
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; propertyId: string | null }>({
     isOpen: false,
-    property_id: null
+    propertyId: null
   });
   const [userActionConfirm, setUserActionConfirm] = useState<{ 
     isOpen: boolean; 
-    user_id: string | null; 
+    userId: string | null; 
     action: 'delete' | 'bulk-delete' | 'approve' | 'reject' | 'change-role' | null;
     extraData?: any;
   }>({
     isOpen: false,
-    user_id: null,
+    userId: null,
     action: null
   });
   const [accountDeleteConfirm, setAccountDeleteConfirm] = useState(false);
-  const [commentDeleteConfirm, setCommentDeleteConfirm] = useState<{ isOpen: boolean; commentId: string | null; property_id: string | null }>({
+  const [commentDeleteConfirm, setCommentDeleteConfirm] = useState<{ isOpen: boolean; commentId: string | null; propertyId: string | null }>({
     isOpen: false,
     commentId: null,
-    property_id: null
-  });
-  const [companyActionConfirm, setCompanyActionConfirm] = useState<{ 
-    isOpen: boolean; 
-    company: Company | null; 
-    action: 'delete' | 'edit' | null 
-  }>({
-    isOpen: false,
-    company: null,
-    action: null
-  });
-  const [permanentDeleteConfirmState, setPermanentDeleteConfirmState] = useState<{ isOpen: boolean; property_id: string | null }>({
-    isOpen: false,
-    property_id: null
+    propertyId: null
   });
 
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [isDetailedFiltersOpen, setIsDetailedFiltersOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
-  const [editUserName, setEditUserName] = useState('');
-  const [editUserPhone, setEditUserPhone] = useState('');
-  const [editUserEmail, setEditUserEmail] = useState('');
-  const [isSideMenuOpen, setIsSideMenuOpen] = useState(false);
-
-  // Sync state from URL on load
+  const isPopState = useRef(false);
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const urlPropertyId = params.get('propertyId');
-    const urlView = params.get('view') as any;
-
-    if (urlPropertyId) {
-      const fetchProperty = async () => {
-        const { data, error } = await supabase
-          .from('properties')
-          .select('*')
-          .eq('id', urlPropertyId)
-          .single();
-        
-        if (data && !error) {
-          setSelectedProperty(data);
-          setView(urlView || 'details');
-        }
-      };
-      fetchProperty();
-    } else if (urlView) {
-      setView(urlView);
-    }
-  }, []);
-
-  // Sync state changes to history
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    let changed = false;
-
-    if (view === 'list') {
-      if (params.has('view')) { params.delete('view'); changed = true; }
-      if (params.has('propertyId')) { params.delete('propertyId'); changed = true; }
-    } else {
-      if (params.get('view') !== view) { params.set('view', view); changed = true; }
-      if (view === 'details' || view === 'edit') {
-        if (selectedProperty?.id && params.get('propertyId') !== selectedProperty.id) {
-          params.set('propertyId', selectedProperty.id);
-          changed = true;
-        }
+    const handlePopState = (event: PopStateEvent) => {
+      isPopState.current = true;
+      if (event.state) {
+        setView(event.state.view || 'list');
+        setSelectedProperty(event.state.property || null);
+        if (event.state.prevView) setPrevView(event.state.prevView);
       } else {
-        if (params.has('propertyId')) { params.delete('propertyId'); changed = true; }
-      }
-    }
-
-    if (changed) {
-      const newUrl = `${window.location.pathname}${params.toString() ? '?' + params.toString() : ''}`;
-      window.history.pushState({ view, propertyId: selectedProperty?.id }, '', newUrl);
-    }
-  }, [view, selectedProperty?.id]);
-
-  useEffect(() => {
-    const handlePopState = (e: PopStateEvent) => {
-      if (e.state) {
-        if (e.state.view) setView(e.state.view);
+        setView('list');
+        setSelectedProperty(null);
+        setPrevView('list');
       }
     };
+
     window.addEventListener('popstate', handlePopState);
     
+    // Initialize history state
     if (!window.history.state) {
       window.history.replaceState({ view: 'list', property: null, prevView: 'list' }, '');
     }
@@ -390,9 +675,9 @@ export default function App() {
       setSearchQuery(q);
     }
     
-    const property_id = params.get('property_id');
-    if (property_id && properties.length > 0) {
-      const property = properties.find(p => p.id === property_id);
+    const propertyId = params.get('propertyId');
+    if (propertyId && properties.length > 0) {
+      const property = properties.find(p => p.id === propertyId);
       if (property) {
         setSelectedProperty(property);
         setView('details');
@@ -427,14 +712,92 @@ export default function App() {
 
   // Reset visible count when filters or search change
   useEffect(() => {
-    console.log("App state updated:", { 
-      view, 
-      hasUser: !!user, 
-      hasSelectedProperty: !!selectedProperty,
-      selectedPropertyId: selectedProperty?.id 
-    });
-  }, [view, user, selectedProperty]);
+    setVisibleCount(50);
+  }, [searchQuery, filters, view]);
 
+  // Auth Listener
+  useEffect(() => {
+    console.log("Setting up Auth Listener...");
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log("Auth State Changed:", firebaseUser ? `User: ${firebaseUser.email}` : "No User");
+      try {
+        if (firebaseUser) {
+          console.log("Fetching user doc for UID:", firebaseUser.uid);
+          let userDoc;
+          try {
+            userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          } catch (err) {
+            handleFirestoreError(err, OperationType.GET, `users/${firebaseUser.uid}`);
+            return;
+          }
+          let userData: UserProfile;
+
+          if (userDoc.exists()) {
+            userData = userDoc.data() as UserProfile;
+            console.log("User doc found:", userData.role);
+            if (userData.forceSignOut) {
+              await updateDoc(doc(db, 'users', firebaseUser.uid), { forceSignOut: false });
+              setAuthError('تم تسجيل خروجك من قبل المسؤول.');
+              await signOut(auth);
+              setUser(null);
+              return;
+            }
+            if (userData.role === 'rejected') {
+              setAuthError('تم رفض حسابك من قبل الإدارة.');
+              await signOut(auth);
+              setUser(null);
+              return;
+            }
+            
+            // Check for super admin email
+            if (SUPER_ADMIN_EMAILS.includes(firebaseUser.email || '') && userData.role !== 'super_admin') {
+              console.log("Super Admin email detected, updating role to super_admin...");
+              userData.role = 'super_admin';
+              await updateDoc(doc(db, 'users', firebaseUser.uid), { role: 'super_admin' });
+            }
+          } else {
+            console.log("User doc not found, creating new profile...");
+            const isSuper = SUPER_ADMIN_EMAILS.includes(firebaseUser.email || '');
+            const role = isSuper ? 'super_admin' : 'pending';
+            userData = {
+              uid: firebaseUser.uid,
+              email: firebaseUser.email || '',
+              displayName: firebaseUser.displayName || 'User',
+              role: role,
+              createdAt: new Date().toISOString()
+            };
+            await setDoc(doc(db, 'users', firebaseUser.uid), userData);
+            console.log("New user profile created successfully");
+            if (role === 'pending') {
+              // Create notification for super admins
+              await addDoc(collection(db, 'notifications'), {
+                type: 'new-user',
+                title: 'طلب انضمام جديد',
+                message: `المستخدم ${userData.displayName} يطلب الانضمام للنظام`,
+                userId: firebaseUser.uid,
+                read: false,
+                createdAt: serverTimestamp()
+              });
+            }
+          }
+          setUser(userData);
+          if (userData.companyId) {
+            setSelectedCompanyId(userData.companyId);
+          }
+        } else {
+          setUser(null);
+          setSelectedCompanyId(null);
+        }
+      } catch (error: any) {
+        console.error("Auth initialization error (Firestore):", error);
+        setAuthError(`خطأ في الوصول لقاعدة البيانات: ${error.message}`);
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    });
+    return unsubscribe;
+  }, []);
 
   // Companies Listener (for Super Admin)
   useEffect(() => {
@@ -442,322 +805,231 @@ export default function App() {
       setCompanies([]);
       return;
     }
-    
-    const fetchCompanies = async () => {
-      const { data, error } = await supabase.from('companies').select('*');
-      if (error) {
-        handleError(error, OperationType.GET, 'companies');
-        return;
-      }
-      setCompanies(data as Company[]);
-    };
-
-    fetchCompanies();
-
-    const subscription = supabase
-      .channel('companies_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'companies' }, () => {
-        fetchCompanies();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(subscription);
-    };
+    const q = query(collection(db, 'companies'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const companiesData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Company[];
+      setCompanies(companiesData);
+    }, (err) => {
+      handleFirestoreError(err, OperationType.GET, 'companies');
+    });
+    return unsubscribe;
   }, [isSuperAdmin]);
-
-  // Sync Settings Listener
-  useEffect(() => {
-    const fetchSyncSettings = async () => {
-      const { data, error } = await supabase
-        .from('settings')
-        .select('*')
-        .in('id', ['sync', '1']);
-      
-      if (error) {
-        console.error("Error fetching sync settings:", error);
-        return;
-      }
-      
-      if (data && data.length > 0) {
-        const preferred = data.find((row: any) => row.id === 'sync') || data.find((row: any) => row.id === '1') || data[0];
-        setSpreadsheetId(preferred?.spreadsheet_id || '');
-      }
-    };
-
-    const fetchServiceAccountEmail = async () => {
-      try {
-        const response = await fetch('/api/google-sheets-service-account-email');
-        if (!response.ok) return;
-        const data = await response.json();
-        setGoogleServiceAccountEmail(data.email || '');
-      } catch (error) {
-        console.error('Error fetching Google service account email:', error);
-      }
-    };
-
-    fetchSyncSettings();
-    fetchServiceAccountEmail();
-  }, []);
 
   // Properties Listener
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user) return;
     
-    const fetchProperties = async () => {
-      let allData: any[] = [];
-      let fetchMore = true;
-      let from = 0;
-      const step = 1000;
-
-      while (fetchMore) {
-        let query = supabase.from('properties').select('*');
-        
-        if (isSuperAdmin) {
-          if (selectedCompanyId) {
-            query = query.eq('company_id', selectedCompanyId);
-          }
-        } else if (user.company_id) {
-          query = query.eq('company_id', user.company_id);
-        } else {
-          setProperties([]);
-          return;
-        }
-
-        const { data, error } = await query
-          .order('created_at', { ascending: false })
-          .range(from, from + step - 1);
-        
-        if (error) {
-          console.error("Properties error:", error);
-          break;
-        }
-
-        if (data && data.length > 0) {
-          allData = [...allData, ...data];
-          if (data.length < step) {
-            fetchMore = false;
-          } else {
-            from += step;
-          }
-        } else {
-          fetchMore = false;
-        }
+    let q;
+    if (isSuperAdmin) {
+      if (selectedCompanyId) {
+        q = query(collection(db, 'properties'), where('companyId', '==', selectedCompanyId), orderBy('createdAt', 'desc'));
+      } else {
+        q = query(collection(db, 'properties'), orderBy('createdAt', 'desc'));
       }
+    } else if (user.companyId) {
+      q = query(collection(db, 'properties'), where('companyId', '==', user.companyId), orderBy('createdAt', 'desc'));
+    } else {
+      // User has no company assigned yet (pending)
+      // They shouldn't see any properties unless they are super admin
+      setProperties([]);
+      return;
+    }
 
-      const allProps = (allData || []).map(p => ({
-        ...p,
-        location: p.location === 'شارع واحد | سد' ? 'شارع واحد' : p.location
-      })) as Property[];
-      
-      const deleted = allProps.filter(p => p.status === 'deleted');
-      const active = allProps.filter(p => p.status !== 'deleted');
-      
-      setProperties(active);
-      setDeletedProperties(deleted);
-    };
-
-    fetchProperties();
-
-    const subscription = supabase
-      .channel('properties_changes')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'properties' }, (payload) => {
-        const newProp = payload.new as Property;
-        if (isSuperAdmin) {
-          if (!selectedCompanyId || newProp.company_id === selectedCompanyId) {
-            setProperties(prev => [newProp, ...prev]);
-          }
-        } else if (newProp.company_id === user?.company_id) {
-          setProperties(prev => [newProp, ...prev]);
+    const unsubscribe = onSnapshot(q, 
+      (snapshot) => {
+        const allProps = snapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            location: data.location === 'شارع واحد | سد' ? 'شارع واحد' : data.location
+          } as Property;
+        });
+        
+        const now = Date.now();
+        const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+        
+        // Auto-cleanup logic for deleted properties older than 30 days
+        const deleted = allProps.filter(p => p.status === 'deleted');
+        const active = allProps.filter(p => p.status !== 'deleted');
+        
+        setProperties(active);
+        setDeletedProperties(deleted);
+        
+        // Optional: Admin-side cleanup of old trash
+        if (isAdmin) {
+          deleted.forEach(async (p) => {
+            if (p.deletedAt && (p.deletedAt.toMillis || p.deletedAt.seconds)) {
+              const deletedTime = p.deletedAt.toMillis ? p.deletedAt.toMillis() : p.deletedAt.seconds * 1000;
+              if (now - deletedTime > thirtyDaysMs) {
+                try {
+                  await deleteDoc(doc(db, 'properties', p.id));
+                } catch (e) {
+                  console.error("Failed to auto-delete old property", e);
+                }
+              }
+            }
+          });
         }
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'properties' }, (payload) => {
-        const updated = payload.new as Property;
-        if (updated.status === 'deleted') {
-          setProperties(prev => prev.filter(p => p.id !== updated.id));
-          setDeletedProperties(prev => [updated, ...prev.filter(p => p.id !== updated.id)]);
-        } else if (updated.status === 'approved' || updated.status === 'pending') {
-          setProperties(prev => prev.map(p => p.id === updated.id ? updated : p));
-          setDeletedProperties(prev => prev.filter(p => p.id !== updated.id));
-        }
-        if (selectedProperty?.id === updated.id) {
-          setSelectedProperty(updated);
-        }
-      })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'properties' }, (payload) => {
-        const deletedId = payload.old.id;
-        setProperties(prev => prev.filter(p => p.id !== deletedId));
-        setDeletedProperties(prev => prev.filter(p => p.id !== deletedId));
-        if (selectedProperty?.id === deletedId) {
-          setSelectedProperty(null);
-          setView('list');
-        }
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(subscription);
-    };
+      },
+      (error) => {
+        console.error("Properties listener error:", error);
+      }
+    );
+    return unsubscribe;
   }, [user, isSuperAdmin, selectedCompanyId]);
 
   // Notifications Listener
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user) return;
     
-    const fetchNotifications = async () => {
-      let query = supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(50);
-      
-      if (isSuperAdmin) {
-        // No additional filters
-      } else if (user.role === 'admin') {
-        query = query.eq('company_id', user.company_id);
-      } else {
-        query = query.eq('recipient_id', user.id);
-      }
+    let q;
+    if (isSuperAdmin) {
+      q = query(collection(db, 'notifications'), orderBy('createdAt', 'desc'), limit(50));
+    } else if (user.role === 'admin') {
+      // Company admins see notifications for their company
+      q = query(
+        collection(db, 'notifications'), 
+        where('companyId', '==', user.companyId),
+        orderBy('createdAt', 'desc'), 
+        limit(50)
+      );
+    } else {
+      // Regular users see notifications where they are the recipient
+      q = query(
+        collection(db, 'notifications'), 
+        where('recipientId', '==', user.uid),
+        orderBy('createdAt', 'desc'), 
+        limit(50)
+      );
+    }
 
-      const { data, error } = await query;
-      if (error) {
-        handleError(error, OperationType.GET, 'notifications');
-        return;
-      }
-      setNotifications(data as Notification[]);
-    };
-
-    fetchNotifications();
-
-    const subscription = supabase
-      .channel('notifications_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
-        fetchNotifications();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(subscription);
-    };
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const allNotifications = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Notification[];
+      setNotifications(allNotifications);
+    }, (err) => {
+      handleFirestoreError(err, OperationType.GET, 'notifications');
+    });
+    return unsubscribe;
   }, [user]);
 
   // Favorites Listener
   useEffect(() => {
-    if (!user?.id) return;
-    
-    const fetchFavorites = async () => {
-      const { data, error } = await supabase
-        .from('favorites')
-        .select('property_id')
-        .eq('user_id', user.id);
-      
-      if (error) {
-        console.error("Favorites error:", error);
-        return;
+    if (!user) return;
+    const q = query(collection(db, 'favorites'), where('userId', '==', user.uid));
+    const unsubscribe = onSnapshot(q, 
+      (snapshot) => {
+        setFavorites(snapshot.docs.map(doc => doc.data().propertyId));
+      },
+      (error) => {
+        console.error("Favorites listener error:", error);
       }
-      setFavorites(data.map(f => f.property_id));
-    };
-
-    fetchFavorites();
-
-    const subscription = supabase
-      .channel('favorites_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'favorites', filter: `user_id=eq.${user.id}` }, () => {
-        fetchFavorites();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(subscription);
-    };
+    );
+    return unsubscribe;
   }, [user]);
 
   // All Users Listener (for Admin Management) - REMOVED, consolidated above
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLocalAuthError('');
+    setAuthError('');
     setIsAuthenticating(true);
     try {
       const generatedEmail = usernameToEmail(username);
       if (authMode === 'register') {
-        const { data: authData, error: signUpError } = await supabase.auth.signUp({
-          email: generatedEmail,
-          password: password,
-          options: {
-            data: {
-              full_name: username
-            }
-          }
-        });
-
-        if (signUpError) throw signUpError;
+        const userCredential = await createUserWithEmailAndPassword(auth, generatedEmail, password);
+        await updateProfile(userCredential.user, { displayName: username });
         
-        const sbUser = authData.user;
-        if (sbUser) {
-          const isSuper = SUPER_ADMIN_EMAILS.includes(generatedEmail);
-          const role = isSuper ? 'super_admin' : 'pending';
-          const newProfile = {
-            id: sbUser.id,
-            email: generatedEmail,
-            display_name: username,
-            role: role,
-            created_at: new Date().toISOString()
-          };
-          
-          await supabase.from('user_profiles').insert(newProfile);
-          
-          if (role === 'pending') {
-            await supabase.from('notifications').insert({
-              type: 'new-user',
-              title: 'طلب انضمام جديد',
-              message: `الموظف ${username} يطلب الانضمام للنظام`,
-              user_id: sbUser.id,
-              read: false
-            });
-          }
+        // Create user profile in Firestore
+        const role = SUPER_ADMIN_EMAILS.includes(generatedEmail) ? 'super_admin' : 'pending';
+        const userData: UserProfile = {
+          uid: userCredential.user.uid,
+          email: generatedEmail,
+          displayName: username,
+          role: role as 'admin' | 'employee' | 'pending' | 'rejected',
+          createdAt: new Date().toISOString()
+        };
+        await setDoc(doc(db, 'users', userCredential.user.uid), userData);
+        
+        if (role === 'pending') {
+          // Create notification for admins
+          await addDoc(collection(db, 'notifications'), {
+            type: 'new-user',
+            title: 'طلب انضمام جديد',
+            message: `المستخدم ${username} يطلب الانضمام للنظام`,
+            userId: userCredential.user.uid,
+            read: false,
+            createdAt: serverTimestamp()
+          });
+          setUser(userData);
+        } else {
+          setUser(userData);
         }
       } else {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: generatedEmail,
-          password: password
-        });
-        if (signInError) throw signInError;
+        await signInWithEmailAndPassword(auth, generatedEmail, password);
       }
     } catch (error: any) {
-      console.error("Auth failed", error);
+      console.error("Email auth failed", error);
       let message = `خطأ: ${error.message || "حدث خطأ أثناء تسجيل الدخول"}`;
-      if (error.message?.includes('Invalid login credentials')) {
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
         message = "اسم المستخدم أو كلمة المرور غير صحيحة، أو الحساب غير موجود. تأكد من اختيار 'إنشاء حساب' إذا كنت تسجل لأول مرة.";
-      } else if (error.message?.includes('User already registered')) {
-        message = "هذا الموظف مسجل بالفعل. جرب تسجيل الدخول بدلاً من إنشاء حساب جديد.";
+      } else if (error.code === 'auth/email-already-in-use') {
+        message = "هذا المستخدم مسجل بالفعل. جرب تسجيل الدخول بدلاً من إنشاء حساب جديد.";
+      } else if (error.code === 'auth/weak-password') {
+        message = "كلمة المرور ضعيفة جداً. يجب أن تكون 6 أحرف على الأقل.";
+      } else if (error.code === 'auth/operation-not-allowed') {
+        message = "تسجيل الدخول غير مفعل حالياً.";
+      } else if (error.code === 'auth/too-many-requests') {
+        message = "تم حظر الحساب مؤقتاً بسبب محاولات فاشلة كثيرة. حاول مرة أخرى لاحقاً.";
+      } else if (error.code === 'auth/network-request-failed') {
+        message = "فشل الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت.";
       }
-      setLocalAuthError(message);
+      setAuthError(message);
       toast.error(message);
     } finally {
       setIsAuthenticating(false);
     }
   };
 
-
+  const handleLogout = async () => {
+    await signOut(auth);
+  };
 
   const handleDeleteAccount = () => {
-    if (!user?.id) return;
+    if (!auth.currentUser) return;
     setAccountDeleteConfirm(true);
   };
 
   const confirmAccountDelete = async () => {
-    if (!user?.id) return;
+    if (!auth.currentUser) return;
     
     setIsAuthenticating(true);
     try {
-      // With Supabase, we usually delete the user profile and let a trigger handle auth deletion 
-      // or we use the admin API if we have permissions.
-      // For now, let's delete the profile.
-      await supabase.from('user_profiles').delete().eq('id', user.id);
+      const userToDelete = auth.currentUser;
+      const userUid = userToDelete.uid;
       
-      await supabase.auth.signOut();
+      // 1. Delete from Firestore
+      await deleteDoc(doc(db, 'users', userUid));
+      
+      // 2. Delete from Auth
+      await deleteUser(userToDelete);
+      
       toast.success("تم حذف الحساب بنجاح. يمكنك الآن إعادة التسجيل.");
+      await signOut(auth);
       window.location.reload();
     } catch (error: any) {
       console.error("Account deletion failed", error);
-      toast.error(`حدث خطأ أثناء حذف الحساب: ${error.message}`);
+      if (error.code === 'auth/requires-recent-login') {
+        toast.error("لحماية حسابك، يتطلب حذف الحساب تسجيل دخول حديث. يرجى تسجيل الخروج ثم الدخول مرة أخرى والمحاولة مجدداً.");
+      } else {
+        toast.error(`حدث خطأ أثناء حذف الحساب: ${error.message}`);
+      }
     } finally {
       setIsAuthenticating(false);
       setAccountDeleteConfirm(false);
@@ -766,94 +1038,73 @@ export default function App() {
 
 
   const availableFilterOptions = useMemo(() => {
-    let currentAreas: string[] = [];
-    if (filters.governorate && AREAS[filters.governorate]) {
-      currentAreas = [...AREAS[filters.governorate]].sort();
-    } else {
-      currentAreas = Array.from(new Set(Object.values(AREAS).flat())).sort();
-    }
-
+    const governorates = new Set<string>();
+    const areas = new Set<string>();
+    const types = new Set<string>();
+    const purposes = new Set<string>();
+    const locations = new Set<string>();
     const marketers = new Set<string>();
 
     properties.forEach(p => {
-      if (p.assigned_employee_name) {
-        // Split multi-value employee names (e.g., "Em1 / Emp2")
-        const names = p.assigned_employee_name.split(/[,\/و\s]+/).map(n => n.trim()).filter(Boolean);
-        names.forEach(n => marketers.add(n));
+      if (p.governorate) governorates.add(p.governorate);
+      
+      if (p.area) {
+        if (!filters.governorate || p.governorate === filters.governorate) {
+          areas.add(p.area);
+        }
       }
+      
+      if (p.type) types.add(p.type);
+      if (p.purpose) purposes.add(p.purpose);
+      if (p.location) locations.add(p.location);
+      if (p.assignedEmployeeName) marketers.add(p.assignedEmployeeName);
     });
 
     return {
-      governorates: [...GOVERNORATES],
-      areas: currentAreas,
-      types: [...PROPERTY_TYPES],
-      purposes: [...PURPOSES],
-      locations: [...LOCATIONS],
+      governorates: Array.from(governorates).sort(),
+      areas: Array.from(areas).sort(),
+      types: Array.from(types).sort(),
+      purposes: Array.from(purposes).sort(),
+      locations: Array.from(locations).sort(),
       marketers: Array.from(marketers).sort()
     };
   }, [properties, filters.governorate]);
-
-  const handleSearch = () => {
-    setActiveSearchQuery(searchQuery);
-  };
 
   const filteredProperties = useMemo(() => {
     const sourceProperties = view === 'trash' ? deletedProperties : properties;
     return sourceProperties.filter(p => {
       // View specific filtering
-      if (view === 'my-listings' && p.created_by !== user?.id) return false;
+      if (view === 'my-listings' && p.createdBy !== user?.uid) return false;
       if (view === 'my-favorites' && !favorites.includes(p.id)) return false;
-      if (view === 'user-listings' && selectedMarketerId && p.assigned_employee_id !== selectedMarketerId) return false;
+      if (view === 'user-listings' && selectedMarketerId && p.assignedEmployeeId !== selectedMarketerId) return false;
       if (view === 'pending-properties' && p.status !== 'pending') return false;
       
-      // Text Search - Manual Trigger Required
-      if (activeSearchQuery) {
-        const extracted = extractDetailsFromName(p.name);
-        const searchableText = [
-          p.property_code,
-          p.name,
-          p.area,
-          p.plot_number,
-          p.details,
-          p.assigned_employee_name,
-          p.phone,
-          p.governorate,
-          p.type,
-          p.purpose,
-          p.location,
-          p.house_number,
-          p.sector,
-          // Add logical prefixes for extraction
-          extracted.sector ? `قطاع ${extracted.sector}` : '',
-          extracted.block ? `ق ${extracted.block} قطعة ${extracted.block}` : '',
-          extracted.street ? `ش ${extracted.street} شارع ${extracted.street}` : '',
-          extracted.avenue ? `ج ${extracted.avenue} جادة ${extracted.avenue}` : '',
-          extracted.plot_number ? `قسيمة ${extracted.plot_number}` : '',
-          extracted.house_number ? `م ${extracted.house_number} منزل ${extracted.house_number}` : '',
-        ].filter(Boolean).join(' ');
-        if (!searchMatch(searchableText, activeSearchQuery)) return false;
-      }
+      // Approval status filtering - REMOVED to allow all users to see all properties
+      // if (!isAdmin && view !== 'pending-properties' && p.status !== 'approved' && p.createdBy !== user?.uid) return false;
 
-      const matchesGov = !filters.governorate || normalizeArabic(p.governorate || '').includes(normalizeArabic(filters.governorate));
-      const matchesArea = !filters.area || normalizeArabic(p.area || '').includes(normalizeArabic(filters.area));
-      const matchesType = !filters.type || normalizeArabic(p.type || '').includes(normalizeArabic(filters.type));
-      const matchesPurpose = !filters.purpose || normalizeArabic(p.purpose || '').includes(normalizeArabic(filters.purpose));
-      const matchesLocation = !filters.location || normalizeArabic(p.location || '').includes(normalizeArabic(filters.location));
-      const matchesPlot = !filters.plot_number || (p.plot_number && normalizeDigits(p.plot_number).includes(normalizeDigits(filters.plot_number)));
-      const matchesHouse = !filters.house_number || (p.house_number && normalizeDigits(p.house_number).includes(normalizeDigits(filters.house_number)));
-      const matchesMarketer = !filters.marketer || normalizeArabic(p.assigned_employee_name || '').includes(normalizeArabic(filters.marketer));
+      const matchesSearch = 
+        searchMatch(p.name, searchQuery) || 
+        searchMatch(p.phone, searchQuery) || 
+        searchMatch(p.area, searchQuery) || 
+        searchMatch(p.assignedEmployeeName || '', searchQuery);
+      
+      const matchesGov = !filters.governorate || p.governorate === filters.governorate;
+      const matchesArea = !filters.area || p.area === filters.area;
+      const matchesType = !filters.type || p.type === filters.type;
+      const matchesPurpose = !filters.purpose || p.purpose === filters.purpose;
+      const matchesLocation = !filters.location || p.location === filters.location;
+      const matchesMarketer = !filters.marketer || p.assignedEmployeeName === filters.marketer;
       const matchesStatus = !filters.status || 
-                           (filters.status === 'sold' && p.is_sold) || 
-                           (filters.status === 'available' && !p.is_sold);
+                           (filters.status === 'sold' && p.isSold) || 
+                           (filters.status === 'available' && !p.isSold);
 
-      return matchesGov && matchesArea && matchesType && matchesPurpose && 
-             matchesLocation && matchesPlot && matchesHouse && matchesMarketer && matchesStatus;
+      return matchesSearch && matchesGov && matchesArea && matchesType && matchesPurpose && matchesLocation && matchesMarketer && matchesStatus;
     }).sort((a, b) => {
-      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
-      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      const dateA = a.createdAt?.seconds || 0;
+      const dateB = b.createdAt?.seconds || 0;
       return dateB - dateA;
     });
-  }, [properties, deletedProperties, activeSearchQuery, filters, view, favorites, user, selectedMarketerId, deletedProperties]);
+  }, [properties, deletedProperties, searchQuery, filters, view, favorites, user]);
 
   if (loading) {
     return (
@@ -895,10 +1146,10 @@ export default function App() {
             </div>
           )}
 
-          {(localAuthError || contextAuthError) && (
-            <div className={`p-4 rounded-xl text-sm mb-6 text-center border shadow-sm font-medium ${(localAuthError || contextAuthError).includes('المراجعة') ? 'bg-amber-50 text-amber-800 border-amber-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
-              <p>{localAuthError || contextAuthError}</p>
-              {(localAuthError || contextAuthError).includes('المراجعة') && (
+          {authError && (
+            <div className={`p-4 rounded-xl text-sm mb-6 text-center border shadow-sm font-medium ${authError.includes('المراجعة') ? 'bg-amber-50 text-amber-800 border-amber-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
+              <p>{authError}</p>
+              {authError.includes('المراجعة') && (
                 <a 
                   href={`https://wa.me/96565814909?text=${encodeURIComponent('من فضلك اقبل الدخول الي حسابي ( اكتب هنا اسم الحساب )')}`}
                   target="_blank"
@@ -981,50 +1232,145 @@ export default function App() {
     );
   }
 
-  const handleSyncFrom = async (spreadsheet_id: string, range: string) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    const idToken = session?.access_token;
+  const handleSyncFrom = async (spreadsheetId: string, range: string) => {
+    const idToken = await auth.currentUser?.getIdToken();
     if (!idToken) return;
     
     try {
-      toast.loading('بدء المزامنة من الشيت...', { id: 'sync-progress' });
-      const response = await fetch('/api/sync/auto', {
+      const response = await fetch('/api/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken })
+        body: JSON.stringify({ idToken, spreadsheetId, range })
       });
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(errorText || 'Sync failed');
       }
-      toast.success('تمت المزامنة من الشيت بنجاح', { id: 'sync-progress' });
-      if (spreadsheet_id) setSpreadsheetId(spreadsheet_id);
+      const data = await response.json();
+      
+      if (data && Array.isArray(data)) {
+        // Skip header if it looks like one (e.g., first cell is "ID")
+        const startIdx = (data[0] && data[0][0] === 'ID') ? 1 : 0;
+        
+        for (let i = startIdx; i < data.length; i++) {
+          const row = data[i];
+          if (!row || row.length < 2) continue; // Need at least name
+          
+          const [
+            id, name, governorate, area, type, purpose, phone, 
+            assignedEmployeeId, assignedEmployeeName, imagesStr, linksStr, 
+            locationLink, isSoldStr, sector, block, street, avenue, 
+            plotNumber, houseNumber, location, details, lastComment, 
+            statusLabel, createdBy, createdAtStr
+          ] = row;
+
+          const propertyData: any = {
+            name: name || '',
+            governorate: governorate || '',
+            area: area || '',
+            type: type || '',
+            purpose: purpose || '',
+            phone: phone || '',
+            assignedEmployeeId: assignedEmployeeId || '',
+            assignedEmployeeName: assignedEmployeeName || '',
+            images: imagesStr ? imagesStr.split(',').filter(Boolean) : [],
+            links: linksStr ? linksStr.split(',').filter(Boolean) : [],
+            locationLink: locationLink || '',
+            isSold: isSoldStr === 'TRUE' || isSoldStr === 'نعم' || isSoldStr === 'مباع',
+            sector: sector || '',
+            block: block || '',
+            street: street || '',
+            avenue: avenue || '',
+            plotNumber: plotNumber || '',
+            houseNumber: houseNumber || '',
+            location: location || '',
+            details: details || '',
+            statusLabel: statusLabel || '',
+            updatedAt: serverTimestamp()
+          };
+
+          if (lastComment) {
+            propertyData.lastComment = lastComment;
+          }
+
+          if (id && id.length > 5) { // Likely a Firestore ID
+            try {
+              await updateDoc(doc(db, 'properties', id), propertyData);
+            } catch (e) {
+              // If ID doesn't exist, create new
+              await addDoc(collection(db, 'properties'), {
+                ...propertyData,
+                createdAt: createdAtStr ? new Date(createdAtStr) : serverTimestamp(),
+                createdBy: createdBy || user?.uid
+              });
+            }
+          } else {
+            await addDoc(collection(db, 'properties'), {
+              ...propertyData,
+              createdAt: createdAtStr ? new Date(createdAtStr) : serverTimestamp(),
+              createdBy: createdBy || user?.uid
+            });
+          }
+        }
+      }
+      
+      toast.success('تمت المزامنة من الشيت بنجاح');
       setIsSyncModalOpen(false);
     } catch (e: any) {
       console.error(e);
-      toast.error(`حدث خطأ أثناء المزامنة: ${e.message}`, { id: 'sync-progress' });
+      toast.error(`حدث خطأ أثناء المزامنة من الشيت: ${e.message}`);
     }
   };
 
-  const handleSyncTo = async (id: string, rng: string) => {
-    const targetId = id || spreadsheet_id;
-    if (!targetId) {
+  const handleSyncTo = async (rng: string) => {
+    if (!spreadsheetId) {
       toast.error('يرجى حفظ رابط الشيت أولاً');
       return;
     }
-    const { data: { session } } = await supabase.auth.getSession();
-    const idToken = session?.access_token;
+    const idToken = await auth.currentUser?.getIdToken();
     if (!idToken) return;
     
+    // Prepare data from properties state
+    const header = [
+      'ID', 'الاسم', 'المحافظة', 'المنطقة', 'النوع', 'الغرض', 'الهاتف', 
+      'ID الموظف', 'اسم الموظف', 'الصور', 'الروابط', 'رابط الموقع', 
+      'مباع', 'القطاع', 'القطعة', 'الشارع', 'الجادة', 'القسيمة', 
+      'المنزل', 'الموقع الوصفي', 'التفاصيل', 'آخر تعليق', 'ملصق الحالة', 
+      'أنشئ بواسطة', 'تاريخ الإنشاء'
+    ];
+    
+    const data = [header, ...properties.map(p => [
+      p.id, 
+      p.name || '', 
+      p.governorate || '', 
+      p.area || '', 
+      p.type || '', 
+      p.purpose || '', 
+      p.phone || '', 
+      p.assignedEmployeeId || '', 
+      p.assignedEmployeeName || '', 
+      (p.images || []).join(','), 
+      p.locationLink || '', 
+      p.isSold ? 'TRUE' : 'FALSE', 
+      p.sector || '', 
+      p.block || '', 
+      p.street || '', 
+      p.avenue || '', 
+      p.plotNumber || '', 
+      p.houseNumber || '', 
+      p.location || '', 
+      p.details || '', 
+      p.lastComment || '', 
+      p.statusLabel || '', 
+      p.createdBy || '', 
+      p.createdAt?.toDate ? p.createdAt.toDate().toISOString() : (p.createdAt || '')
+    ])];
+    
     try {
-      // Ensure selected sheet is persisted first.
-      await supabase.from('settings').upsert({ id: 'sync', spreadsheet_id: targetId });
-      await supabase.from('settings').upsert({ id: '1', spreadsheet_id: targetId });
-
-      const response = await fetch('/api/sync/push', {
+      const response = await fetch('/api/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken })
+        body: JSON.stringify({ idToken, spreadsheetId, range: rng, data })
       });
       if (!response.ok) {
         const errorText = await response.text();
@@ -1045,8 +1391,6 @@ export default function App() {
         onClose={() => setIsSyncModalOpen(false)} 
         onSyncFrom={handleSyncFrom}
         onSyncTo={handleSyncTo}
-        spreadsheet_id={spreadsheet_id}
-        setSpreadsheetId={setSpreadsheetId}
       />
       {/* Drawer Overlay */}
       {/* Image Preview Modal */}
@@ -1120,7 +1464,7 @@ export default function App() {
                     <UserIcon size={20} />
                   </div>
                   <div>
-                    <p className="font-bold text-stone-900">{user.display_name}</p>
+                    <p className="font-bold text-stone-900">{user.displayName}</p>
                     <p className="text-xs text-stone-500">
                       {isSuperAdmin ? 'مدير النظام العام' : user.role === 'admin' ? 'مدير الشركة' : user.role === 'pending' ? 'قيد المراجعة' : 'موظف'}
                     </p>
@@ -1206,7 +1550,7 @@ export default function App() {
                     >
                       <div className="flex items-center gap-4">
                         <UserIcon size={20} />
-                        <span className="font-bold text-md">الموظفين</span>
+                        <span className="font-bold text-md">المستخدمين</span>
                       </div>
                       {employees.filter(e => e.role === 'pending').length > 0 && (
                         <span className="w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
@@ -1238,7 +1582,7 @@ export default function App() {
 
                     <button 
                       onClick={() => {
-                        if (!spreadsheet_id) {
+                        if (!spreadsheetId) {
                           toast.error('يرجى حفظ رابط الشيت أولاً');
                           return;
                         }
@@ -1302,16 +1646,10 @@ export default function App() {
                       <div className="space-y-3 pt-2">
                         <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
                           <p className="text-[10px] font-bold text-blue-800 mb-1 uppercase tracking-wider">بريد حساب الخدمة (للمشاركة):</p>
-                          {googleServiceAccountEmail ? (
-                            <p className="text-[9px] text-blue-600 break-all font-mono select-all">
-                              {googleServiceAccountEmail}
-                            </p>
-                          ) : (
-                            <p className="text-[9px] text-blue-600">
-                              لم يتم العثور على بريد حساب الخدمة. تأكد من ضبط `GOOGLE_SHEETS_CREDENTIALS` على الخادم.
-                            </p>
-                          )}
-                          <p className="text-[9px] text-blue-500 mt-2 italic">* أضف هذا البريد كـ Editor في ملف Google Sheet حتى تعمل المزامنة.</p>
+                          <p className="text-[9px] text-blue-600 break-all font-mono select-all">
+                            firebase-adminsdk-fbsvc@gen-lang-client-0876291410.iam.gserviceaccount.com
+                          </p>
+                          <p className="text-[9px] text-blue-500 mt-2 italic">* يجب إضافة هذا البريد كـ Editor في ملف الشيت.</p>
                         </div>
                         <div className="space-y-1">
                           <label className="text-[10px] font-bold text-stone-500 px-1">رابط ملف Google Sheet</label>
@@ -1327,12 +1665,11 @@ export default function App() {
                           onClick={async () => {
                             const extractedId = extractSpreadsheetId(tempSpreadsheetId);
                             try {
-                              const { error } = await supabase.from('settings').upsert({ id: 'sync', spreadsheet_id: extractedId });
-                              if (error) throw error;
+                              await setDoc(doc(db, 'settings', 'sync'), { spreadsheetId: extractedId }, { merge: true });
                               setSpreadsheetId(extractedId);
                               toast.success('تم حفظ الرابط');
                             } catch (err) {
-                              handleError(err, OperationType.WRITE, 'settings/sync');
+                              handleFirestoreError(err, OperationType.WRITE, 'settings/sync');
                             }
                           }}
                           className="w-full bg-emerald-600 text-white p-2 rounded-lg text-sm font-bold hover:bg-emerald-700"
@@ -1416,7 +1753,7 @@ export default function App() {
               )}
             </div>
             <div className="text-left hidden sm:block">
-              <p className="text-sm font-semibold">{user.display_name}</p>
+              <p className="text-sm font-semibold">{user.displayName}</p>
               <p className="text-xs text-stone-500">{user.role === 'admin' ? 'مدير النظام' : user.role === 'pending' ? 'قيد المراجعة' : 'موظف'}</p>
             </div>
           </div>
@@ -1434,231 +1771,189 @@ export default function App() {
               className="space-y-6 px-4 py-8"
             >
               {/* Search & Filters */}
-              <div className="bg-white border border-stone-200 p-4 rounded-xl shadow-sm w-full relative z-[50]">
-                <div className="space-y-4">
-                  {/* Quick Search Section */}
-                  <div className="flex flex-col md:flex-row gap-3 items-center">
-                    <div className="bg-stone-50 border border-stone-200 rounded-lg flex-1 focus-within:border-emerald-500 transition-all flex items-center p-2 px-4 min-h-[46px] w-full">
-                      <div 
-                        className="flex flex-1 items-center gap-2 cursor-text"
-                        onClick={() => {
-                          if (!isSearchFocused) {
-                            setIsSearchFocused(true);
-                            setTimeout(() => {
-                              const input = document.getElementById('main-search-input');
-                              if (input) input.focus();
-                            }, 0);
-                          }
-                        }}
-                      >
-                        <Search className="text-stone-500 ml-1" size={16} />
-                        
-                        {Object.entries(filters).filter(([_, val]) => val !== '').map(([key, value]) => (
-                          <span key={key} className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold whitespace-nowrap">
-                            {value}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (key === 'governorate') {
-                                  setFilters({ ...filters, governorate: '', area: '' });
-                                } else {
-                                  setFilters({ ...filters, [key]: '' });
-                                }
-                              }}
-                              className="hover:bg-emerald-200 rounded-full p-0.5 transition-colors"
-                            >
-                              <X size={10} />
-                            </button>
-                          </span>
-                        ))}
-
-                        {searchQuery && !isSearchFocused && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold whitespace-nowrap">
-                            {searchQuery}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSearchQuery('');
-                              }}
-                              className="hover:bg-emerald-200 rounded-full p-0.5 transition-colors"
-                            >
-                              <X size={10} />
-                            </button>
-                          </span>
-                        )}
-
-                        <div className={`flex-1 flex items-center relative min-w-[80px] ${searchQuery && !isSearchFocused ? 'hidden' : ''}`}>
-                          <Search className="absolute left-2 text-stone-400" size={14} />
-                          <input 
-                            id="main-search-input"
-                            type="text"
-                            placeholder="الاسم، رقم الهاتف، أو المنطقة..."
-                            className="w-full bg-transparent border-none outline-none text-xs py-1 pl-8 pr-8 text-right"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(normalizeDigits(e.target.value))}
-                            onFocus={() => setIsSearchFocused(true)}
-                            onBlur={() => {
-                              setTimeout(() => setIsSearchFocused(false), 200);
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                setIsSearchFocused(false);
-                                handleSearch();
+              <div className="bg-white/40 backdrop-blur-xl border border-white/40 p-4 rounded-xl shadow-xl shadow-stone-200/50 w-full">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  <div className="relative w-full bg-white/70 backdrop-blur-md border border-stone-200 rounded-lg focus-within:border-emerald-500 focus-within:ring-4 focus-within:ring-emerald-500/10 transition-all flex items-center p-2 px-4 min-h-[46px] shadow-sm hover:border-stone-300">
+                    <div 
+                      className="flex flex-1 items-center gap-2 cursor-text"
+                      onClick={() => {
+                        if (!isSearchFocused) {
+                          setIsSearchFocused(true);
+                          setTimeout(() => {
+                            const input = document.getElementById('main-search-input');
+                            if (input) input.focus();
+                          }, 0);
+                        }
+                      }}
+                    >
+                      <Search className="text-stone-500 ml-1" size={16} />
+                      
+                      {Object.entries(filters).filter(([_, val]) => val !== '').map(([key, value]) => (
+                        <span key={key} className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold whitespace-nowrap">
+                          {value}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (key === 'governorate') {
+                                setFilters({ ...filters, governorate: '', area: '' });
+                              } else {
+                                setFilters({ ...filters, [key]: '' });
                               }
                             }}
-                          />
-                          {searchQuery && (
-                            <button
-                              onClick={() => setSearchQuery('')}
-                              className="absolute right-2 text-stone-500 hover:text-stone-600 p-1 rounded-full hover:bg-stone-200 transition-colors"
-                            >
-                              <X size={14} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      <AnimatePresence>
-                        {isSearchFocused && searchSuggestions.length > 0 && (
-                          <>
-                            <div className="fixed inset-0 z-[80]" onClick={() => setIsSearchFocused(false)} />
-                            <motion.div
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: 10 }}
-                              className="absolute top-full right-0 left-0 mt-2 bg-white border border-stone-200 rounded-lg shadow-xl z-[100] overflow-hidden"
-                            >
-                              <div className="max-h-60 overflow-y-auto p-1">
-                                {searchSuggestions.map(opt => (
-                                  <button
-                                    key={opt}
-                                    type="button"
-                                    onClick={() => { setSearchQuery(opt); setIsSearchFocused(false); }}
-                                    className="w-full text-right p-3 text-sm rounded-lg hover:bg-stone-50 text-stone-600 transition-colors"
-                                  >
-                                    {opt}
-                                  </button>
-                                ))}
-                              </div>
-                            </motion.div>
-                          </>
+                            className="hover:bg-emerald-200 rounded-full p-0.5 transition-colors"
+                          >
+                            <X size={10} />
+                          </button>
+                        </span>
+                      ))}
+
+                      {searchQuery && !isSearchFocused && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold whitespace-nowrap">
+                          {searchQuery}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSearchQuery('');
+                            }}
+                            className="hover:bg-emerald-200 rounded-full p-0.5 transition-colors"
+                          >
+                            <X size={10} />
+                          </button>
+                        </span>
+                      )}
+
+                      <div className={`flex-1 flex items-center relative min-w-[80px] ${searchQuery && !isSearchFocused ? 'hidden' : ''}`}>
+                        <Search className="absolute left-2 text-stone-400" size={14} />
+                        <input 
+                          id="main-search-input"
+                          type="text"
+                          placeholder="الاسم، رقم الهاتف، أو المنطقة..."
+                          className="w-full bg-transparent border-none outline-none text-xs py-1 pl-8 pr-8"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(normalizeDigits(e.target.value))}
+                          onFocus={() => setIsSearchFocused(true)}
+                          onBlur={() => {
+                            // Delay blur to allow clicking suggestions or the clear button
+                            setTimeout(() => setIsSearchFocused(false), 200);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              if (searchSuggestions.length > 0) {
+                                setSearchQuery(searchSuggestions[0]);
+                              }
+                              setIsSearchFocused(false);
+                            }
+                          }}
+                        />
+                        {searchQuery && (
+                          <button
+                            onClick={() => setSearchQuery('')}
+                            className="absolute right-2 text-stone-500 hover:text-stone-600 p-1 rounded-full hover:bg-stone-200 transition-colors"
+                          >
+                            <X size={14} />
+                          </button>
                         )}
-                      </AnimatePresence>
+                      </div>
                     </div>
-                    <button 
-                      onClick={() => setIsDetailedFiltersOpen(!isDetailedFiltersOpen)}
-                      className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all whitespace-nowrap"
-                    >
-                      <Filter size={16} />
-                      {isDetailedFiltersOpen ? 'إخفاء البحث الدقيق' : 'البحث الدقيق'}
-                    </button>
+                    <AnimatePresence>
+                      {isSearchFocused && searchSuggestions.length > 0 && (
+                        <>
+                          <div className="fixed inset-0 z-[80]" onClick={() => setIsSearchFocused(false)} />
+                          <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 10 }}
+                            className="absolute top-full right-0 left-0 mt-2 bg-white/90 backdrop-blur-xl border border-stone-100 rounded-lg shadow-xl z-[90] overflow-hidden"
+                          >
+                            <div className="max-h-60 overflow-y-auto p-1">
+                              {searchSuggestions.map(opt => (
+                                <button
+                                  key={opt}
+                                  type="button"
+                                  onClick={() => { setSearchQuery(opt); setIsSearchFocused(false); }}
+                                  className="w-full text-right p-3 text-sm rounded-lg hover:bg-white/50 text-stone-600 transition-colors"
+                                >
+                                  {opt}
+                                </button>
+                              ))}
+                            </div>
+                          </motion.div>
+                        </>
+                      )}
+                    </AnimatePresence>
                   </div>
 
-                  {/* Detailed Search Filters */}
-                  <AnimatePresence>
-                    {isDetailedFiltersOpen && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        className="overflow-visible z-[60] relative"
+                  <SearchableFilter 
+                    placeholder="المحافظة..."
+                    options={availableFilterOptions.governorates}
+                    value={filters.governorate}
+                    onChange={(val) => setFilters({...filters, governorate: val, area: ''})}
+                  />
+
+                  <SearchableFilter 
+                    placeholder="المنطقة..."
+                    options={availableFilterOptions.areas}
+                    value={filters.area}
+                    onChange={(val) => setFilters({...filters, area: val})}
+                  />
+
+                  <SearchableFilter 
+                    placeholder="نوع العقار..."
+                    options={availableFilterOptions.types}
+                    value={filters.type}
+                    onChange={(val) => setFilters({...filters, type: val})}
+                  />
+
+                  <SearchableFilter 
+                    placeholder="الغرض..."
+                    options={availableFilterOptions.purposes}
+                    value={filters.purpose}
+                    onChange={(val) => setFilters({...filters, purpose: val})}
+                  />
+
+                  <SearchableFilter 
+                    placeholder="الموقع..."
+                    options={availableFilterOptions.locations}
+                    value={filters.location}
+                    onChange={(val) => setFilters({...filters, location: val})}
+                  />
+
+                  <SearchableFilter 
+                    placeholder="ابحث بالمستخدم..."
+                    options={availableFilterOptions.marketers}
+                    value={filters.marketer}
+                    onChange={(val) => setFilters({...filters, marketer: val})}
+                  />
+
+                  <div className="bg-white/70 backdrop-blur-md border border-stone-200 rounded-lg p-2 h-[46px] flex flex-col justify-center focus-within:border-emerald-500 focus-within:ring-4 focus-within:ring-emerald-500/10 transition-all shadow-sm hover:border-stone-300">
+                    <div className="relative flex items-center">
+                      <select 
+                        className="w-full bg-transparent border-none p-0 text-sm text-right outline-none focus:ring-0 appearance-none"
+                        value={filters.status}
+                        onChange={(e) => setFilters({...filters, status: e.target.value})}
                       >
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
-                          <SearchableFilter 
-                            placeholder="المحافظة..."
-                            options={availableFilterOptions.governorates}
-                            value={filters.governorate}
-                            onChange={(val) => setFilters({...filters, governorate: val, area: ''})}
-                          />
-
-                          <SearchableFilter 
-                            placeholder="المنطقة..."
-                            options={availableFilterOptions.areas}
-                            value={filters.area}
-                            onChange={(val) => setFilters({
-                              ...filters,
-                              area: val,
-                              governorate: val ? inferGovernorate(val, filters.governorate) : filters.governorate
-                            })}
-                          />
-
-                          <SearchableFilter 
-                            placeholder="نوع العقار..."
-                            options={availableFilterOptions.types}
-                            value={filters.type}
-                            onChange={(val) => setFilters({...filters, type: val})}
-                          />
-
-                          <SearchableFilter 
-                            placeholder="الغرض..."
-                            options={availableFilterOptions.purposes}
-                            value={filters.purpose}
-                            onChange={(val) => setFilters({...filters, purpose: val})}
-                          />
-
-                          <SearchableFilter 
-                            placeholder="الموقع..."
-                            options={availableFilterOptions.locations}
-                            value={filters.location}
-                            onChange={(val) => setFilters({...filters, location: val})}
-                          />
-
-                           <input
-                            type="text"
-                            placeholder="رقم القسيمة..."
-                            className="bg-white border border-stone-200 rounded-lg px-3 py-2 text-sm text-right focus:border-emerald-500 outline-none w-full"
-                            value={filters.plot_number}
-                            onChange={(e) => setFilters({...filters, plot_number: e.target.value})}
-                          />
-
-                          <input
-                            type="text"
-                            placeholder="رقم المنزل..."
-                            className="bg-white border border-stone-200 rounded-lg px-3 py-2 text-sm text-right focus:border-emerald-500 outline-none w-full"
-                            value={filters.house_number}
-                            onChange={(e) => setFilters({...filters, house_number: e.target.value})}
-                          />
-
-                          <SearchableFilter 
-                            placeholder="ابحث بالموظف..."
-                            options={availableFilterOptions.marketers}
-                            value={filters.marketer}
-                            onChange={(val) => setFilters({...filters, marketer: val})}
-                          />
-
-                          <div className="bg-white border border-stone-200 rounded-lg p-2 h-[46px] flex flex-col justify-center focus-within:border-emerald-500 transition-all shadow-sm">
-                            <div className="relative flex items-center">
-                              <select 
-                                className="w-full bg-transparent border-none p-0 text-sm text-right outline-none focus:ring-0 appearance-none"
-                                value={filters.status}
-                                onChange={(e) => setFilters({...filters, status: e.target.value})}
-                              >
-                                <option value="">ابحث بالحالة (الكل)</option>
-                                <option value="available">متاح</option>
-                                <option value="sold">مباع</option>
-                              </select>
-                              <ChevronDown size={14} className="mr-2 text-stone-300 pointer-events-none shrink-0" />
-                            </div>
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                        <option value="">ابحث بالحالة (الكل)</option>
+                        <option value="available">متاح</option>
+                        <option value="sold">مباع</option>
+                      </select>
+                      <ChevronDown size={14} className="mr-2 text-stone-300 pointer-events-none shrink-0" />
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex flex-col gap-2 pt-4 border-t border-stone-100 mt-4">
+                <div className="flex flex-col gap-2 pt-4 border-t border-stone-100">
                   <button 
-                    onClick={handleSearch}
                     className="w-full py-3.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 hover:shadow-emerald-200/50 transition-all font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-100 active:scale-[0.98]"
                   >
                     <Search size={18} />
                     بحث
                   </button>
-                  {(searchQuery || filters.governorate || filters.area || filters.type || filters.purpose || filters.location || filters.plot_number || filters.house_number || filters.marketer || filters.status !== '') && (
+                  {(searchQuery || filters.governorate || filters.area || filters.type || filters.purpose || filters.location || filters.marketer || filters.status !== '') && (
                     <button 
                       onClick={() => {
                         setSearchQuery('');
-                        setFilters({ governorate: '', area: '', type: '', purpose: '', location: '', plot_number: '', house_number: '', marketer: '', status: '' });
+                        setFilters({ governorate: '', area: '', type: '', purpose: '', location: '', marketer: '', status: '' });
                       }}
                       className="w-full py-3 bg-stone-100 text-stone-600 rounded-lg hover:bg-stone-200 transition-all font-bold flex items-center justify-center gap-2"
                     >
@@ -1672,17 +1967,16 @@ export default function App() {
               {/* Actions & Results Header */}
               <div className="flex justify-center items-center">
                 <h2 className="text-2xl font-bold serif text-center">
-                  {view === 'pending-properties' ? `عقارات قيد المراجعة (${filteredProperties.length})` : view === 'trash' ? `سلة المحذوفات (${filteredProperties.length})` : (searchQuery || filters.governorate || filters.area || filters.type || filters.purpose || filters.location || filters.plot_number || filters.house_number || filters.marketer || filters.status
+                  {view === 'pending-properties' ? `عقارات قيد المراجعة (${filteredProperties.length})` : view === 'trash' ? `سلة المحذوفات (${filteredProperties.length})` : (searchQuery || filters.governorate || filters.area || filters.type || filters.purpose || filters.location || filters.marketer || filters.status
                     ? `نتائج البحث (${filteredProperties.length})` 
-                    : `${view === 'list' ? 'كل العقارات' : view === 'my-listings' ? 'إعلاناتي' : view === 'my-favorites' ? 'إعلاناتي المفضلة' : `عقارات ${employees.find(emp => emp.id === selectedMarketerId)?.display_name || 'الموظف'}`} (${filteredProperties.length})`)}
+                    : `${view === 'list' ? 'كل العقارات' : view === 'my-listings' ? 'إعلاناتي' : view === 'my-favorites' ? 'إعلاناتي المفضلة' : `عقارات ${employees.find(emp => emp.uid === selectedMarketerId)?.displayName || 'المستخدم'}`} (${filteredProperties.length})`)}
                 </h2>
               </div>
-
 
               {/* Grid - Always show results */}
               {filteredProperties.length > 0 ? (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {filteredProperties.slice(0, visibleCount).map((p) => (
                       <PropertyCard 
                         key={p.id} 
@@ -1700,27 +1994,19 @@ export default function App() {
                         }}
                         isAdmin={isAdmin}
                         onApprove={async (id: string) => {
-                          const { error } = await supabase.from('properties').update({ status: 'approved' }).eq('id', id);
-                          if (error) handleError(error, OperationType.UPDATE, 'properties');
-                          else {
-                            toast.success('تم قبول العقار');
-                            triggerAutoSync();
-                          }
+                          await updateDoc(doc(db, 'properties', id), { status: 'approved' });
+                          toast.success('تم قبول العقار');
                         }}
                         onReject={async (id: string) => {
-                          const { error } = await supabase.from('properties').update({ status: 'rejected' }).eq('id', id);
-                          if (error) handleError(error, OperationType.UPDATE, 'properties');
-                          else {
-                            toast.success('تم رفض العقار');
-                            triggerAutoSync();
-                          }
+                          await updateDoc(doc(db, 'properties', id), { status: 'rejected' });
+                          toast.success('تم رفض العقار');
                         }}
                         onEdit={(p: any) => {
                           setSelectedProperty(p);
                           setView('edit');
                         }}
                         onDelete={(id: string) => {
-                          setDeleteConfirm({ isOpen: true, property_id: id });
+                          setDeleteConfirm({ isOpen: true, propertyId: id });
                         }}
                         onRestore={restoreProperty}
                         onPermanentDelete={permanentDeleteProperty}
@@ -1730,8 +2016,8 @@ export default function App() {
                           setSearchQuery('');
                           window.scrollTo({ top: 0, behavior: 'smooth' });
                         }}
-                        onUserClick={(user_id: string) => {
-                          setSelectedMarketerId(user_id);
+                        onUserClick={(userId: string) => {
+                          setSelectedMarketerId(userId);
                           setPrevView(view as any);
                           setView('user-listings');
                           window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1804,7 +2090,7 @@ export default function App() {
                     onClick={async () => {
                       const unread = notifications.filter(n => !n.read);
                       for (const n of unread) {
-                        await supabase.from('notifications').update({ read: true }).eq('id', n.id);
+                        await updateDoc(doc(db, 'notifications', n.id), { read: true });
                       }
                     }}
                     className="text-sm text-emerald-600 font-bold hover:underline"
@@ -1820,11 +2106,11 @@ export default function App() {
                         key={n.id} 
                         className={`p-4 rounded-xl border border-stone-100 hover:bg-stone-50 transition-colors cursor-pointer ${!n.read ? 'bg-emerald-50/30' : ''}`}
                         onClick={async () => {
-                          if (!n.read) await supabase.from('notifications').update({ read: true }).eq('id', n.id);
+                          if (!n.read) await updateDoc(doc(db, 'notifications', n.id), { read: true });
                           if (n.type === 'new-user') {
                             setView('manage-marketers');
-                          } else if (n.property_id) {
-                            const prop = properties.find(p => p.id === n.property_id);
+                          } else if (n.propertyId) {
+                            const prop = properties.find(p => p.id === n.propertyId);
                             if (prop) {
                               setSelectedProperty(prop);
                               setView('details');
@@ -1849,7 +2135,7 @@ export default function App() {
                           <div className="flex-1 min-w-0">
                             <p className="font-bold text-stone-900">{n.title}</p>
                             <p className="text-sm text-stone-500 mt-1">{n.message}</p>
-                            <p className="text-xs text-stone-500 mt-2">{formatRelativeDate(n.created_at)}</p>
+                            <p className="text-xs text-stone-500 mt-2">{formatRelativeDate(n.createdAt)}</p>
                           </div>
                         </div>
                       </div>
@@ -1899,24 +2185,23 @@ export default function App() {
                       e.preventDefault();
                       const form = e.target as HTMLFormElement;
                       const name = (form.elements.namedItem('companyName') as HTMLInputElement).value;
-                      const company_id = (form.elements.namedItem('company_id') as HTMLInputElement).value;
+                      const companyId = (form.elements.namedItem('companyId') as HTMLInputElement).value;
                       const address = (form.elements.namedItem('companyAddress') as HTMLInputElement).value;
                       const phone = (form.elements.namedItem('companyPhone') as HTMLInputElement).value;
                       
-                      if (company_id.length !== 4) {
+                      if (companyId.length !== 4) {
                         toast.error('يجب أن يكون كود الشركة مكوناً من 4 خانات');
                         return;
                       }
 
                       try {
-                        const { error } = await supabase.from('companies').insert({
+                        await addDoc(collection(db, 'companies'), {
                           name,
-                          company_id,
+                          companyId,
                           address,
                           phone,
-                          created_at: new Date().toISOString()
+                          createdAt: new Date().toISOString()
                         });
-                        if (error) throw error;
                         toast.success('تمت إضافة الشركة بنجاح');
                         form.reset();
                       } catch (err: any) {
@@ -1931,7 +2216,7 @@ export default function App() {
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider px-1">كود الشركة (4 خانات)</label>
-                      <input name="company_id" placeholder="مثال: A1B2" maxLength={4} className="w-full p-3 rounded-xl bg-stone-50/50 border border-stone-200 outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-sm font-mono" required />
+                      <input name="companyId" placeholder="مثال: A1B2" maxLength={4} className="w-full p-3 rounded-xl bg-stone-50/50 border border-stone-200 outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-sm font-mono" required />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider px-1">رقم الهاتف (اختياري)</label>
@@ -1971,7 +2256,7 @@ export default function App() {
                             className="flex-1 px-3 py-2 bg-blue-50 text-blue-600 text-[11px] font-bold rounded-xl hover:bg-blue-100 transition-all flex items-center justify-center gap-2"
                           >
                             <UserPlus size={14} />
-                            إضافة موظف
+                            إضافة مستخدم
                           </button>
                           <button 
                             onClick={() => {
@@ -2002,7 +2287,10 @@ export default function App() {
                           <div className="flex items-center gap-2">
                             <button 
                               onClick={() => {
-                                setCompanyActionConfirm({ isOpen: true, company, action: 'edit' });
+                                if (confirm(`هل أنت متأكد من تعديل بيانات شركة ${company.name}؟`)) {
+                                  setEditingCompany(company);
+                                  setIsEditingCompany(true);
+                                }
                               }}
                               className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
                               title="تعديل"
@@ -2010,8 +2298,15 @@ export default function App() {
                               <Edit size={16} />
                             </button>
                             <button 
-                              onClick={() => {
-                                setCompanyActionConfirm({ isOpen: true, company, action: 'delete' });
+                              onClick={async () => {
+                                if (confirm(`هل أنت متأكد من حذف شركة ${company.name}؟ سيؤدي ذلك لحذف جميع بياناتها.`)) {
+                                  try {
+                                    await deleteDoc(doc(db, 'companies', company.id));
+                                    toast.success('تم حذف الشركة');
+                                  } catch (err: any) {
+                                    toast.error('خطأ: ' + err.message);
+                                  }
+                                }
                               }}
                               className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
                               title="حذف"
@@ -2057,12 +2352,11 @@ export default function App() {
                           const address = (form.elements.namedItem('address') as HTMLInputElement).value;
                           
                           try {
-                            const { error } = await supabase.from('companies').update({
+                            await updateDoc(doc(db, 'companies', editingCompany.id), {
                               name,
                               phone,
                               address
-                            }).eq('id', editingCompany.id);
-                            if (error) throw error;
+                            });
                             toast.success('تم تحديث بيانات الشركة بنجاح');
                             setIsEditingCompany(false);
                           } catch (err: any) {
@@ -2109,7 +2403,7 @@ export default function App() {
                             <UserPlus size={20} className="text-emerald-600" />
                           </div>
                           <div className="flex flex-col">
-                            <span className="text-lg">إضافة موظف جديد</span>
+                            <span className="text-lg">إضافة مستخدم جديد</span>
                             <span className="text-xs text-stone-400 font-normal">شركة {targetCompanyForUser.name}</span>
                           </div>
                         </h3>
@@ -2129,36 +2423,36 @@ export default function App() {
                           const email = (form.elements.namedItem('email') as HTMLInputElement).value;
                           
                           try {
-                          try {
-                            const { data: { session } } = await supabase.auth.getSession();
-                            const token = session?.access_token;
+                            const generatedEmail = email || usernameToEmail(username);
                             
-                            const response = await fetch('/api/create-user', {
-                              method: 'POST',
-                              headers: { 
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`
-                              },
-                              body: JSON.stringify({
-                                email: email || usernameToEmail(username),
-                                password,
-                                full_name: username,
-                                role,
-                                company_id: targetCompanyForUser.id,
-                                phone: phone || ''
-                              })
-                            });
-
-                            if (!response.ok) {
-                              const errData = await response.json();
-                              throw new Error(errData.error || 'فشل إنشاء الموظف');
+                            // Check if user already exists
+                            const q = query(collection(db, 'users'), where('email', '==', generatedEmail));
+                            const snapshot = await getDocs(q);
+                            
+                            if (!snapshot.empty) {
+                              toast.error('هذا المستخدم مسجل بالفعل.');
+                              return;
                             }
 
-                            toast.success('تمت إضافة الموظف بنجاح.');
+                            // Create user in Firebase Auth using secondary app
+                            const userCredential = await createUserWithEmailAndPassword(secondaryAuth, generatedEmail, password);
+                            
+                            // Create user profile in Firestore
+                            await setDoc(doc(db, 'users', userCredential.user.uid), {
+                              uid: userCredential.user.uid,
+                              email: generatedEmail,
+                              displayName: username,
+                              role: role,
+                              companyId: targetCompanyForUser.id,
+                              phone: phone || '',
+                              createdAt: new Date().toISOString()
+                            });
+                            
+                            // Sign out the secondary auth to prevent session issues
+                            await signOut(secondaryAuth);
+
+                            toast.success('تمت إضافة المستخدم بنجاح.');
                             setIsAddingUserToCompany(false);
-                          } catch (err: any) {
-                            toast.error('حدث خطأ: ' + err.message);
-                          }
                           } catch (err: any) {
                             toast.error('حدث خطأ: ' + err.message);
                           }
@@ -2196,7 +2490,7 @@ export default function App() {
                         </div>
                         <div className="flex gap-3 pt-4 sticky bottom-0 bg-white pb-2">
                           <button type="button" onClick={() => setIsAddingUserToCompany(false)} className="flex-1 py-3.5 rounded-xl border border-stone-200 text-stone-600 font-bold hover:bg-stone-50 transition-all active:scale-[0.98]">إلغاء</button>
-                          <button type="submit" className="flex-1 bg-emerald-600 text-white py-3.5 rounded-xl font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all active:scale-[0.98]">إضافة الموظف</button>
+                          <button type="submit" className="flex-1 bg-emerald-600 text-white py-3.5 rounded-xl font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all active:scale-[0.98]">إضافة المستخدم</button>
                         </div>
                       </form>
                     </div>
@@ -2223,7 +2517,7 @@ export default function App() {
                     <ChevronRight size={24} />
                   </button>
                   <div>
-                    <h2 className="text-2xl font-bold tracking-tight">إدارة الموظفين</h2>
+                    <h2 className="text-2xl font-bold tracking-tight">إدارة المستخدمين</h2>
                     <p className="text-sm text-stone-500">إدارة جميع الحسابات والصلحيات في النظام</p>
                   </div>
                 </div>
@@ -2250,41 +2544,36 @@ export default function App() {
                           toast.error('يرجى اختيار شركة أولاً');
                           return;
                         }
-                        try {
-                          if (isSuperAdmin && !selectedCompanyId) {
-                            toast.error('يرجى اختيار شركة أولاً');
-                            return;
-                          }
-                          
-                          const { data: { session } } = await supabase.auth.getSession();
-                          const token = session?.access_token;
-
-                          const response = await fetch('/api/create-user', {
-                            method: 'POST',
-                            headers: { 
-                              'Content-Type': 'application/json',
-                              'Authorization': `Bearer ${token}`
-                            },
-                            body: JSON.stringify({
-                              email: email || usernameToEmail(username),
-                              password,
-                              full_name: username,
-                              role,
-                              company_id: isSuperAdmin ? (form.elements.namedItem('company_id') as HTMLSelectElement).value : user?.company_id,
-                              phone: phone || ''
-                            })
-                          });
-
-                          if (!response.ok) {
-                            const errData = await response.json();
-                            throw new Error(errData.error || 'فشل إنشاء المستخدم');
-                          }
-
-                          toast.success('تمت إضافة المستخدم بنجاح.');
-                          form.reset();
-                        } catch (err: any) {
-                          toast.error('حدث خطأ: ' + err.message);
+                        const generatedEmail = email || usernameToEmail(username);
+                        
+                        // Check if user already exists
+                        const q = query(collection(db, 'users'), where('email', '==', generatedEmail));
+                        const snapshot = await getDocs(q);
+                        
+                        if (!snapshot.empty) {
+                          toast.error('هذا المستخدم مسجل بالفعل.');
+                          return;
                         }
+
+                        // Create user in Firebase Auth using secondary app
+                        const userCredential = await createUserWithEmailAndPassword(secondaryAuth, generatedEmail, password);
+                        
+                        // Create user profile in Firestore
+                        await setDoc(doc(db, 'users', userCredential.user.uid), {
+                          uid: userCredential.user.uid,
+                          email: generatedEmail,
+                          displayName: username,
+                          role: role,
+                          companyId: isSuperAdmin ? (form.elements.namedItem('companyId') as HTMLSelectElement).value : user?.companyId,
+                          phone: phone || '',
+                          createdAt: new Date().toISOString()
+                        });
+                        
+                        // Sign out the secondary auth to prevent session issues
+                        await signOut(secondaryAuth);
+
+                        toast.success('تمت إضافة المستخدم بنجاح.');
+                        form.reset();
                       } catch (err: any) {
                         toast.error('حدث خطأ: ' + err.message);
                       }
@@ -2294,7 +2583,7 @@ export default function App() {
                     {isSuperAdmin && (
                       <div className="space-y-1 md:col-span-2">
                         <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider px-1">الشركة</label>
-                        <select name="company_id" className="w-full p-3 rounded-xl bg-stone-50/50 border border-stone-200 outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-sm appearance-none" required>
+                        <select name="companyId" className="w-full p-3 rounded-xl bg-stone-50/50 border border-stone-200 outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-sm appearance-none" required>
                           <option value="">اختر الشركة...</option>
                           {companies.map(c => (
                             <option key={c.id} value={c.id}>{c.name}</option>
@@ -2337,10 +2626,10 @@ export default function App() {
 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between px-2">
-                    <h3 className="font-bold text-stone-900">قائمة الموظفين ({employees.length})</h3>
+                    <h3 className="font-bold text-stone-900">قائمة المستخدمين ({employees.length})</h3>
                     <button
                       onClick={() => {
-                        setUserActionConfirm({ isOpen: true, user_id: null, action: 'bulk-delete' });
+                        setUserActionConfirm({ isOpen: true, userId: null, action: 'bulk-delete' });
                       }}
                       className="text-xs text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors font-bold"
                     >
@@ -2350,13 +2639,13 @@ export default function App() {
                   
                   <div className="grid grid-cols-1 gap-3">
                     {employees.map(emp => (
-                      <div key={emp.id} className="ios-glass p-4 rounded-2xl border border-white/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm group hover:shadow-md transition-all">
+                      <div key={emp.uid} className="ios-glass p-4 rounded-2xl border border-white/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm group hover:shadow-md transition-all">
                         <div className="flex items-center gap-4 flex-1">
                           <div className="w-10 h-10 bg-stone-100 rounded-xl flex items-center justify-center text-stone-400 group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-colors shrink-0">
                             <UserIcon size={20} />
                           </div>
                           
-                          {editingUser?.id === emp.id ? (
+                          {editingUser?.uid === emp.uid ? (
                             <div className="flex flex-col gap-3 flex-1 bg-white/30 p-3 rounded-xl border border-white/40">
                               <div className="space-y-2">
                                 <div className="flex flex-col gap-1">
@@ -2405,16 +2694,12 @@ export default function App() {
                                   onClick={async () => {
                                     if (!editUserName.trim()) return;
                                     try {
-                                      // Update user profile data in Supabase
-                                      const { error } = await supabase
-                                        .from('user_profiles')
-                                        .update({ 
-                                          display_name: editUserName.trim(),
-                                          phone: editUserPhone.trim(),
-                                          email: editUserEmail.trim()
-                                        })
-                                        .eq('id', emp.id);
-                                      if (error) throw error;
+                                      // Update Firestore data
+                                      await setDoc(doc(db, 'users', emp.uid), { 
+                                        displayName: editUserName.trim(),
+                                        phone: editUserPhone.trim(),
+                                        email: editUserEmail.trim()
+                                      }, { merge: true });
 
                                       // Update Password if provided
                                       if (editUserPassword.trim()) {
@@ -2422,16 +2707,13 @@ export default function App() {
                                           toast.error('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
                                           return;
                                         }
-                                        const { data: { session } } = await supabase.auth.getSession();
-                                        const token = session?.access_token;
+                                        const idToken = await auth.currentUser?.getIdToken();
                                         const response = await fetch('/api/update-user-password', {
                                           method: 'POST',
-                                          headers: { 
-                                            'Content-Type': 'application/json',
-                                            'Authorization': `Bearer ${token}`
-                                          },
+                                          headers: { 'Content-Type': 'application/json' },
                                           body: JSON.stringify({
-                                            target_id: emp.id,
+                                            idToken,
+                                            targetUid: emp.uid,
                                             newPassword: editUserPassword.trim()
                                           })
                                         });
@@ -2463,7 +2745,7 @@ export default function App() {
                           ) : (
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
-                                <h3 className="text-sm font-bold text-stone-800 truncate">{emp.display_name}</h3>
+                                <h3 className="text-sm font-bold text-stone-800 truncate">{emp.displayName}</h3>
                                 <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
                                   emp.role === 'admin' ? 'bg-purple-100 text-purple-600' :
                                   emp.role === 'employee' ? 'bg-blue-100 text-blue-600' :
@@ -2473,12 +2755,12 @@ export default function App() {
                                 </span>
                                 {isSuperAdmin && (
                                   <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-stone-100 text-stone-600">
-                                    {companies.find(c => c.id === emp.company_id)?.name || 'بدون شركة'}
+                                    {companies.find(c => c.id === emp.companyId)?.name || 'بدون شركة'}
                                   </span>
                                 )}
                               </div>
                               <p className={`text-stone-500 truncate mt-0.5 ${emp.email?.endsWith('@simsaraqari.com') ? 'text-[7px] leading-tight tracking-tighter' : 'text-[11px]'}`}>
-                                {emp.phone || 'بدون هاتف'} • {emp.email} • {formatRelativeDate(emp.created_at)}
+                                {emp.phone || 'بدون هاتف'} • {emp.email} • {formatRelativeDate(emp.createdAt)}
                               </p>
                             </div>
                           )}
@@ -2488,13 +2770,13 @@ export default function App() {
                           {emp.role === 'pending' && (
                             <div className="flex items-center gap-1.5">
                               <button 
-                                onClick={() => setUserActionConfirm({ isOpen: true, user_id: emp.id, action: 'approve', extraData: { display_name: emp.display_name } })}
+                                onClick={() => setUserActionConfirm({ isOpen: true, userId: emp.uid, action: 'approve', extraData: { displayName: emp.displayName } })}
                                 className="px-3 py-1.5 bg-emerald-600 text-white text-[10px] font-bold rounded-lg hover:bg-emerald-700 transition-all shadow-sm"
                               >
                                 موافقة
                               </button>
                               <button 
-                                onClick={() => setUserActionConfirm({ isOpen: true, user_id: emp.id, action: 'reject', extraData: { display_name: emp.display_name } })}
+                                onClick={() => setUserActionConfirm({ isOpen: true, userId: emp.uid, action: 'reject', extraData: { displayName: emp.displayName } })}
                                 className="px-3 py-1.5 bg-red-50 text-red-600 text-[10px] font-bold rounded-lg hover:bg-red-100 transition-all"
                               >
                                 رفض
@@ -2502,11 +2784,11 @@ export default function App() {
                             </div>
                           )}
                           
-                          {emp.role !== 'pending' && emp.id !== user.id && (
+                          {emp.role !== 'pending' && emp.uid !== user.uid && (
                             <div className="relative">
                               <select
                                 value={emp.role}
-                                onChange={(e) => setUserActionConfirm({ isOpen: true, user_id: emp.id, action: 'change-role', extraData: { newRole: e.target.value, display_name: emp.display_name } })}
+                                onChange={(e) => setUserActionConfirm({ isOpen: true, userId: emp.uid, action: 'change-role', extraData: { newRole: e.target.value, displayName: emp.displayName } })}
                                 className="text-[10px] p-1.5 pr-6 rounded-lg border border-stone-200 bg-stone-50/50 outline-none focus:ring-2 focus:ring-emerald-500 appearance-none font-bold text-stone-600"
                               >
                                 <option value="employee">موظف (إضافة وعرض العقارات)</option>
@@ -2517,12 +2799,12 @@ export default function App() {
                           )}
                         </div>
                       
-                      {emp.id !== user.id && (
+                      {emp.uid !== user.uid && (
                         <div className="flex items-center justify-end gap-2 mt-2 pt-2 border-t border-stone-100">
                           <button 
                             onClick={() => {
                               setEditingUser(emp);
-                              setEditUserName(emp.display_name);
+                              setEditUserName(emp.displayName);
                               setEditUserPhone(emp.phone || '');
                               setEditUserEmail(emp.email || '');
                               setEditUserPassword('');
@@ -2533,7 +2815,7 @@ export default function App() {
                             تعديل
                           </button>
                           <button 
-                            onClick={() => setUserActionConfirm({ isOpen: true, user_id: emp.id, action: 'delete', extraData: { display_name: emp.display_name } })}
+                            onClick={() => setUserActionConfirm({ isOpen: true, userId: emp.uid, action: 'delete', extraData: { displayName: emp.displayName } })}
                             className="flex items-center gap-1 px-3 py-1.5 text-stone-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all text-xs font-bold"
                           >
                             <Trash2 size={14} />
@@ -2551,39 +2833,34 @@ export default function App() {
 
           {view === 'details' && selectedProperty && (
             <div className="px-4 py-8">
-              <ErrorBoundary>
-                <PropertyDetails 
-                  property={selectedProperty}
-                  user={user}
-                  onBack={() => {
-                    setView('list');
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  isAdmin={isAdmin}
-                  isFavorite={favorites.includes(selectedProperty?.id)}
-                  onFavorite={() => toggleFavorite(selectedProperty?.id)}
-                  onEdit={() => {
-                    setSelectedProperty(selectedProperty);
-                    setView('edit');
-                  }}
-                  onDelete={() => setDeleteConfirm({ isOpen: true, property_id: selectedProperty?.id })}
-                  onRestore={() => restoreProperty(selectedProperty?.id)}
-                  onPermanentDelete={() => setPermanentDeleteConfirmState({ isOpen: true, property_id: selectedProperty?.id })}
-                  onDeleteComment={(commentId: string) => setCommentDeleteConfirm({ isOpen: true, commentId, property_id: selectedProperty?.id })}
-                  onUserClick={(user_id: string) => {
-                    setSelectedMarketerId(user_id);
-                    setPrevView(view as any);
-                    setView('user-listings');
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  onFilter={(key: string, value: string) => {
-                    setFilters(prev => ({ ...prev, [key]: value }));
-                    setSearchQuery('');
-                    setView('list');
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                />
-              </ErrorBoundary>
+              <PropertyDetails 
+                property={selectedProperty}
+                user={user}
+                onBack={() => window.history.back()}
+                isAdmin={isAdmin}
+                isFavorite={favorites.includes(selectedProperty.id)}
+                onFavorite={() => toggleFavorite(selectedProperty.id)}
+                onEdit={() => {
+                  setSelectedProperty(selectedProperty);
+                  setView('edit');
+                }}
+                onDelete={() => setDeleteConfirm({ isOpen: true, propertyId: selectedProperty.id })}
+                onRestore={() => restoreProperty(selectedProperty.id)}
+                onPermanentDelete={() => permanentDeleteProperty(selectedProperty.id)}
+                onDeleteComment={(commentId: string) => setCommentDeleteConfirm({ isOpen: true, commentId, propertyId: selectedProperty.id })}
+                onUserClick={(userId: string) => {
+                  setSelectedMarketerId(userId);
+                  setPrevView(view as any);
+                  setView('user-listings');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                onFilter={(key: string, value: string) => {
+                  setFilters(prev => ({ ...prev, [key]: value }));
+                  setSearchQuery('');
+                  setView('list');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+              />
             </div>
           )}
         </AnimatePresence>
@@ -2593,7 +2870,7 @@ export default function App() {
           title="تأكيد الحذف"
           message="هل أنت متأكد من رغبتك في حذف هذا العقار نهائياً؟ لا يمكن التراجع عن هذا الإجراء."
           onConfirm={confirmDelete}
-          onCancel={() => setDeleteConfirm({ isOpen: false, property_id: null })}
+          onCancel={() => setDeleteConfirm({ isOpen: false, propertyId: null })}
           confirmText="تأكيد الحذف"
           confirmColor="bg-red-600 hover:bg-red-700"
         />
@@ -2608,13 +2885,13 @@ export default function App() {
           }
           message={
             userActionConfirm.action === 'bulk-delete' ? "⚠️ تحذير: هل أنت متأكد من حذف جميع الحسابات المسجلة؟ سيتم مسح صلاحياتهم وبياناتهم من قاعدة البيانات." :
-            userActionConfirm.action === 'approve' ? `هل أنت متأكد من الموافقة على الموظف ${userActionConfirm.extraData?.display_name || ''}؟` :
-            userActionConfirm.action === 'reject' ? `هل أنت متأكد من رفض الموظف ${userActionConfirm.extraData?.display_name || ''}؟` :
-            userActionConfirm.action === 'change-role' ? `هل أنت متأكد من تغيير صلاحية ${userActionConfirm.extraData?.display_name} إلى ${userActionConfirm.extraData?.newRole === 'admin' ? 'مدير نظام' : 'مستخدم'}؟` :
-            `هل أنت متأكد من رغبتك في حذف ${userActionConfirm.extraData?.display_name || 'هذا الموظف'} نهائياً؟ لا يمكن التراجع عن هذا الإجراء.`
+            userActionConfirm.action === 'approve' ? `هل أنت متأكد من الموافقة على المستخدم ${userActionConfirm.extraData?.displayName || ''}؟` :
+            userActionConfirm.action === 'reject' ? `هل أنت متأكد من رفض المستخدم ${userActionConfirm.extraData?.displayName || ''}؟` :
+            userActionConfirm.action === 'change-role' ? `هل أنت متأكد من تغيير صلاحية ${userActionConfirm.extraData?.displayName} إلى ${userActionConfirm.extraData?.newRole === 'admin' ? 'مدير نظام' : 'مستخدم'}؟` :
+            `هل أنت متأكد من رغبتك في حذف ${userActionConfirm.extraData?.displayName || 'هذا المستخدم'} نهائياً؟ لا يمكن التراجع عن هذا الإجراء.`
           }
           onConfirm={confirmUserAction}
-          onCancel={() => setUserActionConfirm({ isOpen: false, user_id: null, action: null })}
+          onCancel={() => setUserActionConfirm({ isOpen: false, userId: null, action: null })}
           confirmText={
             userActionConfirm.action === 'approve' ? "تأكيد الموافقة" :
             userActionConfirm.action === 'reject' ? "تأكيد الرفض" :
@@ -2644,7 +2921,7 @@ export default function App() {
           title="تأكيد حذف التعليق"
           message="هل أنت متأكد من حذف هذا التعليق؟"
           onConfirm={confirmCommentDelete}
-          onCancel={() => setCommentDeleteConfirm({ isOpen: false, commentId: null, property_id: null })}
+          onCancel={() => setCommentDeleteConfirm({ isOpen: false, commentId: null, propertyId: null })}
           confirmText="تأكيد الحذف"
           confirmColor="bg-red-600 hover:bg-red-700"
         />
@@ -2654,28 +2931,25 @@ export default function App() {
 
   // --- Actions ---
 
-  async function toggleFavorite(property_id: string) {
-    if (!user?.id) return;
-    const isFav = favorites.includes(property_id);
+  async function toggleFavorite(propertyId: string) {
+    if (!user) return;
+    const isFav = favorites.includes(propertyId);
     if (isFav) {
       try {
-        const { error } = await supabase
-          .from('favorites')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('property_id', property_id);
-        if (error) throw error;
+        const q = query(collection(db, 'favorites'), where('userId', '==', user.uid), where('propertyId', '==', propertyId));
+        const snapshot = await getDocs(q);
+        const deletePromises = snapshot.docs.map(d => deleteDoc(doc(db, 'favorites', d.id)));
+        await Promise.all(deletePromises);
       } catch (error) {
         console.error("Error removing favorite:", error);
       }
     } else {
       try {
-        const { error } = await supabase.from('favorites').insert({
-          user_id: user.id,
-          property_id,
-          created_at: new Date().toISOString()
+        await addDoc(collection(db, 'favorites'), {
+          userId: user.uid,
+          propertyId,
+          createdAt: serverTimestamp()
         });
-        if (error) throw error;
       } catch (error) {
         console.error("Error adding favorite:", error);
       }
@@ -2692,12 +2966,14 @@ export default function App() {
     try {
       const backupData: any = {};
       
-      const tablesToBackup = ['properties', 'users', 'comments', 'companies', 'notifications'];
+      const collectionsToBackup = ['properties', 'users', 'comments', 'companies', 'notifications'];
       
-      for (const tableName of tablesToBackup) {
-        const { data, error } = await supabase.from(tableName).select('*');
-        if (error) throw error;
-        backupData[tableName] = data;
+      for (const colName of collectionsToBackup) {
+        const querySnapshot = await getDocs(collection(db, colName));
+        backupData[colName] = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
       }
       
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
@@ -2721,82 +2997,69 @@ export default function App() {
       return;
     }
     try {
-      const { error } = await supabase.from('properties').update({
+      await updateDoc(doc(db, 'properties', id), {
         status: 'approved',
-        deleted_at: null
-      }).eq('id', id);
-      if (error) throw error;
+        deletedAt: null
+      });
       toast.success('تم استعادة العقار بنجاح');
-      triggerAutoSync();
     } catch (error) {
       console.error("Error restoring property:", error);
       toast.error("حدث خطأ أثناء محاولة استعادة العقار");
     }
   }
+
   async function permanentDeleteProperty(id: string) {
     if (!isAdmin) {
       toast.error("ليس لديك صلاحية لحذف العقارات نهائياً");
       return;
     }
-    try {
-        const { data: propertyData, error: fetchError } = await supabase.from('properties').select('images').eq('id', id).single();
-        if (fetchError) throw fetchError;
-        
-        if (propertyData?.images && Array.isArray(propertyData.images)) {
-          const paths = propertyData.images
-            .map((img: any) => {
-              const url = typeof img === 'string' ? img : img?.url;
-              if (url?.includes('storage/v1/object/public/properties_media/')) {
-                return url.split('storage/v1/object/public/properties_media/')[1];
+    if (window.confirm('هل أنت متأكد من حذف هذا العقار نهائياً؟ لا يمكن التراجع عن هذا الإجراء.')) {
+      try {
+        const docRef = doc(db, 'properties', id);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.images && Array.isArray(data.images)) {
+            await Promise.all(data.images.map(async (img: any) => {
+              try {
+                const url = typeof img === 'string' ? img : img.url;
+                const storageRef = ref(storage, url);
+                await deleteObject(storageRef);
+              } catch (e) {
+                console.error("Error deleting file:", e);
               }
-              return null;
-            })
-            .filter(Boolean) as string[];
-          
-          if (paths.length > 0) {
-            try {
-              await supabase.storage.from('properties_media').remove(paths);
-            } catch (e) {
-              console.error("Error deleting files:", e);
-            }
+            }));
           }
         }
-        
-        const { error: deleteError } = await supabase.from('properties').delete().eq('id', id);
-        if (deleteError) throw deleteError;
-        
+        await deleteDoc(docRef);
         toast.success('تم حذف العقار نهائياً');
-        triggerAutoSync();
         if (view === 'details') setView('list');
       } catch (error) {
         console.error("Error permanently deleting property:", error);
         toast.error("حدث خطأ أثناء محاولة حذف العقار نهائياً");
       }
+    }
   }
 
   async function deleteProperty(id: string) {
-    setDeleteConfirm({ isOpen: true, property_id: id });
+    setDeleteConfirm({ isOpen: true, propertyId: id });
   }
 
   async function confirmDelete() {
     if (!isAdmin) {
       toast.error("ليس لديك صلاحية لحذف العقارات");
-      setDeleteConfirm({ isOpen: false, property_id: null });
+      setDeleteConfirm({ isOpen: false, propertyId: null });
       return;
     }
-    if (deleteConfirm.property_id) {
+    if (deleteConfirm.propertyId) {
       try {
-        const { error } = await supabase.from('properties').update({
+        await updateDoc(doc(db, 'properties', deleteConfirm.propertyId), {
           status: 'deleted',
-          is_deleted: true,
-          deleted_at: new Date().toISOString()
-        }).eq('id', deleteConfirm.property_id);
-        
-        if (error) throw error;
-        setDeleteConfirm({ isOpen: false, property_id: null });
+          deletedAt: serverTimestamp()
+        });
+        setDeleteConfirm({ isOpen: false, propertyId: null });
         if (view === 'details') setView('list');
         toast.success('تم نقل العقار إلى سلة المحذوفات');
-        triggerAutoSync();
       } catch (error) {
         console.error("Error deleting property:", error);
         toast.error("حدث خطأ أثناء محاولة حذف العقار");
@@ -2807,52 +3070,45 @@ export default function App() {
   async function confirmCommentDelete() {
     if (!isAdmin) {
       toast.error("ليس لديك صلاحية لحذف التعليقات");
-      setCommentDeleteConfirm({ isOpen: false, commentId: null, property_id: null });
+      setCommentDeleteConfirm({ isOpen: false, commentId: null, propertyId: null });
       return;
     }
-    if (commentDeleteConfirm.commentId && commentDeleteConfirm.property_id) {
+    if (commentDeleteConfirm.commentId && commentDeleteConfirm.propertyId) {
       try {
-        if (commentDeleteConfirm.commentId) {
-          const { data: commentData } = await supabase.from('comments').select('*').eq('id', commentDeleteConfirm.commentId).single();
-          if (commentData?.images && Array.isArray(commentData.images)) {
-            const paths = commentData.images
-              .map((img: any) => {
-                const url = typeof img === 'string' ? img : img?.url;
-                if (url?.includes('storage/v1/object/public/properties_media/')) {
-                  return url.split('storage/v1/object/public/properties_media/')[1];
-                }
-                return null;
-              })
-              .filter(Boolean) as string[];
-
-            if (paths.length > 0) {
+        const commentRef = doc(db, 'comments', commentDeleteConfirm.commentId);
+        const commentSnap = await getDoc(commentRef);
+        if (commentSnap.exists()) {
+          const data = commentSnap.data();
+          if (data.images && Array.isArray(data.images)) {
+            await Promise.all(data.images.map(async (img: any) => {
               try {
-                await supabase.storage.from('properties_media').remove(paths);
+                const url = typeof img === 'string' ? img : img.url;
+                const storageRef = ref(storage, url);
+                await deleteObject(storageRef);
               } catch (e) {
-                console.error("Error deleting files:", e);
+                console.error("Error deleting file:", e);
               }
-            }
+            }));
           }
-          await supabase.from('comments').delete().eq('id', commentDeleteConfirm.commentId);
-          
-          // Update last comment on property card
-          const { data: latestComments } = await supabase
-            .from('comments')
-            .select('text')
-            .eq('property_id', commentDeleteConfirm.property_id)
-            .order('created_at', { ascending: false })
-            .limit(1);
-          
-          const newLastComment = latestComments && latestComments.length > 0 ? latestComments[0].text : '';
-          
-          await supabase.from('properties').update({
-            last_comment: newLastComment
-          }).eq('id', commentDeleteConfirm.property_id);
         }
+        await deleteDoc(commentRef);
+        
+        // Update last comment on property card
+        const q = query(
+          collection(db, 'comments'), 
+          where('propertyId', '==', commentDeleteConfirm.propertyId),
+          orderBy('createdAt', 'desc'),
+          limit(1)
+        );
+        const snapshot = await getDocs(q);
+        const newLastComment = !snapshot.empty ? snapshot.docs[0].data().text : '';
+        
+        await updateDoc(doc(db, 'properties', commentDeleteConfirm.propertyId), {
+          lastComment: newLastComment
+        });
 
-        setCommentDeleteConfirm({ isOpen: false, commentId: null, property_id: null });
+        setCommentDeleteConfirm({ isOpen: false, commentId: null, propertyId: null });
         toast.success("تم حذف التعليق بنجاح");
-        triggerAutoSync();
       } catch (error) {
         console.error("Error deleting comment:", error);
         toast.error("حدث خطأ أثناء حذف التعليق");
@@ -2862,52 +3118,1725 @@ export default function App() {
 
   async function confirmUserAction() {
     if (!isAdmin) {
-      toast.error("ليس لديك صلاحية لإدارة الموظفين");
-      setUserActionConfirm({ isOpen: false, user_id: null, action: null, extraData: null });
+      toast.error("ليس لديك صلاحية لإدارة المستخدمين");
+      setUserActionConfirm({ isOpen: false, userId: null, action: null, extraData: null });
       return;
     }
     try {
       if (userActionConfirm.action === 'bulk-delete') {
-        const { error } = await supabase.from('user_profiles').delete().neq('role', 'super_admin');
-        if (error) throw error;
-      } else if (userActionConfirm.user_id) {
+        const deletePromises = employees.map(emp => deleteDoc(doc(db, 'users', emp.uid)));
+        await Promise.all(deletePromises);
+      } else if (userActionConfirm.userId) {
         if (userActionConfirm.action === 'delete') {
-          const { error } = await supabase.from('user_profiles').delete().eq('id', userActionConfirm.user_id);
-          if (error) throw error;
+          await deleteDoc(doc(db, 'users', userActionConfirm.userId));
         } else if (userActionConfirm.action === 'approve') {
-          const { error } = await supabase.from('user_profiles').update({ role: 'employee' }).eq('id', userActionConfirm.user_id);
-          if (error) throw error;
+          await setDoc(doc(db, 'users', userActionConfirm.userId), { role: 'employee' }, { merge: true });
         } else if (userActionConfirm.action === 'reject') {
-          const { error } = await supabase.from('user_profiles').update({ role: 'rejected' }).eq('id', userActionConfirm.user_id);
-          if (error) throw error;
+          await setDoc(doc(db, 'users', userActionConfirm.userId), { role: 'rejected' }, { merge: true });
         } else if (userActionConfirm.action === 'change-role') {
-          const { error } = await supabase.from('user_profiles').update({ role: userActionConfirm.extraData.newRole }).eq('id', userActionConfirm.user_id);
-          if (error) throw error;
+          await setDoc(doc(db, 'users', userActionConfirm.userId), { role: userActionConfirm.extraData.newRole }, { merge: true });
         }
       }
-      setUserActionConfirm({ isOpen: false, user_id: null, action: null });
+      setUserActionConfirm({ isOpen: false, userId: null, action: null });
     } catch (err: any) {
       console.error("Error performing user action:", err);
-      toast.error("حدث خطأ أثناء تنفيذ الإجراء");
     }
-  }
-
-  async function confirmCompanyAction() {
-    if (!companyActionConfirm.company) return;
-    
-    if (companyActionConfirm.action === 'delete') {
-      try {
-        const { error } = await supabase.from('companies').delete().eq('id', companyActionConfirm.company.id);
-        if (error) throw error;
-        toast.success('تم حذف الشركة');
-      } catch (err: any) {
-        toast.error('خطأ: ' + err.message);
-      }
-    } else if (companyActionConfirm.action === 'edit') {
-      setEditingCompany(companyActionConfirm.company);
-      setIsEditingCompany(true);
-    }
-    
-    setCompanyActionConfirm({ isOpen: false, company: null, action: null });
   }
 }
+
+// --- Sub-Components ---
+
+const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavorite, onClick, onImageClick, isAdmin, onFilter, onUserClick, onApprove, onReject, onEdit, onDelete, onRestore, onPermanentDelete, view }: any) {
+  return (
+    <motion.div 
+      layout
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`ios-card overflow-hidden hover:shadow-lg transition-all group relative flex flex-col p-4 pb-3 min-h-[140px] cursor-pointer ${view === 'pending-properties' ? 'border-amber-300' : ''}`}
+      onClick={onClick}
+    >
+      {/* Title - Full Width */}
+      <h3 className="text-sm font-bold text-stone-900 mb-2 line-clamp-2 leading-tight w-full text-right">
+        {generatePropertyTitle(property)}
+      </h3>
+
+      <div className="flex gap-3 flex-1 items-end mb-3">
+        {/* Image on the right (first child in RTL) - Smaller and at bottom */}
+        <div 
+          className="w-16 h-16 bg-stone-100 relative shrink-0 rounded-lg overflow-hidden shadow-inner group/img" 
+          onClick={(e) => {
+            e.stopPropagation();
+            if (property.images?.length > 0) onImageClick(property.images, 0);
+          }}
+        >
+          {property.images?.[0] ? (
+            <>
+              {property.images[0].startsWith('data:video/') ? (
+                <video 
+                  src={property.images[0]} 
+                  className={`w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 ${property.isSold ? 'grayscale opacity-60' : ''}`}
+                />
+              ) : (
+                <img 
+                  src={property.images[0]} 
+                  alt={generatePropertyTitle(property)} 
+                  className={`w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 ${property.isSold ? 'grayscale opacity-60' : ''}`}
+                  referrerPolicy="no-referrer"
+                />
+              )}
+              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                <ImageIcon className="text-white" size={14} />
+              </div>
+              {property.isSold && (
+                <div className="absolute inset-0 flex items-center justify-center bg-stone-700/80 backdrop-blur-sm z-20">
+                  <span className="text-white font-black text-[10px] tracking-wider transform -rotate-12 border-2 border-white px-1 py-0.5 rounded shadow-lg">مباع</span>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-stone-50 relative overflow-hidden">
+              <div className="absolute inset-0 flex items-center justify-center opacity-50">
+                <svg viewBox="0 0 100 100" className="w-16 h-16">
+                  <path d="M10,65 L30,45 L50,65 L50,85 L10,85 Z" fill="#e0e7ff" />
+                  <path d="M30,65 L50,35 L70,65 L70,85 L30,85 Z" fill="#c7d2fe" />
+                  <path d="M50,65 L70,45 L90,65 L90,85 L50,85 Z" fill="#e0e7ff" />
+                  <path d="M25,40 C15,25 35,20 45,35 C35,45 25,45 25,40 Z" fill="#bbf7d0" />
+                  <path d="M45,35 C55,20 75,25 65,45 C55,45 45,45 45,35 Z" fill="#86efac" />
+                  <rect x="25" y="70" width="10" height="10" fill="#ffffff" rx="2" />
+                  <rect x="45" y="70" width="10" height="10" fill="#ffffff" rx="2" />
+                  <rect x="65" y="70" width="10" height="10" fill="#ffffff" rx="2" />
+                </svg>
+              </div>
+              <span className="text-[9px] font-bold text-emerald-800 text-center z-10 leading-tight drop-shadow-sm px-1 bg-white/70 rounded py-0.5 max-w-[90%] truncate">
+                {cleanAreaName(property.area)}
+              </span>
+              {property.isSold && (
+                <div className="absolute inset-0 flex items-center justify-center bg-stone-700/80 backdrop-blur-sm z-20">
+                  <span className="text-white font-black text-[10px] tracking-wider transform -rotate-12 border-2 border-white px-1 py-0.5 rounded shadow-lg">مباع</span>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Badge on Image */}
+          {property.statusLabel && (
+            <div className="absolute top-0 right-0 left-0 z-10">
+              <span className="bg-amber-500/90 text-white px-1 py-0.5 text-[8px] font-black uppercase block text-center tracking-widest shadow-sm">
+                {property.statusLabel}
+              </span>
+            </div>
+          )}
+
+          {property.images && property.images.length > 1 && (
+            <div className="absolute bottom-0.5 right-0.5 bg-black/60 text-white text-[7px] px-1 rounded font-bold">
+              +{property.images.length - 1}
+            </div>
+          )}
+        </div>
+
+        {/* Text/Content on the left */}
+        <div className="flex-1 flex flex-col justify-between h-full min-w-0">
+          <div className="space-y-1">
+            {property.details && (
+              <p className="text-xs text-stone-600 leading-relaxed font-medium line-clamp-2 text-right">
+                {property.details}
+              </p>
+            )}
+            {property.lastComment && (
+              <div className="mt-2 p-2 rounded-lg border-r-2 border-emerald-500">
+                <p className="text-xs text-stone-700 line-clamp-1">
+                  {property.lastComment}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Footer: Marketer Name + Purpose + Area + Phone + WhatsApp */}
+      <div className="flex items-center gap-1.5 mt-auto pt-3 border-t border-stone-100 text-[9px] font-bold text-stone-700">
+        {/* Area */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onFilter && property.area) onFilter('area', property.area);
+          }}
+          className="text-stone-500 hover:underline truncate max-w-[35%]"
+        >
+          {cleanAreaName(property.area) || '-'}
+        </button>
+        <span>|</span>
+        {/* Purpose */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onFilter && property.purpose) onFilter('purpose', property.purpose);
+          }}
+          className="text-emerald-600 hover:underline truncate max-w-[15%]"
+        >
+          {property.purpose || '-'}
+        </button>
+        <span>|</span>
+        {/* Property Type (Instead of Marketer Name) */}
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onFilter && property.type) {
+              onFilter('type', property.type);
+            }
+          }}
+          className="hover:text-emerald-600 hover:underline truncate max-w-[25%]"
+        >
+          {property.type || 'غير محدد'}
+        </button>
+        {property.createdAt && (
+          <span className="text-[9px] text-stone-400 font-normal">
+            {formatRelativeDate(property.createdAt)}
+          </span>
+        )}
+        <span className="flex-1"></span>
+        {view === 'pending-properties' && isAdmin ? (
+          <div className="flex gap-2">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                onApprove(property.id);
+              }}
+              className="bg-emerald-600 text-white px-2 py-1 rounded text-[10px]"
+            >
+              قبول
+            </button>
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                onReject(property.id);
+              }}
+              className="bg-red-600 text-white px-2 py-1 rounded text-[10px]"
+            >
+              رفض
+            </button>
+          </div>
+        ) : view === 'trash' && isAdmin ? (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onRestore) onRestore(property.id);
+              }}
+              className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+              title="استعادة"
+            >
+              <RefreshCw size={16} />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onPermanentDelete) onPermanentDelete(property.id);
+              }}
+              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+              title="حذف نهائي"
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1">
+            {isAdmin && (
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onEdit) onEdit(property);
+                  }}
+                  className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                  title="تعديل"
+                >
+                  <Edit size={16} />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onDelete) onDelete(property.id);
+                  }}
+                  className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                  title="حذف"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </>
+            )}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                const shareUrl = `${window.location.origin}?propertyId=${property.id}`;
+                if (navigator.share) {
+                  navigator.share({
+                    title: property.title || 'عقار',
+                    text: property.details,
+                    url: shareUrl,
+                  }).catch(console.error);
+                } else {
+                  navigator.clipboard.writeText(shareUrl);
+                  toast.success('تم نسخ رابط العقار');
+                }
+              }}
+              className="p-1.5 text-stone-500 hover:bg-stone-100 rounded-lg transition-all"
+              title="مشاركة"
+            >
+              <Share2 size={16} />
+            </button>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+});
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    tenantId: string | null | undefined;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
+const compressImage = (file: File): Promise<Blob> => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1200;
+        const MAX_HEIGHT = 1200;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        canvas.toBlob((blob) => {
+          resolve(blob as Blob);
+        }, 'image/jpeg', 0.6);
+      };
+    };
+  });
+};
+
+const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selectedCompanyId, companies, onCancel, onSave }: any) {
+  const isSuperAdmin = user?.role === 'super_admin' || (user?.email && SUPER_ADMIN_EMAILS.includes(user.email));
+  const [formData, setFormData] = useState({
+    name: property?.name || '',
+    governorate: property?.governorate || '',
+    area: property?.area || '',
+    type: property?.type || '',
+    purpose: property?.purpose || '',
+    assignedEmployeeId: property?.assignedEmployeeId || '',
+    assignedEmployeeName: property?.assignedEmployeeName || '',
+    assignedEmployeePhone: property?.assignedEmployeePhone || '',
+    images: (property?.images || []).map((img: any) => typeof img === 'string' ? { url: img, type: img.startsWith('data:video/') ? 'video' : 'image' } : img),
+    locationLink: property?.locationLink || '',
+    isSold: property?.isSold || false,
+    sector: property?.sector || '',
+    block: property?.block || '',
+    street: property?.street || '',
+    avenue: property?.avenue || '',
+    plotNumber: property?.plotNumber || '',
+    houseNumber: property?.houseNumber || '',
+    location: property?.location || '',
+    price: property?.price || '',
+    details: property?.details || '',
+    statusLabel: property?.statusLabel || '',
+    companyId: property?.companyId || ''
+  });
+
+  const [employees, setEmployees] = useState<UserProfile[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+
+  useEffect(() => {
+    if (!auth.currentUser) return;
+    
+    let q;
+    if (isSuperAdmin) {
+      const targetCompanyId = property?.companyId || selectedCompanyId;
+      if (targetCompanyId) {
+        q = query(collection(db, 'users'), where('role', '==', 'employee'), where('companyId', '==', targetCompanyId));
+      } else {
+        q = query(collection(db, 'users'), where('role', '==', 'employee'));
+      }
+    } else {
+      q = query(collection(db, 'users'), where('role', '==', 'employee'), where('companyId', '==', user?.companyId));
+    }
+
+    const unsubscribe = onSnapshot(q, 
+      (snapshot) => {
+        setEmployees(snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile)));
+      },
+      (error) => {
+        console.error("PropertyForm employees listener error:", error);
+      }
+    );
+    return unsubscribe;
+  }, [isSuperAdmin, selectedCompanyId, user?.companyId, property?.companyId]);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []) as File[];
+    if (formData.images.length + files.length > 20) {
+      toast.error('لا يمكن رفع أكثر من 20 ملفاً');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const newImages = [...formData.images];
+      for (const file of files) {
+        let fileToUpload: Blob;
+        if (file.type.startsWith('image/')) {
+          fileToUpload = await compressImage(file);
+        } else {
+          fileToUpload = file;
+        }
+        
+        const storageRef = ref(storage, `properties/${Date.now()}_${file.name}`);
+        await uploadBytes(storageRef, fileToUpload);
+        const url = await getDownloadURL(storageRef);
+        newImages.push({ url, type: file.type.startsWith('video/') ? 'video' : 'image' });
+      }
+      setFormData({ ...formData, images: newImages });
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.error("حدث خطأ أثناء رفع الملفات");
+    } finally {
+      setIsUploading(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const removeImage = (index: number) => {
+    const newImages = formData.images.filter((_: any, i: number) => i !== index);
+    setFormData({ ...formData, images: newImages });
+  };
+
+  const [isSaving, setIsSaving] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [missingFieldsList, setMissingFieldsList] = useState<string[]>([]);
+
+  const handleSubmit = async (e: React.FormEvent, force: boolean = false) => {
+    if (e) e.preventDefault();
+    
+    if (!force) {
+      const missing: string[] = [];
+      if (!formData.name) missing.push('اسم العميل');
+      if (!formData.governorate) missing.push('المحافظة');
+      if (!formData.area) missing.push('المنطقة');
+      if (!formData.type) missing.push('نوع العقار');
+      if (!formData.purpose) missing.push('الغرض');
+      if (!formData.location) missing.push('الموقع');
+      
+      if (missing.length > 0) {
+        setMissingFieldsList(missing);
+        setShowConfirm(true);
+        return;
+      }
+    }
+
+    setIsSaving(true);
+    setShowConfirm(false);
+    
+    try {
+      let empId = formData.assignedEmployeeId;
+      let empName = formData.assignedEmployeeName;
+
+      // If we have a name but no ID, it means it's a new marketer
+      if (empName && !empId) {
+        try {
+          const newEmpRef = await addDoc(collection(db, 'users'), {
+            displayName: empName,
+            role: 'employee',
+            companyId: isSuperAdmin ? selectedCompanyId : user?.companyId,
+            createdAt: serverTimestamp()
+          });
+          empId = newEmpRef.id;
+        } catch (error) {
+          handleFirestoreError(error, OperationType.CREATE, 'users');
+        }
+      }
+
+      const data = {
+        ...formData,
+        companyId: isSuperAdmin ? selectedCompanyId : user?.companyId,
+        assignedEmployeeId: empId,
+        assignedEmployeeName: empName,
+        images: formData.images,
+        locationLink: formData.locationLink.trim(),
+        isSold: formData.isSold,
+        updatedAt: serverTimestamp(),
+        createdAt: property ? property.createdAt : serverTimestamp(),
+        createdBy: property ? property.createdBy : auth.currentUser?.uid,
+        status: isAdmin ? (property?.status || 'approved') : 'pending'
+      };
+
+      try {
+        if (property) {
+          await updateDoc(doc(db, 'properties', property.id), data);
+          
+          // Check for significant updates to notify interested users
+          const priceChanged = property.price !== data.price;
+          const statusChanged = property.isSold !== data.isSold || property.statusLabel !== data.statusLabel;
+          
+          if (priceChanged || statusChanged) {
+            // Find all users who favorited this property
+            const favQuery = query(collection(db, 'favorites'), where('propertyId', '==', property.id));
+            const favSnapshot = await getDocs(favQuery);
+            const interestedUserIds = favSnapshot.docs.map(d => d.data().userId);
+            
+            for (const recipientId of interestedUserIds) {
+              if (recipientId === auth.currentUser?.uid) continue; // Don't notify the updater
+              
+              let title = 'تحديث في عقار يهمك';
+              let message = `تم تحديث بيانات العقار: ${generatePropertyTitle(property)}`;
+              let type: 'price-change' | 'status-change' = 'status-change';
+              
+              if (priceChanged && statusChanged) {
+                message = `تم تغيير السعر والحالة للعقار: ${generatePropertyTitle(property)}`;
+              } else if (priceChanged) {
+                type = 'price-change';
+                message = `تغير السعر إلى ${data.price} للعقار: ${generatePropertyTitle(property)}`;
+              } else if (statusChanged) {
+                type = 'status-change';
+                message = `تغيرت حالة العقار: ${generatePropertyTitle(property)}`;
+              }
+
+              await addDoc(collection(db, 'notifications'), {
+                type,
+                title,
+                message,
+                recipientId,
+                userId: auth.currentUser?.uid,
+                propertyId: property.id,
+                read: false,
+                createdAt: serverTimestamp()
+              });
+            }
+          }
+        } else {
+          await addDoc(collection(db, 'properties'), data);
+        }
+      } catch (error) {
+        handleFirestoreError(error, property ? OperationType.UPDATE : OperationType.CREATE, 'properties');
+      }
+      toast.success(property ? 'تم تحديث العقار بنجاح' : 'تمت إضافة العقار بنجاح');
+      onSave();
+    } catch (error: any) {
+      console.error("Error saving property:", error);
+      let message = error.message;
+      try {
+        const parsed = JSON.parse(error.message);
+        message = parsed.error;
+      } catch (e) {}
+      toast.error(`حدث خطأ أثناء حفظ البيانات: ${message}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="w-full ios-card overflow-hidden"
+    >
+      <div className="bg-emerald-500 p-8 text-white">
+        <h2 className="text-2xl font-bold flex items-center gap-3 justify-center">
+          {property ? <Edit size={24} /> : <Plus size={24} />}
+          {property ? 'تعديل بيانات العقار' : 'إضافة عقار جديد للنظام'}
+        </h2>
+        <p className="text-emerald-50 mt-2 opacity-80 text-center text-sm">يرجى ملء البيانات بدقة لضمان أفضل تجربة للمستخدمين</p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="p-8 space-y-10">
+        {isSuperAdmin && companies && companies.length > 0 && (
+          <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100 mb-6">
+            <p className="text-sm text-emerald-800 font-medium flex items-center gap-2">
+              <Building2 size={16} />
+              الشركة: {(companies || []).find(c => c.id === (property?.companyId || selectedCompanyId))?.name || 'غير محدد'}
+            </p>
+          </div>
+        )}
+        {/* Section 1: Client Info */}
+        <div className="space-y-6">
+          <div className="flex items-center gap-2 text-emerald-600 border-b border-emerald-100 pb-2">
+            <UserIcon size={20} />
+            <h3 className="font-bold text-lg text-center">بيانات العميل</h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="relative">
+              <UserIcon className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
+              <input 
+                placeholder="اسم العميل (الاسم الثلاثي)"
+                className="w-full pr-10 pl-4 py-3 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all outline-none text-sm"
+                value={formData.name}
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+              />
+            </div>
+            <SearchableFilter 
+              label="نوع العقار"
+              placeholder="ابحث عن نوع العقار..."
+              options={PROPERTY_TYPES}
+              value={formData.type}
+              onChange={(val) => setFormData({...formData, type: val})}
+            />
+            <SearchableFilter 
+              label="الغرض من العملية"
+              placeholder="ابحث عن الغرض..."
+              options={PURPOSES}
+              value={formData.purpose}
+              onChange={(val) => setFormData({...formData, purpose: val})}
+            />
+          </div>
+        </div>
+
+        {/* Section 2: Location Info */}
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <SearchableFilter 
+              label="المحافظة"
+              placeholder="ابحث عن محافظة..."
+              options={GOVERNORATES}
+              value={formData.governorate}
+              onChange={(val) => setFormData({...formData, governorate: val, area: ''})}
+            />
+            <SearchableFilter 
+              label="المنطقة"
+              placeholder="ابحث عن منطقة..."
+              options={formData.governorate ? AREAS[formData.governorate] : Array.from(new Set(Object.values(AREAS).flat())).sort()}
+              value={formData.area}
+              onChange={(val) => setFormData({...formData, area: val})}
+            />
+            <SearchableFilter 
+              label="الموقع"
+              placeholder="ابحث عن موقع..."
+              options={LOCATIONS}
+              value={formData.location}
+              onChange={(val) => setFormData({...formData, location: val})}
+            />
+            <div className="relative">
+              <Tag className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
+              <input 
+                placeholder="السعر (مثال: 250,000 د.ك)"
+                className="w-full pr-10 pl-4 py-3 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all outline-none text-sm"
+                value={formData.price}
+                onChange={(e) => setFormData({...formData, price: e.target.value})}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input 
+              type="url"
+              placeholder="رابط العنوان (مثال: رابط خرائط جوجل)"
+              className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
+              value={formData.locationLink}
+              onChange={(e) => setFormData({...formData, locationLink: e.target.value})}
+              dir="ltr"
+            />
+            {isAdmin && property && (
+              <div className="flex flex-col md:flex-row gap-4 w-full">
+                <label className="flex-1 flex items-center gap-3 p-3 bg-stone-50 border border-stone-100 rounded-xl cursor-pointer hover:bg-stone-100 transition-colors">
+                  <input 
+                    type="checkbox"
+                    className="w-5 h-5 text-emerald-600 rounded focus:ring-emerald-500 border-stone-300"
+                    checked={formData.isSold}
+                    onChange={(e) => setFormData({...formData, isSold: e.target.checked})}
+                  />
+                  <span className="text-sm font-bold text-stone-700">تم بيع العقار (مباع)</span>
+                </label>
+                <div className="flex-1">
+                  <SearchableFilter 
+                    label="ملصق الحالة (يظهر على الصورة)"
+                    placeholder="اختر ملصقاً..."
+                    options={['هام', 'جاد', 'مستعجل']}
+                    value={formData.statusLabel}
+                    onChange={(val) => setFormData({...formData, statusLabel: val})}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+            {[
+              { id: 'sector', label: 'القطاع' },
+              { id: 'block', label: 'القطعة' },
+              { id: 'street', label: 'الشارع' },
+              { id: 'avenue', label: 'الجادة' },
+              { id: 'plotNumber', label: 'القسيمة' },
+              { id: 'houseNumber', label: 'المنزل' }
+            ].map((field) => (
+              <input 
+                key={field.id}
+                placeholder={field.label}
+                className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-sm text-center"
+                value={(formData as any)[field.id]}
+                onChange={(e) => setFormData({...formData, [field.id]: e.target.value})}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Section 3: Property Details */}
+        <div className="space-y-6">
+          <textarea 
+            rows={4}
+            placeholder="وصف إضافي وتفاصيل العقار..."
+            className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-sm resize-none"
+            value={formData.details}
+            onChange={(e) => setFormData({...formData, details: e.target.value})}
+          />
+        </div>
+
+        {/* Section 4: Company and Marketer */}
+        <div className="space-y-6">
+          {isSuperAdmin ? (
+            <SearchableFilter
+              label="الشركة"
+              placeholder="اختر الشركة..."
+              options={companies.map(c => c.name)}
+              value={companies.find(c => c.id === (formData as any).companyId)?.name || ''}
+              onChange={(val) => {
+                const company = companies.find(c => c.name === val);
+                setFormData({
+                  ...formData,
+                  companyId: company ? company.id : ''
+                });
+              }}
+            />
+          ) : (
+            <div className="p-4 bg-stone-50 rounded-xl border border-stone-100">
+              <label className="text-xs font-bold text-stone-500 mb-1 block">الشركة</label>
+              <p className="text-sm font-bold text-stone-900">
+                {companies.find(c => c.id === (user?.companyId))?.name || 'غير محدد'}
+              </p>
+            </div>
+          )}
+
+          <SearchableFilter 
+            label="المستخدم / الموظف المسؤول"
+            placeholder="ابحث عن مستخدم أو اكتب اسماً جديداً..."
+            options={employees.map(emp => emp.displayName)}
+            value={formData.assignedEmployeeName}
+            creatable={true}
+            onChange={(val) => {
+              const emp = employees.find(e => e.displayName === val);
+              setFormData({
+                ...formData,
+                assignedEmployeeId: emp ? emp.uid : '',
+                assignedEmployeeName: val
+              });
+            }}
+          />
+          
+          <button
+            type="button"
+            onClick={() => {
+              setFormData({
+                ...formData,
+                assignedEmployeeId: user?.uid || '',
+                assignedEmployeeName: user?.displayName || ''
+              });
+            }}
+            className="text-xs text-emerald-600 hover:underline mt-1"
+          >
+            تعيين نفسي كمسؤول عن الإدخال
+          </button>
+
+          <input 
+            type="tel"
+            placeholder="رقم هاتف المسؤول..."
+            className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-sm mt-2"
+            value={formData.assignedEmployeePhone || ''}
+            onChange={(e) => setFormData({...formData, assignedEmployeePhone: e.target.value})}
+          />
+        </div>
+
+        {/* Section 5: Media */}
+        <div className="space-y-6">
+          <div className="flex items-center gap-2 text-emerald-600 border-b border-emerald-100 pb-2">
+            <ImageIcon size={20} />
+            <h3 className="font-bold text-lg text-center">إضافة صور أو فيديو</h3>
+          </div>
+          
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+            {formData.images.map((img: { url: string, type: 'image' | 'video' }, index: number) => (
+              <motion.div 
+                key={index} 
+                layout
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="relative aspect-square rounded-2xl overflow-hidden border border-stone-200 group shadow-sm"
+              >
+                {img.type === 'video' ? (
+                  <video src={img.url} className="w-full h-full object-cover" />
+                ) : (
+                  <img src={img.url} alt="" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                )}
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <button 
+                    type="button"
+                    onClick={() => removeImage(index)}
+                    className="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transform hover:scale-110 transition-all"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              </motion.div>
+            ))}
+            
+            {formData.images.length < 20 && (
+              <label htmlFor="image-upload" className={`aspect-square rounded-2xl border-2 border-dashed border-stone-300 flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500 hover:bg-emerald-50 transition-all group ${isUploading ? 'opacity-50 cursor-wait' : ''}`}>
+                <input 
+                  id="image-upload"
+                  type="file" 
+                  multiple 
+                  accept="image/*,video/*" 
+                  className="block text-xs truncate w-full" 
+                  onChange={handleImageUpload}
+                  disabled={isUploading}
+                />
+                <div className="bg-stone-100 p-3 rounded-full group-hover:bg-emerald-100 transition-colors">
+                  <Upload className="text-stone-400 group-hover:text-emerald-600" size={24} />
+                </div>
+                <span className="text-xs font-bold text-stone-500 mt-2">{isUploading ? 'جاري الرفع...' : 'إضافة صور أو فيديو'}</span>
+                <span className="text-[10px] text-stone-400 mt-1">{formData.images.length}/20</span>
+              </label>
+            )}
+          </div>
+        </div>
+
+        {/* Footer Actions */}
+        <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-stone-100">
+          <button 
+            type="submit"
+            disabled={isSaving || isUploading}
+            className={`flex-[2] bg-emerald-600 text-white py-4 rounded-lg font-bold hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 shadow-xl shadow-emerald-100 transform active:scale-95 ${(isSaving || isUploading) ? 'opacity-70 cursor-not-allowed' : ''}`}
+          >
+            {isSaving ? (
+              <>
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                جاري الحفظ...
+              </>
+            ) : isUploading ? (
+              <>
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                جاري رفع الملفات...
+              </>
+            ) : (
+              <>
+                <Tag size={20} />
+                {property ? 'تحديث البيانات' : 'حفظ العقار الجديد'}
+              </>
+            )}
+          </button>
+          <button 
+            type="button"
+            onClick={onCancel}
+            disabled={isSaving}
+            className="flex-1 bg-stone-100 text-stone-600 py-4 rounded-lg font-bold hover:bg-stone-200 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            <X size={20} />
+            إلغاء
+          </button>
+        </div>
+      </form>
+
+      <AnimatePresence>
+        {showConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-2xl p-6 max-w-2xl w-full shadow-2xl space-y-4"
+            >
+              <div className="flex items-center gap-3 text-amber-600">
+                <Info size={24} />
+                <h3 className="text-lg font-bold text-center">تنبيه: حقول ناقصة</h3>
+              </div>
+              <p className="text-stone-600 text-sm leading-relaxed">
+                الحقول التالية لم يتم ملؤها:
+                <br />
+                <span className="font-bold text-stone-900">{missingFieldsList.join('، ')}</span>
+                <br />
+                هل أنت متأكد من رغبتك في حفظ العقار بدون هذه البيانات؟
+              </p>
+              <div className="flex gap-3 pt-2">
+                <button 
+                  type="button"
+                  onClick={() => handleSubmit(null as any, true)}
+                  className="flex-1 bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition-all"
+                >
+                  نعم، احفظ الآن
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setShowConfirm(false)}
+                  className="flex-1 bg-stone-100 text-stone-600 py-3 rounded-xl font-bold hover:bg-stone-200 transition-all"
+                >
+                  تراجع للإكمال
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+});
+
+const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, isAdmin, isFavorite, onFavorite, onEdit, onDelete, onRestore, onPermanentDelete, onDeleteComment, onUserClick, onFilter }: any) {
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [commentImages, setCommentImages] = useState<Array<{ url: string, type: 'image' | 'video' }>>([]);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [showViewer, setShowViewer] = useState(false);
+  const [viewerImages, setViewerImages] = useState<string[]>([]);
+  const [viewerIndex, setViewerIndex] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editCommentText, setEditCommentText] = useState('');
+
+  useEffect(() => {
+    if (!property.id) return;
+    const q = query(collection(db, 'comments'), where('propertyId', '==', property.id), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, 
+      (snapshot) => {
+        setComments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Comment)));
+      },
+      (error) => {
+        console.error("Comments listener error:", error);
+      }
+    );
+    return unsubscribe;
+  }, [property.id]);
+
+  const handleAddComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newComment.trim() && commentImages.length === 0) return;
+    const isEmployee = user?.role === 'employee' || isAdmin;
+    if (!isEmployee) {
+      toast.error('عذراً، التعليقات متاحة للموظفين فقط.');
+      return;
+    }
+    
+    setIsUploading(true);
+    try {
+      await addDoc(collection(db, 'comments'), {
+        propertyId: property.id,
+        userId: user.uid,
+        userName: user.displayName,
+        userPhone: user.phone || '',
+        text: newComment,
+        images: commentImages,
+        createdAt: serverTimestamp()
+      });
+      
+      // Update last comment on property
+      await updateDoc(doc(db, 'properties', property.id), {
+        lastComment: newComment || (commentImages.length > 0 ? 'تم إضافة صور' : '')
+      });
+
+      // Notify interested users (who favorited the property)
+      const favQuery = query(collection(db, 'favorites'), where('propertyId', '==', property.id));
+      const favSnapshot = await getDocs(favQuery);
+      const interestedUserIds = favSnapshot.docs.map(d => d.data().userId);
+      
+      for (const recipientId of interestedUserIds) {
+        if (recipientId === user.uid) continue; // Don't notify the commenter
+        
+        await addDoc(collection(db, 'notifications'), {
+          type: 'new-comment',
+          title: 'تعليق جديد على عقار يهمك',
+          message: `أضاف ${user.displayName} تعليقاً جديداً على العقار: ${generatePropertyTitle(property)}`,
+          recipientId,
+          userId: user.uid,
+          propertyId: property.id,
+          read: false,
+          createdAt: serverTimestamp()
+        });
+      }
+      
+      setNewComment('');
+      setCommentImages([]);
+      toast.success('تم إضافة التعليق بنجاح');
+    } catch (error) {
+      console.error("Error adding comment:", error);
+      toast.error("حدث خطأ أثناء إضافة التعليق");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const insertAtCursor = (textToInsert: string) => {
+    const textarea = document.getElementById('comment-textarea') as HTMLTextAreaElement;
+    if (!textarea) {
+      setNewComment(prev => prev + textToInsert);
+      return;
+    }
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+
+    setNewComment(prev => {
+      const before = prev.substring(0, start);
+      const after = prev.substring(end, prev.length);
+      return before + textToInsert + after;
+    });
+    
+    // Set focus back to textarea
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + textToInsert.length, start + textToInsert.length);
+    }, 0);
+  };
+
+  const whatsappUrl = `https://wa.me/${(property.assignedEmployeePhone || property.phone || '').replace(/\+/g, '').replace(/\s/g, '')}`;
+
+  const handleCommentImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []) as File[];
+    if (commentImages.length + files.length > 10) {
+      toast.error('لا يمكن اختيار أكثر من 10 ملفات');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const newImages = [...commentImages];
+      for (const file of files) {
+        let fileToUpload: Blob;
+        if (file.type.startsWith('image/')) {
+          fileToUpload = await compressImage(file);
+        } else {
+          fileToUpload = file;
+        }
+        
+        const storageRef = ref(storage, `comments/${Date.now()}_${file.name}`);
+        await uploadBytes(storageRef, fileToUpload);
+        const url = await getDownloadURL(storageRef);
+        newImages.push({ url, type: file.type.startsWith('video/') ? 'video' : 'image' });
+      }
+      setCommentImages(newImages);
+    } catch (error) {
+      console.error("Comment media upload error:", error);
+      toast.error("حدث خطأ أثناء رفع الملفات");
+    } finally {
+      setIsUploading(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const removeCommentImage = (index: number) => {
+    setCommentImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleShare = async () => {
+    const shareData = {
+      title: generatePropertyTitle(property),
+      text: property.details,
+      url: window.location.href,
+    };
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        toast.success('تم نسخ الرابط للمشاركة');
+      }
+    } catch (err) {
+      console.error('Error sharing:', err);
+    }
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="grid grid-cols-1 lg:grid-cols-3 gap-8"
+    >
+      {showViewer && (
+        <ImageViewer 
+          images={viewerImages} 
+          initialIndex={viewerIndex} 
+          onClose={() => setShowViewer(false)} 
+          isSold={property.isSold}
+        />
+      )}
+
+      {/* Left: Info */}
+      <div className="lg:col-span-2 space-y-4">
+        <div className="flex items-center justify-between">
+          <button onClick={onBack} className="flex items-center gap-2 text-stone-500 hover:text-stone-900 transition-all text-sm font-bold p-2">
+            <ChevronRight size={18} />
+            العودة للقائمة
+          </button>
+          
+          <div className="flex items-center gap-1">
+            {isAdmin && property.status === 'deleted' ? (
+              <>
+                <button 
+                  onClick={onRestore}
+                  className="p-2.5 text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-full transition-all active:scale-90"
+                  title="استعادة"
+                >
+                  <RefreshCw size={18} />
+                </button>
+                <button 
+                  onClick={onPermanentDelete}
+                  className="p-2.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full transition-all active:scale-90"
+                  title="حذف نهائي"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </>
+            ) : (
+              <>
+                {isAdmin && (
+                  <button 
+                    onClick={onEdit}
+                    className="p-2.5 text-blue-500 hover:text-blue-700 rounded-full transition-all active:scale-90"
+                    title="تعديل"
+                  >
+                    <Edit size={18} />
+                  </button>
+                )}
+                {isAdmin && (
+                  <button 
+                    onClick={onDelete}
+                    className="p-2.5 text-red-500 hover:text-red-700 hover:bg-white rounded-full transition-all active:scale-90"
+                    title="حذف"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                )}
+              </>
+            )}
+            <button 
+              onClick={handleShare}
+              className="p-2.5 text-stone-600 hover:text-emerald-600 rounded-full transition-all active:scale-90"
+              title="مشاركة"
+            >
+              <Share2 size={18} />
+            </button>
+            <button 
+              onClick={onFavorite}
+              className={`p-2.5 rounded-full transition-all active:scale-90 ${isFavorite ? 'text-red-500' : 'text-stone-600 hover:text-red-500'}`}
+              title="المفضلة"
+            >
+              <Heart size={18} fill={isFavorite ? 'currentColor' : 'none'} />
+            </button>
+          </div>
+        </div>
+
+        <div className="ios-card overflow-hidden">
+          <div className="relative aspect-square bg-stone-50 group">
+             {property.images?.[activeImageIndex] ? (
+              <>
+                {property.images[activeImageIndex].startsWith('data:video/') ? (
+                  <video 
+                    src={property.images[activeImageIndex]} 
+                    controls 
+                    className={`w-full h-full object-cover ${property.isSold ? 'grayscale opacity-60' : ''}`}
+                  />
+                ) : (
+                  <img 
+                    src={property.images[activeImageIndex]} 
+                    alt={generatePropertyTitle(property)} 
+                    className={`w-full h-full object-cover cursor-zoom-in ${property.isSold ? 'grayscale opacity-60' : ''}`}
+                    referrerPolicy="no-referrer"
+                    onClick={() => {
+                      setViewerImages(property.images);
+                      setViewerIndex(activeImageIndex);
+                      setShowViewer(true);
+                    }}
+                  />
+                )}
+                {property.isSold && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-stone-700/80 backdrop-blur-sm pointer-events-none z-10">
+                    <span className="text-white font-black text-4xl tracking-wider transform -rotate-12 border-4 border-white px-6 py-2 rounded-xl shadow-2xl">مباع</span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-stone-300 relative">
+                <ImageIcon size={48} />
+                {property.isSold && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-stone-700/80 backdrop-blur-sm pointer-events-none z-10">
+                    <span className="text-white font-black text-4xl tracking-wider transform -rotate-12 border-4 border-white px-6 py-2 rounded-xl shadow-2xl">مباع</span>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {property.images.length > 1 && (
+              <div className="absolute inset-0 flex items-center justify-between p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button 
+                  onClick={() => setActiveImageIndex(prev => (prev === 0 ? property.images.length - 1 : prev - 1))}
+                  className="p-2 bg-white/80 backdrop-blur rounded-full text-stone-800 hover:bg-white transition-all shadow-md"
+                >
+                  <ChevronRight size={20} />
+                </button>
+                <button 
+                  onClick={() => setActiveImageIndex(prev => (prev === property.images.length - 1 ? 0 : prev + 1))}
+                  className="p-2 bg-white/80 backdrop-blur rounded-full text-stone-800 hover:bg-white transition-all shadow-md"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+              </div>
+            )}
+
+            <div className="absolute bottom-4 right-4 flex gap-1.5">
+              {property.images.map((_: any, i: number) => (
+                <button 
+                  key={i}
+                  onClick={() => setActiveImageIndex(i)}
+                  className={`w-2 h-2 rounded-full transition-all ${i === activeImageIndex ? 'bg-white w-4' : 'bg-white/50'}`}
+                />
+              ))}
+            </div>
+          </div>
+          
+          <div className="p-6">
+            <div className="flex flex-col gap-6">
+              <div className="space-y-4">
+                <div className="flex flex-col gap-1">
+                  <h1 className="text-xl font-bold serif text-stone-900 text-right">{generatePropertyTitle(property)}</h1>
+                  {property.createdAt && (
+                    <p className="text-[10px] text-stone-400 text-right">
+                      تم الإضافة {formatRelativeDate(property.createdAt)}
+                    </p>
+                  )}
+                </div>
+                {property.details && (
+                  <div className="text-base text-stone-700 leading-relaxed whitespace-pre-wrap text-right bg-stone-50 p-4 rounded-xl border border-stone-100">
+                    {property.details}
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex flex-col md:flex-row gap-3 w-full">
+                <a 
+                  href={`tel:${property.assignedEmployeePhone || property.phone || ''}`}
+                  className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-xl hover:bg-emerald-700 transition-all font-bold text-sm shadow-sm"
+                >
+                  <span>{property.assignedEmployeePhone || property.phone || ''}</span>
+                  <Phone size={16} />
+                </a>
+                <a 
+                  href={whatsappUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 flex items-center justify-center gap-2 bg-green-500 text-white px-6 py-3 rounded-xl hover:bg-green-600 active:scale-95 transition-all font-bold text-sm shadow-sm"
+                >
+                  <MessageCircle size={16} />
+                  واتساب مباشر
+                </a>
+              </div>
+            </div>
+
+            {property.images.length > 1 && (
+              <div className="mt-8 pt-6 border-t border-stone-100">
+                <h3 className="text-sm font-bold text-stone-900 mb-4 flex items-center gap-2 justify-center">
+                  <ImageIcon size={16} className="text-emerald-600" />
+                  معرض الصور ({property.images.length})
+                </h3>
+                <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                  {property.images.map((img: string, i: number) => (
+                    <button 
+                      key={i} 
+                      onClick={() => {
+                        setViewerImages(property.images);
+                        setViewerIndex(i);
+                        setShowViewer(true);
+                      }}
+                      className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${i === activeImageIndex ? 'border-emerald-500 scale-95' : 'border-transparent hover:border-stone-300'}`}
+                    >
+                      {img.startsWith('data:video/') ? (
+                        <video src={img} className="w-full h-full object-cover" />
+                      ) : (
+                        <img src={img} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Right: Comments & Info */}
+      <div className="space-y-4">
+        {/* Comments List Box */}
+        <div className="ios-card p-5 h-[500px] flex flex-col">
+          <div className="flex justify-between items-center mb-5">
+            <h3 className="text-sm font-bold flex items-center gap-2 text-stone-900 justify-center">
+              <MessageSquare size={16} className="text-emerald-600" /> 
+              الملاحظات والتعليقات
+            </h3>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto space-y-4 pr-1 scrollbar-hide">
+            {comments.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-stone-400 space-y-2 opacity-50">
+                <MessageSquare size={32} />
+                <p className="text-sm">لا توجد تعليقات بعد</p>
+              </div>
+            ) : (
+              comments.map((c) => (
+                <div key={c.id} className="flex flex-col items-start w-full">
+                  <div className={`w-full p-4 rounded-xl shadow-sm ${c.userId === user.uid ? 'bg-emerald-50 border border-emerald-100' : 'bg-stone-50 border border-stone-100'}`}>
+                    <div className="flex items-center justify-between gap-4 mb-2">
+                      <p className="text-sm font-bold text-stone-900">{c.userName}</p>
+                      {c.userPhone && (
+                        <a
+                          href={`https://wa.me/${c.userPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`السلام عليكم، بخصوص هذا العقار: ${window.location.href}`)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-green-700 flex items-center gap-1 hover:underline"
+                        >
+                          {c.userPhone}
+                          <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+                        </a>
+                      )}
+                      <div className="flex items-center gap-3">
+                        <p className="text-xs text-stone-500">
+                          {formatDateTime(c.createdAt) || 'جاري التحميل...'}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          {(c.userId === user.uid || isAdmin) && (
+                            <button 
+                              onClick={() => {
+                                setEditingCommentId(c.id);
+                                setEditCommentText(c.text);
+                              }}
+                              className="text-stone-400 hover:text-emerald-600 transition-colors"
+                              title="تعديل"
+                            >
+                              <Edit size={14} />
+                            </button>
+                          )}
+                          {isAdmin && (
+                            <button 
+                              onClick={() => {
+                                onDeleteComment(c.id);
+                              }}
+                              className="text-stone-400 hover:text-red-600 transition-colors"
+                              title="حذف"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {editingCommentId === c.id ? (
+                      <div className="mt-2 space-y-2">
+                        <textarea 
+                          className="w-full p-3 bg-white border border-stone-200 rounded-lg text-base focus:ring-1 focus:ring-emerald-500 transition-all resize-none"
+                          rows={3}
+                          value={editCommentText}
+                          onChange={(e) => setEditCommentText(e.target.value)}
+                        />
+                        <div className="flex gap-2 justify-end">
+                          <button 
+                            onClick={() => setEditingCommentId(null)}
+                            className="px-3 py-1.5 text-sm text-stone-500 hover:bg-stone-100 rounded-md transition-colors"
+                          >
+                            إلغاء
+                          </button>
+                          <button 
+                            onClick={async () => {
+                              if (!editCommentText.trim()) return;
+                              try {
+                                await updateDoc(doc(db, 'comments', c.id), {
+                                  text: editCommentText,
+                                  updatedAt: serverTimestamp()
+                                });
+                                
+                                // Update last comment on property card if this was the latest
+                                const sorted = [...comments].sort((a, b) => {
+                                  const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+                                  const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+                                  return timeB - timeA;
+                                });
+                                if (c.id === sorted[0]?.id) {
+                                  await updateDoc(doc(db, 'properties', property.id), {
+                                    lastComment: editCommentText
+                                  });
+                                }
+                                
+                                setEditingCommentId(null);
+                              } catch (error) {
+                                console.error("Error updating comment:", error);
+                              }
+                            }}
+                            className="px-3 py-1.5 text-sm bg-emerald-600 text-white hover:bg-emerald-700 rounded-md transition-colors"
+                          >
+                            حفظ التعديل
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-2 space-y-3">
+                        {c.text && (
+                          <div className="text-stone-800 text-sm leading-relaxed whitespace-pre-wrap">
+                            <Markdown 
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                img: () => null
+                              }}
+                            >
+                              {c.text}
+                            </Markdown>
+                          </div>
+                        )}
+                        
+                        {(c.images && c.images.length > 0) ? (
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {c.images.map((img, idx) => (
+                              <motion.div
+                                key={idx}
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                onClick={() => {
+                                  setViewerImages(c.images!);
+                                  setViewerIndex(idx);
+                                  setShowViewer(true);
+                                }}
+                                className="relative w-20 h-20 rounded-lg overflow-hidden border border-stone-200 cursor-pointer shadow-sm"
+                              >
+                                {img.startsWith('data:video/') ? (
+                                  <video src={img} className="w-full h-full object-cover" />
+                                ) : (
+                                  <img src={img} alt="" className="w-full h-full object-cover" />
+                                )}
+                              </motion.div>
+                            ))}
+                          </div>
+                        ) : c.imageUrl ? (
+                          <div className="mt-2">
+                            <motion.div
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => {
+                                setViewerImages([c.imageUrl!]);
+                                setViewerIndex(0);
+                                setShowViewer(true);
+                              }}
+                              className="relative w-24 h-24 rounded-lg overflow-hidden border border-stone-200 cursor-pointer shadow-sm"
+                            >
+                              {c.imageUrl.startsWith('data:video/') ? (
+                                <video src={c.imageUrl} className="w-full h-full object-cover" />
+                              ) : (
+                                <img src={c.imageUrl} alt="" className="w-full h-full object-cover" />
+                              )}
+                            </motion.div>
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Add Note Box */}
+        <div className="ios-card p-5">
+          <h3 className="text-sm font-bold mb-5 flex items-center gap-2 text-stone-900 justify-center">
+            <Plus size={16} className="text-emerald-500" /> 
+            إضافة ملاحظة
+          </h3>
+          {(user.role === 'employee' || user.role === 'admin' || user.role === 'super_admin' || (user.email && SUPER_ADMIN_EMAILS.includes(user.email))) ? (
+            <form onSubmit={handleAddComment} className="space-y-2">
+              <div className="relative">
+                <textarea 
+                  id="comment-textarea"
+                  placeholder="أضف ملاحظة أو تعليق... (يمكنك استخدام Markdown)"
+                  rows={4}
+                  className="w-full p-4 bg-stone-50/50 border border-stone-100 rounded-xl text-base focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none pb-14"
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                />
+                <div className="absolute bottom-3 right-3 flex gap-3">
+                  <input 
+                    id="comment-image-upload"
+                    type="file" 
+                    onChange={handleCommentImageUpload}
+                    multiple
+                    accept="image/*,video/*"
+                    className="hidden"
+                  />
+                  <label 
+                    htmlFor="comment-image-upload"
+                    className={`p-2.5 bg-white border border-stone-100 rounded-full text-emerald-600 hover:bg-emerald-50 hover:border-emerald-500 transition-all shadow-sm flex items-center justify-center cursor-pointer ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
+                    title="إضافة صور أو فيديو (حتى 10)"
+                  >
+                    {isUploading ? (
+                      <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <ImageIcon size={24} />
+                    )}
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="text"
+                      placeholder="رابط الصورة/الفيديو..."
+                      className="p-2 text-sm border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                      onBlur={(e) => {
+                        if (e.target.value) {
+                          insertAtCursor(`[رابط](${e.target.value})`);
+                          e.target.value = '';
+                        }
+                      }}
+                    />
+                    <LinkIcon size={20} className="text-stone-400" />
+                  </div>
+                </div>
+              </div>
+
+              {commentImages.length > 0 && (
+                <div className="flex flex-wrap gap-2 p-2 bg-stone-50 rounded-xl border border-stone-100">
+                  {commentImages.map((img, idx) => (
+                    <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-stone-200 group">
+                      {img.type === 'video' ? (
+                        <video src={img.url} className="w-full h-full object-cover" />
+                      ) : (
+                        <img src={img.url} alt="" className="w-full h-full object-cover" />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeCommentImage(idx)}
+                        className="absolute top-0.5 right-0.5 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X size={10} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <button 
+                type="submit"
+                disabled={isUploading || (!newComment.trim() && commentImages.length === 0)}
+                className="w-full bg-emerald-500 text-white px-4 py-3 rounded-xl hover:bg-emerald-600 active:scale-[0.98] transition-all text-sm font-bold mt-2 shadow-sm disabled:opacity-50"
+              >
+                {isUploading ? 'جاري الإرسال...' : 'إرسال التعليق'}
+              </button>
+            </form>
+          ) : (
+            <div className="p-3 bg-stone-50 rounded-lg border border-stone-100 text-center">
+              <p className="text-[10px] text-stone-500">التعليقات متاحة للمستخدمين فقط</p>
+            </div>
+          )}
+        </div>
+
+        {/* Marketer Info Box */}
+        <div className="ios-card p-5">
+          <div className="flex items-center gap-4 p-4 bg-stone-50 rounded-xl border border-stone-100 w-full">
+            <div className="flex flex-col items-start gap-2" dir="ltr">
+              <div className="flex items-center gap-2">
+                <a
+                  href={`https://wa.me/${(property.assignedEmployeePhone || property.phone).replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`السلام عليكم، بخصوص هذا العقار: ${window.location.href}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-10 h-10 flex items-center justify-center text-green-600 bg-white border border-stone-100 hover:bg-green-50 rounded-full transition-colors shadow-sm"
+                  title="واتساب"
+                >
+                  <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+                </a>
+                <a 
+                  href={`tel:${property.assignedEmployeePhone || property.phone}`}
+                  className="w-10 h-10 flex items-center justify-center text-emerald-600 bg-white border border-stone-100 hover:bg-emerald-50 rounded-full transition-colors shadow-sm"
+                  title="اتصال"
+                >
+                  <Phone size={18} />
+                </a>
+              </div>
+              <span className="text-xs font-bold text-stone-600">
+                {property.assignedEmployeePhone || property.phone}
+              </span>
+              {property.createdAt && (
+                <p className="text-xs text-stone-400 mt-1">
+                  تاريخ الإدخال: {formatDateTime(property.createdAt) || 'جاري التحميل...'}
+                </p>
+              )}
+            </div>
+            <div className="flex-1 min-w-0 text-right">
+              <button 
+                onClick={() => {
+                  if (onUserClick && property.assignedEmployeeId) {
+                    onUserClick(property.assignedEmployeeId);
+                  }
+                }}
+                className="text-xs font-bold text-stone-900 hover:text-emerald-700 transition-colors text-right truncate w-full block"
+              >
+                {property.assignedEmployeeName || 'غير محدد'}
+              </button>
+              <p className="text-[10px] text-stone-500 mt-0.5">مستخدم معتمد</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Property Attributes Box */}
+        <div className="ios-card p-5">
+          <h3 className="text-sm font-bold mb-4 flex items-center gap-2 text-stone-900 justify-center">
+            <MapPin size={16} className="text-emerald-600" /> 
+            تفاصيل الموقع والمواصفات
+          </h3>
+          <div className="grid grid-cols-2 gap-2">
+            {/* Governorate */}
+            <button onClick={() => onFilter('governorate', property.governorate)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
+              <span className="text-[10px] text-stone-500 mb-1">المحافظة</span>
+              <span className="text-xs font-bold text-stone-800">{property.governorate}</span>
+            </button>
+            {/* Area */}
+            <button onClick={() => onFilter('area', property.area)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
+              <span className="text-[10px] text-stone-500 mb-1">المنطقة</span>
+              <span className="text-xs font-bold text-stone-800">{cleanAreaName(property.area)}</span>
+            </button>
+            {/* Type */}
+            <button onClick={() => onFilter('type', property.type)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
+              <span className="text-[10px] text-stone-500 mb-1">النوع</span>
+              <span className="text-xs font-bold text-stone-800">{property.type}</span>
+            </button>
+            {/* Purpose */}
+            {property.purpose !== 'بيع' && (
+              <button onClick={() => onFilter('purpose', property.purpose)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
+                <span className="text-[10px] text-stone-500 mb-1">الغرض</span>
+                <span className="text-xs font-bold text-stone-800">{property.purpose}</span>
+              </button>
+            )}
+            {/* Sector */}
+            {property.sector && (
+              <div className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 text-right">
+                <span className="text-[10px] text-stone-500 mb-1">القطاع</span>
+                <span className="text-xs font-bold text-stone-800">{property.sector}</span>
+              </div>
+            )}
+            {/* Block */}
+            {property.block && (
+              <button onClick={() => onFilter('block', property.block)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
+                <span className="text-[10px] text-stone-500 mb-1">القطعة</span>
+                <span className="text-xs font-bold text-stone-800">{property.block}</span>
+              </button>
+            )}
+            {/* Plot Number */}
+            {property.plotNumber && (
+              <button onClick={() => onFilter('plotNumber', property.plotNumber)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
+                <span className="text-[10px] text-stone-500 mb-1">القسيمة</span>
+                <span className="text-xs font-bold text-stone-800">{property.plotNumber}</span>
+              </button>
+            )}
+            {/* Street */}
+            {property.street && (
+              <button onClick={() => onFilter('street', property.street)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
+                <span className="text-[10px] text-stone-500 mb-1">الموقع</span>
+                <span className="text-xs font-bold text-stone-800">{property.street}</span>
+              </button>
+            )}
+            {/* Avenue */}
+            {property.avenue && (
+              <button onClick={() => onFilter('avenue', property.avenue)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
+                <span className="text-[10px] text-stone-500 mb-1">الجادة</span>
+                <span className="text-xs font-bold text-stone-800">{property.avenue}</span>
+              </button>
+            )}
+            {/* House Number */}
+            {property.houseNumber && (
+              <button onClick={() => onFilter('houseNumber', property.houseNumber)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
+                <span className="text-[10px] text-stone-500 mb-1">المنزل</span>
+                <span className="text-xs font-bold text-stone-800">{property.houseNumber}</span>
+              </button>
+            )}
+            {/* Location */}
+            {property.location && (
+              <button onClick={() => onFilter('location', property.location)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right col-span-2">
+                <span className="text-[10px] text-stone-500 mb-1">الموقع العام</span>
+                <span className="text-xs font-bold text-stone-800">{property.location}</span>
+              </button>
+            )}
+            {/* Location Link */}
+            {property.locationLink && (
+              <div className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 text-right col-span-2">
+                <span className="text-[10px] text-stone-500 mb-1">رابط العنوان</span>
+                <a href={property.locationLink} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-blue-600 hover:underline truncate w-full" dir="ltr">
+                  عرض على الخريطة
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+});

@@ -14,7 +14,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabaseClient';
-import { compressImage, isImageVideo, extractDetailsFromName, triggerAutoSync, inferArea, inferGovernorate, inferPurpose, inferType, cleanNameText } from '../utils';
+import { compressImage } from '../utils';
 import { notifyFavoriteUsers } from '../services/notificationService';
 import { SearchableFilter } from './SearchableFilter';
 import { LoadingSpinner } from './LoadingSpinner';
@@ -40,23 +40,23 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
     area: property?.area || '',
     type: property?.type || '',
     purpose: property?.purpose || '',
-    assigned_employee_id: property?.assigned_employee_id || '',
-    assigned_employee_name: property?.assigned_employee_name || '',
-    assigned_employee_phone: property?.assigned_employee_phone || '',
-    images: (property?.images || []).map((img: any) => typeof img === 'string' ? { url: img, type: isImageVideo(img) ? 'video' : 'image', comment: '' } : img),
-    location_link: property?.location_link || '',
-    is_sold: property?.is_sold || false,
+    assignedEmployeeId: property?.assignedEmployeeId || '',
+    assignedEmployeeName: property?.assignedEmployeeName || '',
+    assignedEmployeePhone: property?.assignedEmployeePhone || '',
+    images: (property?.images || []).map((img: any) => typeof img === 'string' ? { url: img, type: img.startsWith('data:video/') ? 'video' : 'image' } : img),
+    locationLink: property?.locationLink || '',
+    isSold: property?.isSold || false,
     sector: property?.sector || '',
     block: property?.block || '',
     street: property?.street || '',
     avenue: property?.avenue || '',
-    plot_number: property?.plot_number || '',
-    house_number: property?.house_number || '',
+    plotNumber: property?.plotNumber || '',
+    houseNumber: property?.houseNumber || '',
     location: property?.location || '',
     price: property?.price || '',
     details: property?.details || '',
-    status_label: property?.status_label || '',
-    company_id: property?.company_id || ''
+    statusLabel: property?.statusLabel || '',
+    companyId: property?.companyId || ''
   });
 
   const [employees, setEmployees] = useState<UserProfile[]>([]);
@@ -69,16 +69,16 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
       try {
         let employeesData: UserProfile[] = [];
         if (isSuperAdmin) {
-          const targetCompanyId = property?.company_id || selectedCompanyId;
+          const targetCompanyId = property?.companyId || selectedCompanyId;
           if (targetCompanyId) {
-            const { data } = await supabase.from('user_profiles').select('*').eq('role', 'employee').eq('company_id', targetCompanyId);
+            const { data } = await supabase.from('users').select('*').eq('role', 'employee').eq('companyId', targetCompanyId);
             employeesData = data || [];
           } else {
-            const { data } = await supabase.from('user_profiles').select('*').eq('role', 'employee');
+            const { data } = await supabase.from('users').select('*').eq('role', 'employee');
             employeesData = data || [];
           }
         } else {
-          const { data } = await supabase.from('user_profiles').select('*').eq('role', 'employee').eq('company_id', user?.company_id);
+          const { data } = await supabase.from('users').select('*').eq('role', 'employee').eq('companyId', user?.companyId);
           employeesData = data || [];
         }
 
@@ -89,7 +89,7 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
     };
     
     fetchEmployees();
-  }, [isSuperAdmin, selectedCompanyId, user?.company_id, property?.company_id]);
+  }, [isSuperAdmin, selectedCompanyId, user?.companyId, property?.companyId]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []) as File[];
@@ -100,44 +100,30 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
 
     setIsUploading(true);
     try {
-      const uploadPromises = files.map(async (file) => {
+      const newImages = [...formData.images];
+      for (const file of files) {
         let fileToUpload: Blob;
-        let fileType = file.type;
-        if (file.type && typeof file.type === 'string' && file.type.startsWith('image/')) {
+        if (file.type.startsWith('image/')) {
           fileToUpload = await compressImage(file);
-          fileType = 'image/jpeg';
         } else {
           fileToUpload = file;
         }
-
-        const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '') || 'file';
-        const filePath = `properties/${Date.now()}_${Math.random().toString(36).slice(2)}_${safeName}`;
-        const { data, error } = await supabase.storage
-          .from('properties_media')
-          .upload(filePath, fileToUpload, { contentType: fileType });
-        if (error) throw new Error(error.message || 'فشل الرفع');
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('properties_media').getPublicUrl(filePath);
-        const isVideo = file.type && typeof file.type === 'string' && file.type.startsWith('video/');
-        return { url: publicUrl, type: isVideo ? 'video' : 'image', comment: '' };
-      });
-
-      const newUploadedImages = await Promise.all(uploadPromises);
-      setFormData(prev => ({ ...prev, images: [...prev.images, ...newUploadedImages] }));
-    } catch (error: any) {
+        
+        const filePath = `properties/${Date.now()}_${file.name}`;
+        const { data, error } = await supabase.storage.from('properties').upload(filePath, fileToUpload);
+        if (error) throw error;
+        
+        const { data: { publicUrl } } = supabase.storage.from('properties').getPublicUrl(filePath);
+        newImages.push({ url: publicUrl, type: file.type.startsWith('video/') ? 'video' : 'image' });
+      }
+      setFormData({ ...formData, images: newImages });
+    } catch (error) {
       console.error("Upload error:", error);
-      toast.error("خطأ الرفع: " + (error.message || "حدث خطأ أثناء رفع الملفات"));
+      toast.error("حدث خطأ أثناء رفع الملفات");
     } finally {
       setIsUploading(false);
       if (e.target) e.target.value = '';
     }
-  };
-
-  const updateImageComment = (index: number, comment: string) => {
-    const newImages = [...formData.images];
-    newImages[index] = { ...newImages[index], comment };
-    setFormData({ ...formData, images: newImages });
   };
 
   const removeImage = (index: number) => {
@@ -172,16 +158,17 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
     setShowConfirm(false);
     
     try {
-      let empId = formData.assigned_employee_id;
-      let empName = formData.assigned_employee_name;
+      let empId = formData.assignedEmployeeId;
+      let empName = formData.assignedEmployeeName;
 
+      // If we have a name but no ID, it means it's a new marketer
       if (empName && !empId) {
         try {
-          const { data: newUser, error: userError } = await supabase.from('user_profiles').insert({
+          const { data: newUser, error: userError } = await supabase.from('users').insert({
             full_name: empName,
             role: 'employee',
-            company_id: isSuperAdmin ? selectedCompanyId : user?.company_id,
-            created_at: new Date().toISOString()
+            companyId: isSuperAdmin ? selectedCompanyId : user?.companyId,
+            createdAt: new Date().toISOString()
           }).select().single();
           if (userError) throw userError;
           empId = newUser.id;
@@ -192,35 +179,31 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
 
       const data = {
         ...formData,
-        governorate: formData.area ? inferGovernorate(formData.area, formData.governorate) : formData.governorate,
-        company_id: isSuperAdmin ? selectedCompanyId : user?.company_id,
-        assigned_employee_id: empId,
-        assigned_employee_name: empName,
+        companyId: isSuperAdmin ? selectedCompanyId : user?.companyId,
+        assignedEmployeeId: empId,
+        assignedEmployeeName: empName,
         images: formData.images,
-        location_link: formData.location_link.trim(),
-        is_sold: formData.is_sold,
-        created_at: property ? property.created_at : new Date().toISOString(),
-        created_by: property ? property.created_by : (await supabase.auth.getUser()).data.user?.id,
+        locationLink: formData.locationLink.trim(),
+        isSold: formData.isSold,
+        updatedAt: new Date().toISOString(),
+        createdAt: property ? property.createdAt : new Date().toISOString(),
+        createdBy: property ? property.createdBy : (await supabase.auth.getUser()).data.user?.id,
         status: isAdmin ? (property?.status || 'approved') : 'pending'
       };
 
       try {
         if (property) {
-          const { error: updateError } = await supabase.from('properties').update(data).eq('id', property.id);
-          if (updateError) throw updateError;
+          await supabase.from('properties').update(data).eq('id', property.id);
+          
+          // Notify interested users
           await notifyFavoriteUsers(property.id, property, data);
         } else {
-          const { error: insertError } = await supabase.from('properties').insert(data);
-          if (insertError) throw insertError;
+          await supabase.from('properties').insert(data);
         }
       } catch (error) {
-        throw error;
+        console.error("Error saving property:", error);
       }
       toast.success(property ? 'تم تحديث العقار بنجاح' : 'تمت إضافة العقار بنجاح');
-      
-      // Trigger background sync with Google Sheets
-      setTimeout(triggerAutoSync, 500);
-
       onSave();
     } catch (error: any) {
       console.error("Error saving property:", error);
@@ -250,62 +233,40 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
       </div>
 
       <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        {/* Company Selection */}
         <div className="space-y-2">
           <label className="text-sm font-bold text-stone-700">الشركة</label>
           {isSuperAdmin ? (
             <SearchableFilter
               placeholder="اختر الشركة..."
               options={companies.map((c: any) => c.name)}
-              value={companies.find((c: any) => c.id === (formData as any).company_id)?.name || ''}
+              value={companies.find((c: any) => c.id === (formData as any).companyId)?.name || ''}
               onChange={(val) => {
                 const company = companies.find((c: any) => c.name === val);
                 setFormData({
                   ...formData,
-                  company_id: company ? company.id : ''
+                  companyId: company ? company.id : ''
                 });
               }}
             />
           ) : (
             <div className="p-4 bg-stone-50 rounded-lg border border-stone-200">
               <p className="text-sm font-bold text-stone-900">
-                {companies.find((c: any) => c.id === (user?.company_id))?.name || 'غير محدد'}
+                {companies.find((c: any) => c.id === (user?.companyId))?.name || 'غير محدد'}
               </p>
             </div>
           )}
         </div>
 
+        {/* Section 1: Client Info */}
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="relative">
               <input 
-                placeholder="اسم العميل"
+                placeholder="اسم العميل (الاسم الثلاثي)"
                 className="w-full px-4 py-2 bg-stone-50 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all outline-none text-sm"
                 value={formData.name}
-                onChange={(e) => {
-                  const newName = e.target.value;
-                  const extracted = extractDetailsFromName(newName);
-                  const inferredArea = inferArea(newName);
-                  const inferredGov = inferGovernorate(inferredArea);
-                  const inferredPurpose = inferPurpose(newName);
-                  const inferredType = inferType(newName);
-
-                  setFormData(prev => ({
-                    ...prev, 
-                    // Keep input natural while typing; normalization happens in submit/sync logic.
-                    name: newName,
-                    // Auto-fill if current value is empty
-                    area: prev.area || inferredArea || '',
-                    governorate: prev.governorate || inferredGov || '',
-                    purpose: prev.purpose || inferredPurpose || '',
-                    type: prev.type || inferredType || '',
-                    sector: prev.sector || extracted.sector || '',
-                    block: prev.block || extracted.block || '',
-                    street: prev.street || extracted.street || '',
-                    avenue: prev.avenue || extracted.avenue || '',
-                    plot_number: prev.plot_number || extracted.plot_number || '',
-                    house_number: prev.house_number || extracted.house_number || ''
-                  }));
-                }}
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
               />
             </div>
             <SearchableFilter 
@@ -323,6 +284,7 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
           </div>
         </div>
 
+        {/* Section 2: Location Info */}
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <SearchableFilter 
@@ -335,11 +297,7 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
               placeholder="المنطقة"
               options={formData.governorate ? AREAS[formData.governorate] : Array.from(new Set(Object.values(AREAS).flat())).sort()}
               value={formData.area}
-              onChange={(val) => setFormData({
-                ...formData,
-                area: val,
-                governorate: val ? inferGovernorate(val, formData.governorate) : formData.governorate
-              })}
+              onChange={(val) => setFormData({...formData, area: val})}
             />
             <SearchableFilter 
               placeholder="الموقع"
@@ -362,8 +320,8 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
               type="url"
               placeholder="رابط العنوان (مثال: رابط خرائط جوجل)"
               className="w-full px-4 py-2 bg-stone-50 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
-              value={formData.location_link}
-              onChange={(e) => setFormData({...formData, location_link: e.target.value})}
+              value={formData.locationLink}
+              onChange={(e) => setFormData({...formData, locationLink: e.target.value})}
               dir="ltr"
             />
             {isAdmin && property && (
@@ -372,8 +330,8 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
                   <input 
                     type="checkbox"
                     className="w-5 h-5 text-emerald-600 rounded focus:ring-emerald-500 border-stone-300"
-                    checked={formData.is_sold}
-                    onChange={(e) => setFormData({...formData, is_sold: e.target.checked})}
+                    checked={formData.isSold}
+                    onChange={(e) => setFormData({...formData, isSold: e.target.checked})}
                   />
                   <span className="text-sm font-bold text-stone-700">تم بيع العقار (مباع)</span>
                 </label>
@@ -381,8 +339,8 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
                   <SearchableFilter 
                     label="ملصق الحالة (يظهر على الصورة)"
                     options={['هام', 'جاد', 'مستعجل']}
-                    value={formData.status_label}
-                    onChange={(val) => setFormData({...formData, status_label: val})}
+                    value={formData.statusLabel}
+                    onChange={(val) => setFormData({...formData, statusLabel: val})}
                   />
                 </div>
               </div>
@@ -395,8 +353,8 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
               { id: 'block', label: 'القطعة' },
               { id: 'street', label: 'الشارع' },
               { id: 'avenue', label: 'الجادة' },
-              { id: 'plot_number', label: 'القسيمة' },
-              { id: 'house_number', label: 'المنزل' }
+              { id: 'plotNumber', label: 'القسيمة' },
+              { id: 'houseNumber', label: 'المنزل' }
             ].map((field) => (
               <input 
                 key={field.id}
@@ -409,6 +367,7 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
           </div>
         </div>
 
+        {/* Section 3: Property Details */}
         <div className="space-y-6">
           <textarea 
             rows={3}
@@ -419,18 +378,19 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
           />
         </div>
 
+        {/* Section 4: Company and Marketer */}
         <div className="space-y-6">
           <SearchableFilter 
-            placeholder="الموظف المسؤول"
+            placeholder="المستخدم / الموظف المسؤول"
             options={employees.map(emp => emp.full_name)}
-            value={formData.assigned_employee_name}
+            value={formData.assignedEmployeeName}
             creatable={true}
             onChange={(val) => {
               const emp = employees.find(e => e.full_name === val);
               setFormData({
                 ...formData,
-                assigned_employee_id: emp ? emp.id : '',
-                assigned_employee_name: val
+                assignedEmployeeId: emp ? emp.uid : '',
+                assignedEmployeeName: val
               });
             }}
           />
@@ -440,8 +400,8 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
             onClick={() => {
               setFormData({
                 ...formData,
-                assigned_employee_id: user?.id || '',
-                assigned_employee_name: user?.full_name || ''
+                assignedEmployeeId: user?.uid || '',
+                assignedEmployeeName: user?.full_name || ''
               });
             }}
             className="text-xs text-emerald-600 hover:underline mt-1"
@@ -453,11 +413,12 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
             type="tel"
             placeholder="رقم هاتف المسؤول..."
             className="w-full px-4 py-2 bg-stone-50 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm mt-2"
-            value={formData.assigned_employee_phone || ''}
-            onChange={(e) => setFormData({...formData, assigned_employee_phone: e.target.value})}
+            value={formData.assignedEmployeePhone || ''}
+            onChange={(e) => setFormData({...formData, assignedEmployeePhone: e.target.value})}
           />
         </div>
 
+        {/* Section 5: Media */}
         <div className="space-y-6">
           <div className="flex items-center gap-2 text-emerald-600 border-b border-emerald-100 pb-2">
             <ImageIcon size={20} />
@@ -465,7 +426,7 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
           </div>
           
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-            {formData.images.map((img: { url: string, type: 'image' | 'video', comment?: string }, index: number) => (
+            {formData.images.map((img: { url: string, type: 'image' | 'video' }, index: number) => (
               <motion.div 
                 key={index} 
                 layout
@@ -478,24 +439,14 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
                 ) : (
                   <img loading="lazy" src={img.url} alt="" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
                 )}
-                <div className="absolute top-2 left-2 flex gap-1">
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   <button 
                     type="button"
                     onClick={() => removeImage(index)}
-                    className="bg-red-500/80 backdrop-blur-sm text-white p-2 rounded-lg hover:bg-red-600 transition-all shadow-lg"
+                    className="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transform hover:scale-110 transition-all"
                   >
-                    <Trash2 size={16} />
+                    <Trash2 size={18} />
                   </button>
-                </div>
-                <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/60 backdrop-blur-md border-t border-white/10">
-                  <input 
-                    type="text" 
-                    placeholder="أضف تعليقاً..."
-                    className="w-full bg-transparent text-white text-[10px] font-bold outline-none placeholder:text-white/50 text-center"
-                    value={img.comment || ''}
-                    onChange={(e) => updateImageComment(index, e.target.value)}
-                    onClick={(e) => e.stopPropagation()}
-                  />
                 </div>
               </motion.div>
             ))}

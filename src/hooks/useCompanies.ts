@@ -15,8 +15,8 @@ export const useCompanies = (isSuperAdmin: boolean) => {
     staleTime: 1000 * 60 * 10,
   });
 
-  const activeCompanies = companies.filter(c => !c.is_deleted);
-  const deletedCompanies = companies.filter(c => c.is_deleted);
+  const activeCompanies = companies.filter(c => !c.isDeleted);
+  const deletedCompanies = companies.filter(c => c.isDeleted);
 
   return {
     companies,

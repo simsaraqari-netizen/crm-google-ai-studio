@@ -51,7 +51,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'notifications', label: 'التنبيهات', icon: Bell, show: true, badge: unreadCount },
     { id: 'pending-properties', label: 'طلبات المراجعة', icon: ShieldCheck, show: isAdmin },
     { id: 'manage-companies', label: 'إدارة الشركات', icon: Building2, show: isSuperAdmin },
-    { id: 'manage-marketers', label: 'إدارة الموظفين', icon: Users, show: isAdmin },
+    { id: 'manage-marketers', label: 'إدارة المستخدمين', icon: Users, show: isAdmin },
     { id: 'trash', label: 'سلة المحذوفات', icon: Trash2, show: isAdmin },
   ];
 

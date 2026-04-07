@@ -2,10 +2,6 @@ import { google } from 'googleapis';
 
 const credentials = JSON.parse(process.env.GOOGLE_SHEETS_CREDENTIALS || '{}');
 
-export function getGoogleSheetsServiceAccountEmail() {
-  return typeof credentials?.client_email === 'string' ? credentials.client_email : '';
-}
-
 const auth = new google.auth.GoogleAuth({
   credentials,
   scopes: ['https://www.googleapis.com/auth/spreadsheets'],

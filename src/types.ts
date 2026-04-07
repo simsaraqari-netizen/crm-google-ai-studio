@@ -1,83 +1,73 @@
-export interface PropertyImage {
-  url: string;
-  type: 'image' | 'video';
-  comment?: string;
-}
-
 export interface Property {
   id: string;
-  property_code?: string;
   name: string;
   governorate: string;
   area: string;
   type: string;
   purpose: string;
   phone: string;
-  company_id: string;
-  assigned_employee_id?: string;
-  assigned_employee_name?: string;
-  assigned_employee_phone?: string;
-  assigned_employee?: { phone: string };
-  images: (string | PropertyImage)[];
-  location_link?: string;
-  is_sold?: boolean;
+  companyId: string;
+  assignedEmployeeId?: string;
+  assignedEmployeeName?: string;
+  images: string[];
+  locationLink?: string;
+  isSold?: boolean;
   sector?: string;
   block?: string;
   street?: string;
   avenue?: string;
-  plot_number?: string;
-  house_number?: string;
+  plotNumber?: string;
+  houseNumber?: string;
   location: string;
   price?: string;
   details?: string;
-  last_comment?: string;
-  last_comment_at?: any;
-  status_label?: string;
+  lastComment?: string;
+  statusLabel?: string;
   status: 'pending' | 'approved' | 'rejected' | 'deleted';
-  is_deleted?: boolean;
-  deleted_at?: any;
-  created_by: string;
-  created_at: any;
+  isDeleted?: boolean;
+  deletedAt?: any;
+  createdBy: string;
+  createdAt: any;
 }
 
 export interface Company {
   id: string;
   name: string;
-  company_id?: string;
+  companyId?: string;
   phone?: string;
   address?: string;
-  created_at: any;
-  is_deleted?: boolean;
-  deleted_at?: any;
+  createdAt: any;
+  isDeleted?: boolean;
+  deletedAt?: any;
 }
 
 export interface Comment {
   id: string;
-  property_id: string;
-  user_id: string;
-  user_name: string;
+  propertyId: string;
+  userId: string;
+  userName: string;
   text: string;
-  images?: PropertyImage[];
-  image_url?: string;
-  user_phone?: string;
-  created_at: any;
-  is_deleted?: boolean;
-  deleted_at?: any;
+  images?: string[];
+  imageUrl?: string;
+  userPhone?: string;
+  createdAt: any;
+  isDeleted?: boolean;
+  deletedAt?: any;
 }
 
 export interface UserProfile {
-  id: string;
+  uid: string;
+  id?: string;
   email: string;
   full_name: string;
-  display_name?: string;
   role: 'super_admin' | 'admin' | 'employee' | 'pending' | 'rejected';
-  company_id?: string;
-  created_at?: string;
-  force_sign_out?: boolean;
+  companyId?: string;
+  createdAt?: string;
+  forceSignOut?: boolean;
   phone?: string;
-  employee_id?: string;
-  is_deleted?: boolean;
-  deleted_at?: any;
+  employeeId?: string;
+  isDeleted?: boolean;
+  deletedAt?: any;
 }
 
 export interface Notification {
@@ -85,11 +75,11 @@ export interface Notification {
   type: 'new-user' | 'property-update' | 'price-change' | 'status-change' | 'new-comment';
   title: string;
   message: string;
-  user_id?: string; // Triggering user
-  recipient_id?: string; // Target user (if null, it's for admins)
-  property_id?: string;
+  userId?: string; // Triggering user
+  recipientId?: string; // Target user (if null, it's for admins)
+  propertyId?: string;
   read: boolean;
-  created_at: any;
+  createdAt: any;
 }
 
 export interface FilterOptions {

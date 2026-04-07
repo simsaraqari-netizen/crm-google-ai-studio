@@ -10,7 +10,15 @@
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/609/609803.png" />
     <meta name="theme-color" content="#2563eb" />
-    <!-- Service Worker removed to prevent refresh loop in IDX -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('SW registered!', reg))
+            .catch(err => console.log('SW registration failed!', err));
+        });
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

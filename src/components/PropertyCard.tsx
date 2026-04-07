@@ -9,7 +9,7 @@ import {
   Share2
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { cleanAreaName, generatePropertyTitle, formatRelativeDate, getImageUrl, isImageVideo } from '../utils';
+import { cleanAreaName, generatePropertyTitle, formatRelativeDate } from '../utils';
 
 export const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavorite, onClick, onImageClick, isAdmin, onFilter, onUserClick, onApprove, onReject, onEdit, onDelete, onRestore, onPermanentDelete, view }: any) {
   return (
@@ -23,13 +23,6 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
       <h3 className="text-xs font-bold text-stone-900 mb-2 line-clamp-2 leading-tight w-full text-right">
         {generatePropertyTitle(property)}
       </h3>
-      {property.property_code && (
-        <div className="mb-2 text-right">
-          <span className="inline-block text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded px-2 py-0.5">
-            كود العقار: {property.property_code}
-          </span>
-        </div>
-      )}
 
       <div className="flex gap-3 flex-1 items-end mb-3">
         {/* Image on the right (first child in RTL) - Smaller and at bottom */}
@@ -37,43 +30,34 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
           className="w-16 h-16 bg-stone-100 relative shrink-0 rounded-lg overflow-hidden shadow-inner group/img" 
           onClick={(e) => {
             e.stopPropagation();
-            const images = property.images || [];
-            if (images.length > 0) onImageClick(images, 0);
+            if (property.images?.length > 0) onImageClick(property.images, 0);
           }}
         >
           {property.images?.[0] ? (
-            (() => {
-              const img = property.images[0];
-              const url = getImageUrl(img);
-              const isVideo = isImageVideo(img);
-              
-              return (
-                <>
-                  {isVideo ? (
-                    <video 
-                      src={url} 
-                      className={`w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
-                    />
-                  ) : (
-                    <img 
-                      loading="lazy"
-                      src={url} 
-                      alt={generatePropertyTitle(property)} 
-                      className={`w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
-                      referrerPolicy="no-referrer"
-                    />
-                  )}
-                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
-                    <ImageIcon className="text-white" size={14} />
-                  </div>
-                  {property.is_sold && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-stone-700/80 backdrop-blur-sm z-20">
-                      <span className="text-white font-black text-[10px] tracking-wider transform -rotate-12 border-2 border-white px-1 py-0.5 rounded shadow-lg">مباع</span>
-                    </div>
-                  )}
-                </>
-              );
-            })()
+            <>
+              {property.images[0].startsWith('data:video/') ? (
+                <video 
+                  src={property.images[0]} 
+                  className={`w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 ${property.isSold ? 'grayscale opacity-60' : ''}`}
+                />
+              ) : (
+                <img 
+                  loading="lazy"
+                  src={property.images[0]} 
+                  alt={generatePropertyTitle(property)} 
+                  className={`w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 ${property.isSold ? 'grayscale opacity-60' : ''}`}
+                  referrerPolicy="no-referrer"
+                />
+              )}
+              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                <ImageIcon className="text-white" size={14} />
+              </div>
+              {property.isSold && (
+                <div className="absolute inset-0 flex items-center justify-center bg-stone-700/80 backdrop-blur-sm z-20">
+                  <span className="text-white font-black text-[10px] tracking-wider transform -rotate-12 border-2 border-white px-1 py-0.5 rounded shadow-lg">مباع</span>
+                </div>
+              )}
+            </>
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-stone-50 relative overflow-hidden">
               <div className="absolute inset-0 flex items-center justify-center opacity-50">
@@ -91,7 +75,7 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
               <span className="text-[9px] font-bold text-emerald-800 text-center z-10 leading-tight drop-shadow-sm px-1 bg-white/70 rounded py-0.5 max-w-[90%] truncate">
                 {cleanAreaName(property.area)}
               </span>
-              {property.is_sold && (
+              {property.isSold && (
                 <div className="absolute inset-0 flex items-center justify-center bg-stone-700/80 backdrop-blur-sm z-20">
                   <span className="text-white font-black text-[10px] tracking-wider transform -rotate-12 border-2 border-white px-1 py-0.5 rounded shadow-lg">مباع</span>
                 </div>
@@ -100,10 +84,10 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
           )}
           
           {/* Badge on Image */}
-          {property.status_label && (
+          {property.statusLabel && (
             <div className="absolute top-0 right-0 left-0 z-10">
               <span className="bg-amber-500/90 text-white px-1 py-0.5 text-[8px] font-black uppercase block text-center tracking-widest shadow-sm">
-                {property.status_label}
+                {property.statusLabel}
               </span>
             </div>
           )}
@@ -123,10 +107,10 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
                 {property.details}
               </p>
             )}
-            {property.last_comment && (
+            {property.lastComment && (
               <div className="mt-2 p-2 rounded-lg border-r-2 border-emerald-500">
                 <p className="text-xs text-stone-700 line-clamp-1">
-                  {property.last_comment}
+                  {property.lastComment}
                 </p>
               </div>
             )}
@@ -134,14 +118,151 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
         </div>
       </div>
 
-      {/* Last Row: Area + Time */}
-      <div className="flex items-center justify-between pt-1 border-t border-stone-100/50 mt-1">
-        <span className="text-[10px] font-bold text-emerald-600 truncate max-w-[60%]">
-          {cleanAreaName(property.area) || 'غير محدد'}
-        </span>
-        <span className="text-[9px] text-stone-400 font-medium ltr">
-          {formatRelativeDate(property.last_comment_at || property.created_at)}
-        </span>
+      {/* Footer: Area + Purpose + Type */}
+      <div className="flex items-center gap-1.5 mt-auto pt-1 pb-1 text-[10px] font-bold text-stone-700">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onFilter && property.area) onFilter('area', property.area);
+          }}
+          className="text-stone-500 hover:underline truncate max-w-[35%]"
+        >
+          {cleanAreaName(property.area) || '-'}
+        </button>
+        <span>|</span>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onFilter && property.purpose) onFilter('purpose', property.purpose);
+          }}
+          className="text-emerald-600 hover:underline truncate max-w-[30%]"
+        >
+          {property.purpose || '-'}
+        </button>
+        <span>|</span>
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onFilter && property.type) {
+              onFilter('type', property.type);
+            }
+          }}
+          className="hover:text-emerald-600 hover:underline truncate max-w-[30%]"
+        >
+          {property.type || 'غير محدد'}
+        </button>
+      </div>
+
+      {/* Footer: Icons + Time */}
+      <div className="flex items-center justify-between pt-0.5">
+        {property.createdAt && (
+          <span className="text-[9px] text-stone-400 font-normal">
+            {formatRelativeDate(property.createdAt)}
+          </span>
+        )}
+        <div className="flex items-center gap-1">
+          {view === 'pending-properties' && isAdmin ? (
+            <div className="flex gap-2">
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onApprove(property.id);
+                }}
+                className="bg-emerald-600 text-white px-2 py-1 rounded text-[10px]"
+              >
+                قبول
+              </button>
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onReject(property.id);
+                }}
+                className="bg-red-600 text-white px-2 py-1 rounded text-[10px]"
+              >
+                رفض
+              </button>
+            </div>
+          ) : view === 'trash' && isAdmin ? (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onRestore) onRestore(property.id);
+                }}
+                className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                title="استعادة"
+              >
+                <RefreshCw size={16} />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onPermanentDelete) onPermanentDelete(property.id);
+                }}
+                className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                title="حذف نهائي"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          ) : (
+            <>
+              {isAdmin && (
+                <>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onEdit) onEdit(property);
+                    }}
+                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                    title="تعديل"
+                  >
+                    <Edit size={16} />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onDelete) onDelete(property.id);
+                    }}
+                    className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                    title="حذف"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </>
+              )}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const shareUrl = `${window.location.origin}?propertyId=${property.id}`;
+                  if (navigator.share) {
+                    navigator.share({
+                      title: property.title || 'عقار',
+                      text: property.details,
+                      url: shareUrl,
+                    }).catch(console.error);
+                  } else {
+                    navigator.clipboard.writeText(shareUrl);
+                    toast.success('تم نسخ رابط العقار');
+                  }
+                }}
+                className="p-1.5 text-stone-500 hover:bg-stone-100 rounded-lg transition-all"
+                title="مشاركة"
+              >
+                <Share2 size={16} />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onFavorite) onFavorite(property.id);
+                }}
+                className={`p-1.5 rounded-lg transition-all ${isFavorite ? 'text-red-500' : 'text-stone-500 hover:bg-stone-100'}`}
+              >
+                <Heart size={16} fill={isFavorite ? "currentColor" : "none"} />
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </motion.div>
   );

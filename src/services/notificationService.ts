@@ -1,16 +1,16 @@
 import { supabase } from '../lib/supabaseClient';
 import { generatePropertyTitle } from '../utils';
 
-export async function notifyFavoriteUsers(property_id: string, property: any, data: any) {
+export async function notifyFavoriteUsers(propertyId: string, property: any, data: any) {
   const priceChanged = property.price !== data.price;
-  const statusChanged = property.is_sold !== data.is_sold || property.statusLabel !== data.statusLabel;
+  const statusChanged = property.isSold !== data.isSold || property.statusLabel !== data.statusLabel;
   
   if (priceChanged || statusChanged) {
     // Find all users who favorited this property
     const { data: favorites, error: favError } = await supabase
       .from('favorites')
-      .select('user_id')
-      .eq('property_id', property_id);
+      .select('userId')
+      .eq('propertyId', propertyId);
 
     if (favError) {
       console.error("Error fetching favorites:", favError);
@@ -20,10 +20,10 @@ export async function notifyFavoriteUsers(property_id: string, property: any, da
     const { data: { user } } = await supabase.auth.getUser();
     const currentUserId = user?.id;
 
-    const interestedUserIds = (favorites || []).map(f => f.user_id);
+    const interestedUserIds = (favorites || []).map(f => f.userId);
     
-    for (const recipient_id of interestedUserIds) {
-      if (recipient_id === currentUserId) continue; // Don't notify the updater
+    for (const recipientId of interestedUserIds) {
+      if (recipientId === currentUserId) continue; // Don't notify the updater
       
       let title = 'تحديث في عقار يهمك';
       let message = `تم تحديث بيانات العقار: ${generatePropertyTitle(property)}`;
@@ -43,11 +43,11 @@ export async function notifyFavoriteUsers(property_id: string, property: any, da
         type,
         title,
         message,
-        recipient_id,
-        user_id: currentUserId,
-        property_id: property_id,
+        recipientId,
+        userId: currentUserId,
+        propertyId: propertyId,
         read: false,
-        created_at: new Date().toISOString()
+        createdAt: new Date().toISOString()
       });
     }
   }

@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
-import { getImageUrl, isImageVideo } from '../utils';
 
 export function ImageViewer({ images, initialIndex, onClose, isSold }: any) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
@@ -35,9 +34,9 @@ export function ImageViewer({ images, initialIndex, onClose, isSold }: any) {
       )}
 
         <div className="max-w-5xl w-full h-full flex items-center justify-center relative">
-        {isImageVideo(images[currentIndex]) ? (
+        {images[currentIndex]?.startsWith('data:video/') ? (
           <video 
-            src={getImageUrl(images[currentIndex])} 
+            src={images[currentIndex]} 
             controls 
             autoPlay
             className={`max-w-full max-h-full object-contain rounded-lg shadow-2xl ${isSold ? 'grayscale opacity-60' : ''}`}
@@ -45,7 +44,7 @@ export function ImageViewer({ images, initialIndex, onClose, isSold }: any) {
         ) : (
           <img 
             loading="lazy"
-            src={getImageUrl(images[currentIndex])} 
+            src={images[currentIndex]} 
             className={`max-w-full max-h-full object-contain rounded-lg shadow-2xl ${isSold ? 'grayscale opacity-60' : ''}`} 
             referrerPolicy="no-referrer"
             alt=""

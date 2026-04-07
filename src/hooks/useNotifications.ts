@@ -7,13 +7,13 @@ export const useNotifications = (user: any, isSuperAdmin: boolean) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const fetchNotifications = async () => {
-    if (!user?.id) return;
-    let query = supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(50);
+    if (!user) return;
+    let query = supabase.from('notifications').select('*').order('createdAt', { ascending: false }).limit(50);
     if (!isSuperAdmin) {
       if (user.role === 'admin') {
-        query = query.eq('company_id', user.company_id);
+        query = query.eq('companyId', user.companyId);
       } else {
-        query = query.eq('recipient_id', user.id);
+        query = query.eq('recipientId', user.uid);
       }
     }
     const { data, error } = await query;
@@ -21,11 +21,11 @@ export const useNotifications = (user: any, isSuperAdmin: boolean) => {
   };
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user) return;
     fetchNotifications();
     
-    const channel = supabase.channel(`notifications-${user.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `recipient_id=eq.${user.id}` }, () => {
+    const channel = supabase.channel(`notifications-${user?.uid}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `recipientId=eq.${user?.uid}` }, () => {
         fetchNotifications();
       })
       .subscribe();
@@ -33,7 +33,7 @@ export const useNotifications = (user: any, isSuperAdmin: boolean) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, isSuperAdmin]);
+  }, [user, isSuperAdmin]);
 
   return {
     notifications,

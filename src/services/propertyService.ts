@@ -31,8 +31,8 @@ export const propertyService = {
     if (error) throw error;
   },
 
-  async getPropertiesByCompanyId(company_id: string): Promise<Property[]> {
-    const { data, error } = await supabase.from('properties').select('*').eq('company_id', company_id);
+  async getPropertiesByCompanyId(companyId: string): Promise<Property[]> {
+    const { data, error } = await supabase.from('properties').select('*').eq('companyId', companyId);
     if (error) throw error;
     return data || [];
   },
@@ -50,27 +50,5 @@ export const propertyService = {
   async softDeleteProperty(id: string): Promise<void> {
     const { error } = await supabase.from('properties').update({ isDeleted: true, deletedAt: new Date().toISOString() }).eq('id', id);
     if (error) throw error;
-  },
-
-  async uploadImages(files: File[]): Promise<string[]> {
-    const urls: string[] = [];
-    for (const file of files) {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
-      const filePath = `properties/${fileName}`;
-
-      const { data, error } = await supabase.storage
-        .from('images')
-        .upload(filePath, file);
-
-      if (error) throw error;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('images')
-        .getPublicUrl(data.path);
-
-      urls.push(publicUrl);
-    }
-    return urls;
   }
 };

@@ -9,44 +9,43 @@ export const useProperties = (user: any, isSuperAdmin: boolean, selectedCompanyI
   const queryClient = useQueryClient();
 
   const { data: queryProperties, isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['properties', user?.id, isSuperAdmin, selectedCompanyId, filters, debouncedSearchQuery, view, visibleCount],
+    queryKey: ['properties', user?.uid, isSuperAdmin, selectedCompanyId, filters, debouncedSearchQuery, view, visibleCount],
     queryFn: async () => {
       if (!user) return [];
       
-      let query = supabase.from('properties').select('*, assigned_employee:user_profiles!properties_assigned_employee_id_fkey(phone)', { count: 'exact' });
+      let query = supabase.from('properties').select('*', { count: 'exact' });
       
       if (isSuperAdmin) {
         if (selectedCompanyId) {
-          query = query.eq('company_id', selectedCompanyId);
+          query = query.eq('companyId', selectedCompanyId);
         }
-      } else if (user.company_id) {
-        query = query.eq('company_id', user.company_id);
+      } else if (user.companyId) {
+        query = query.eq('companyId', user.companyId);
       } else {
         return [];
       }
 
       // Server-side filtering
-      if (view === 'my-listings') query = query.eq('created_by', user.id);
+      if (view === 'my-listings') query = query.eq('createdBy', user.uid);
       if (view === 'pending-properties') query = query.eq('status', 'pending');
       if (view === 'trash') {
-        query = query.or('status.eq.deleted,is_deleted.eq.true');
+        query = query.or('status.eq.deleted,isDeleted.eq.true');
       } else {
-        query = query.neq('status', 'deleted').eq('is_deleted', false);
+        query = query.neq('status', 'deleted').eq('isDeleted', false);
       }
 
-      if (filters.status === 'sold') query = query.eq('is_sold', true);
-      if (filters.status === 'available') query = query.eq('is_sold', false);
-      if (filters.governorate) query = query.ilike('governorate', `%${filters.governorate}%`);
-      if (filters.type) query = query.ilike('type', `%${filters.type}%`);
-      if (filters.purpose) query = query.ilike('purpose', `%${filters.purpose}%`);
+      if (filters.status === 'sold') query = query.eq('isSold', true);
+      if (filters.status === 'available') query = query.eq('isSold', false);
+      if (filters.governorate) query = query.eq('governorate', filters.governorate);
+      if (filters.type) query = query.eq('type', filters.type);
+      if (filters.purpose) query = query.eq('purpose', filters.purpose);
 
       if (debouncedSearchQuery) {
         const search = debouncedSearchQuery.trim();
-        // Use ilike with % for better multi-value matching during search
-        query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%,area.ilike.%${search}%,details.ilike.%${search}%`);
+        query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%,area.ilike.%${search}%`);
       }
       
-      const { data, error, count } = await query.order('created_at', { ascending: false }).range(0, visibleCount - 1);
+      const { data, error, count } = await query.order('createdAt', { ascending: false }).range(0, visibleCount - 1);
       if (error) throw error;
       
       if (count !== null) {
@@ -80,13 +79,13 @@ export const useProperties = (user: any, isSuperAdmin: boolean, selectedCompanyI
   };
 };
 
-export function useDeletedProperties(isAdmin: boolean, company_id?: string | null) {
+export function useDeletedProperties(isAdmin: boolean, companyId?: string | null) {
   return useQuery({
-    queryKey: ['deletedProperties', company_id],
+    queryKey: ['deletedProperties', companyId],
     queryFn: async () => {
-      let query = supabase.from('properties').select('*').eq('is_deleted', true);
-      if (company_id) {
-        query = query.eq('company_id', company_id);
+      let query = supabase.from('properties').select('*').eq('isDeleted', true);
+      if (companyId) {
+        query = query.eq('companyId', companyId);
       }
       const { data, error } = await query;
       if (error) throw error;

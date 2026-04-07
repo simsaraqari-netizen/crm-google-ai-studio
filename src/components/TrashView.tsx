@@ -166,10 +166,10 @@ export function TrashView({
                     <div key={company.id} className="flex items-center justify-between p-4 bg-stone-50 rounded-xl border border-stone-100">
                       <div>
                         <h3 className="font-bold text-lg">{company.name}</h3>
-                        <p className="text-sm text-stone-500">كود الشركة: {company.company_id}</p>
-                        {company.deleted_at && (
+                        <p className="text-sm text-stone-500">كود الشركة: {company.companyId}</p>
+                        {company.deletedAt && (
                           <p className="text-xs text-red-500 mt-1">
-                            تاريخ الحذف: {new Date(company.deleted_at).toLocaleDateString('ar-EG')}
+                            تاريخ الحذف: {new Date(company.deletedAt).toLocaleDateString('ar-EG')}
                           </p>
                         )}
                       </div>
@@ -209,26 +209,26 @@ export function TrashView({
                   </div>
                 ) : (
                   deletedUsers.map(u => (
-                    <div key={u.id} className="flex items-center justify-between p-4 bg-stone-50 rounded-xl border border-stone-100">
+                    <div key={u.uid} className="flex items-center justify-between p-4 bg-stone-50 rounded-xl border border-stone-100">
                       <div>
                         <h3 className="font-bold text-lg">{u.full_name || 'مستخدم بدون اسم'}</h3>
                         <p className="text-sm text-stone-500">{u.email}</p>
-                        {u.deleted_at && (
+                        {u.deletedAt && (
                           <p className="text-xs text-red-500 mt-1">
-                            تاريخ الحذف: {new Date(u.deleted_at).toLocaleDateString('ar-EG')}
+                            تاريخ الحذف: {new Date(u.deletedAt).toLocaleDateString('ar-EG')}
                           </p>
                         )}
                       </div>
                       <div className="flex gap-2">
                         <button
-                          onClick={() => restoreUser(u.id)}
+                          onClick={() => restoreUser(u.uid)}
                           className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
                           title="استعادة"
                         >
                           <RefreshCw size={20} />
                         </button>
                         <button
-                          onClick={() => permanentDeleteUser(u.id)}
+                          onClick={() => permanentDeleteUser(u.uid)}
                           className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           title="حذف نهائي"
                         >
@@ -258,10 +258,10 @@ export function TrashView({
                     <div key={comment.id} className="flex items-center justify-between p-4 bg-stone-50 rounded-xl border border-stone-100">
                       <div>
                         <p className="text-stone-800">{comment.text}</p>
-                        <p className="text-sm text-stone-500 mt-1">بواسطة: {comment.user_name}</p>
-                        {comment.deleted_at && (
+                        <p className="text-sm text-stone-500 mt-1">بواسطة: {comment.userName}</p>
+                        {comment.deletedAt && (
                           <p className="text-xs text-red-500 mt-1">
-                            تاريخ الحذف: {new Date(comment.deleted_at).toLocaleDateString('ar-EG')}
+                            تاريخ الحذف: {new Date(comment.deletedAt).toLocaleDateString('ar-EG')}
                           </p>
                         )}
                       </div>

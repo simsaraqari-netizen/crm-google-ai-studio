@@ -17,7 +17,7 @@ export function CompanyDetailsView({
   setView
 }: CompanyDetailsViewProps) {
   const company = companies.find(c => c.id === selectedCompanyId);
-  const companyUsers = users.filter(u => u.company_id === selectedCompanyId);
+  const companyUsers = users.filter(u => u.companyId === selectedCompanyId);
   const admins = companyUsers.filter(u => u.role === 'admin');
   const employees = companyUsers.filter(u => u.role !== 'admin');
 
@@ -42,7 +42,7 @@ export function CompanyDetailsView({
               {company?.name || 'تفاصيل الشركة'}
             </h2>
             <p className="text-sm text-stone-500 font-mono mt-1">
-              كود الشركة: {company?.company_id || selectedCompanyId}
+              كود الشركة: {company?.companyId || selectedCompanyId}
             </p>
           </div>
         </div>
@@ -53,7 +53,7 @@ export function CompanyDetailsView({
               <Users size={24} />
             </div>
             <div>
-              <p className="text-sm text-blue-600 font-bold">إجمالي الموظفين</p>
+              <p className="text-sm text-blue-600 font-bold">إجمالي المستخدمين</p>
               <p className="text-2xl font-bold text-blue-900">
                 {companyUsers.length}
               </p>
@@ -96,7 +96,7 @@ export function CompanyDetailsView({
               </thead>
               <tbody className="divide-y divide-stone-100">
                 {companyUsers.map(user => (
-                  <tr key={user.id} className="bg-white hover:bg-stone-50/50 transition-colors">
+                  <tr key={user.uid} className="bg-white hover:bg-stone-50/50 transition-colors">
                     <td className="px-6 py-4 font-bold text-stone-900 flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-500">
                         <UserIcon size={14} />

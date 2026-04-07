@@ -58,7 +58,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center gap-3 bg-stone-50 p-1.5 pr-4 rounded-2xl border border-stone-200/50 hover:bg-stone-100 transition-colors cursor-default group">
           <div className="flex flex-col items-end">
             <span className="text-xs font-black text-stone-900 leading-none mb-1 group-hover:text-emerald-700 transition-colors">
-              {user?.full_name || 'موظف'}
+              {user?.full_name || 'مستخدم'}
             </span>
             <p className="text-[10px] text-stone-500 font-bold">
               {user?.role === 'admin' ? 'مدير النظام' : user?.role === 'pending' ? 'قيد المراجعة' : 'موظف'}
