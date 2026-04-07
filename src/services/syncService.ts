@@ -124,8 +124,7 @@ export const syncSupabaseWithSheets = async () => {
           house_number: getVal(house_number, 'house_number'),
           location: getVal(location, 'location'),
           details: getVal(details, 'details'),
-          status_label: getVal(status_label, 'status_label'),
-          updated_at: new Date().toISOString()
+          status_label: getVal(status_label, 'status_label')
         };
 
         // Handle JSON fields (Images/Links)

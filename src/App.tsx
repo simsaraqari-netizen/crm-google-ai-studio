@@ -1069,8 +1069,7 @@ export default function App() {
             location: getValue(location, existing?.location),
             details: getValue(details, existing?.details),
             status_label: getValue(status_label, existing?.status_label),
-            last_comment: getValue(last_comment, existing?.last_comment),
-            updated_at: new Date().toISOString()
+            last_comment: getValue(last_comment, existing?.last_comment)
           };
 
           if (existing) {

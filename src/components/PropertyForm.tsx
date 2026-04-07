@@ -199,7 +199,6 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
         images: formData.images,
         location_link: formData.location_link.trim(),
         is_sold: formData.is_sold,
-        updated_at: new Date().toISOString(),
         created_at: property ? property.created_at : new Date().toISOString(),
         created_by: property ? property.created_by : (await supabase.auth.getUser()).data.user?.id,
         status: isAdmin ? (property?.status || 'approved') : 'pending'
