@@ -1,5 +1,6 @@
 import { formatDistanceToNow } from 'date-fns';
 import { ar } from 'date-fns/locale';
+import { AREAS } from './constants';
 
 export function formatRelativeDate(date: any): string {
   if (!date) return '';
@@ -41,6 +42,67 @@ export function normalizeArabic(text: string): string {
 export function cleanAreaName(name: string): string {
   if (!name) return "";
   return name.replace(/مدينة\s+/g, "").trim();
+}
+
+export function splitMultiValue(value: any): string[] {
+  return String(value || '')
+    .split(/[,\n،;|/]+/g)
+    .map(part => part.trim())
+    .filter(Boolean);
+}
+
+export function inferGovernorate(areaValue?: string, fallbackGovernorate?: string): string {
+  const fallback = (fallbackGovernorate || '').trim();
+  const areas = splitMultiValue(areaValue || '').map(a => normalizeArabic(cleanAreaName(a)));
+  if (areas.length === 0) return fallback;
+
+  for (const governorate of Object.keys(AREAS)) {
+    const known = AREAS[governorate].map(a => normalizeArabic(cleanAreaName(a)));
+    const matched = areas.some(a => known.includes(a));
+    if (matched) return governorate;
+  }
+  return fallback;
+}
+
+export function inferPurpose(value?: string): string {
+  const v = normalizeArabic(String(value || '').toLowerCase());
+  if (!v) return '';
+  if (v.includes('بدل')) return 'بدل';
+  if (v.includes('ايجار') || v.includes('اجار') || v.includes('للايجار')) return 'ايجار';
+  if (v.includes('شراء') || v.includes('شراي')) return 'شراء';
+  if (v.includes('مستاجر')) return 'مستأجر';
+  if (v.includes('بيع') || v.includes('للبيع')) return 'بيع';
+  return '';
+}
+
+export function inferType(value?: string): string {
+  const v = normalizeArabic(String(value || '').toLowerCase());
+  if (!v) return '';
+  if (v.includes('ارض')) return 'أرض';
+  if (v.includes('بيت')) return 'بيت';
+  if (v.includes('قسيمه') && v.includes('مبني')) return 'قسيمة مبنية';
+  if (v.includes('شقه') || v.includes('دور')) return 'شقة | دور';
+  if (v.includes('عماره')) return 'عمارة';
+  if (v.includes('شاليه')) return 'شالية';
+  if (v.includes('مزرعه')) return 'مزرعة';
+  if (v.includes('استثماري')) return 'استثماري';
+  if (v.includes('صناعي')) return 'صناعي';
+  if (v.includes('مخزن')) return 'مخازن';
+  if (v.includes('تجاري')) return 'تجاري';
+  if (v.includes('طلب')) return 'طلب';
+  return '';
+}
+
+export function cleanNameText(name: any): string {
+  return String(name || '').replace(/\s+/g, ' ').trim();
+}
+
+export function cleanNameWithContext(name: any, purpose?: string, type?: string): string {
+  const cleaned = cleanNameText(name);
+  if (cleaned) return cleaned;
+  const p = inferPurpose(purpose) || cleanNameText(purpose);
+  const t = inferType(type) || cleanNameText(type);
+  return [p, t].filter(Boolean).join(' ').trim();
 }
 
 export function searchMatch(source: string, query: string): boolean {

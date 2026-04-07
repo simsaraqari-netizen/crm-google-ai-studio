@@ -130,23 +130,78 @@ interface Notification {
 function SyncModal({ isOpen, onClose, onSyncFrom, onSyncTo }: any) {
   const [spreadsheetId, setSpreadsheetId] = useState('');
   const [range, setRange] = useState('Sheet1!A1:Z5000');
+  const [history, setHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   
   useEffect(() => {
     if (isOpen) {
-      getDoc(doc(db, 'settings', 'sync')).then(docSnap => {
-        if (docSnap.exists()) {
-          setSpreadsheetId(docSnap.data().spreadsheetId || '');
+      supabase
+        .from('settings')
+        .select('id,spreadsheet_id')
+        .in('id', ['sync', '1'])
+        .then(({ data }) => {
+          const row = (data || []).find((r: any) => r.id === 'sync') || (data || [])[0];
+          setSpreadsheetId(row?.spreadsheet_id || '');
+        })
+        .catch(err => {
+          console.error(err);
+        });
+
+      (async () => {
+        setLoadingHistory(true);
+        try {
+          const session = (await supabase.auth.getSession()).data.session;
+          const token = session?.access_token;
+          if (!token) {
+            setHistory([]);
+            return;
+          }
+          const response = await fetch('/api/sync/history?limit=12', {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (!response.ok) throw new Error(await response.text());
+          const body = await response.json();
+          setHistory(body?.data || []);
+        } catch (err) {
+          console.error(err);
+          setHistory([]);
+        } finally {
+          setLoadingHistory(false);
         }
-      }).catch(err => handleFirestoreError(err, OperationType.GET, 'settings/sync'));
+      })();
     }
   }, [isOpen]);
+
+  const handleRollback = async (snapshotId: string) => {
+    try {
+      const session = (await supabase.auth.getSession()).data.session;
+      const idToken = session?.access_token;
+      if (!idToken) return;
+      const response = await fetch('/api/sync/rollback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken, snapshotId })
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      toast.success('تم التراجع بنجاح');
+      setHistory(prev => prev);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(`فشل التراجع: ${e.message}`);
+    }
+  };
 
   const handleSyncFrom = async (id: string, rng: string) => {
     const extractedId = extractSpreadsheetId(id);
     try {
-      await setDoc(doc(db, 'settings', 'sync'), { spreadsheetId: extractedId }, { merge: true });
+      await supabase.from('settings').upsert([
+        { id: 'sync', spreadsheet_id: extractedId },
+        { id: '1', spreadsheet_id: extractedId }
+      ], { onConflict: 'id' });
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, 'settings/sync');
+      console.error(err);
     }
     onSyncFrom(extractedId, rng);
   };
@@ -154,9 +209,12 @@ function SyncModal({ isOpen, onClose, onSyncFrom, onSyncTo }: any) {
   const handleSyncTo = async (id: string, rng: string) => {
     const extractedId = extractSpreadsheetId(id);
     try {
-      await setDoc(doc(db, 'settings', 'sync'), { spreadsheetId: extractedId }, { merge: true });
+      await supabase.from('settings').upsert([
+        { id: 'sync', spreadsheet_id: extractedId },
+        { id: '1', spreadsheet_id: extractedId }
+      ], { onConflict: 'id' });
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, 'settings/sync');
+      console.error(err);
     }
     onSyncTo(extractedId, rng);
   };
@@ -165,7 +223,8 @@ function SyncModal({ isOpen, onClose, onSyncFrom, onSyncTo }: any) {
     const title = prompt('أدخل اسم الملف الجديد:');
     if (!title) return;
     
-    const idToken = await auth.currentUser?.getIdToken();
+    const session = (await supabase.auth.getSession()).data.session;
+    const idToken = session?.access_token;
     if (!idToken) return;
     
     try {
@@ -181,9 +240,12 @@ function SyncModal({ isOpen, onClose, onSyncFrom, onSyncTo }: any) {
       const { spreadsheetId } = await response.json();
       setSpreadsheetId(spreadsheetId);
       try {
-        await setDoc(doc(db, 'settings', 'sync'), { spreadsheetId }, { merge: true });
+        await supabase.from('settings').upsert([
+          { id: 'sync', spreadsheet_id: spreadsheetId },
+          { id: '1', spreadsheet_id: spreadsheetId }
+        ], { onConflict: 'id' });
       } catch (err) {
-        handleFirestoreError(err, OperationType.WRITE, 'settings/sync');
+        console.error(err);
       }
       toast.success('تم إنشاء الملف بنجاح');
     } catch (e: any) {
@@ -246,6 +308,31 @@ function SyncModal({ isOpen, onClose, onSyncFrom, onSyncTo }: any) {
           >
             مزامنة إلى الشيت
           </button>
+        </div>
+        <div className="mb-3 max-h-48 overflow-auto rounded-lg border border-stone-200 p-3 bg-stone-50">
+          <p className="text-xs font-bold text-stone-700 mb-2">سجل المزامنة (مع التراجع)</p>
+          {loadingHistory ? (
+            <p className="text-xs text-stone-500">جاري تحميل السجل...</p>
+          ) : history.length === 0 ? (
+            <p className="text-xs text-stone-500">لا يوجد سجل مزامنة بعد</p>
+          ) : (
+            <div className="space-y-2">
+              {history.map((item: any) => (
+                <div key={item.id} className="flex items-center justify-between gap-2 bg-white border border-stone-200 rounded-lg p-2">
+                  <div className="text-[11px] text-stone-700">
+                    <div>{item.direction} | {item.row_count || 0} صف</div>
+                    <div className="text-stone-500">{new Date(item.created_at).toLocaleString('ar-KW')}</div>
+                  </div>
+                  <button
+                    onClick={() => handleRollback(item.id)}
+                    className="px-2 py-1 text-[11px] rounded bg-stone-700 text-white hover:bg-stone-800"
+                  >
+                    تراجع
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         <button 
           onClick={onClose}
@@ -1233,11 +1320,12 @@ export default function App() {
   }
 
   const handleSyncFrom = async (spreadsheetId: string, range: string) => {
-    const idToken = await auth.currentUser?.getIdToken();
+    const session = (await supabase.auth.getSession()).data.session;
+    const idToken = session?.access_token;
     if (!idToken) return;
     
     try {
-      const response = await fetch('/api/sync', {
+      const response = await fetch('/api/sync/auto', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ idToken, spreadsheetId, range })
@@ -1246,74 +1334,6 @@ export default function App() {
         const errorText = await response.text();
         throw new Error(errorText || 'Sync failed');
       }
-      const data = await response.json();
-      
-      if (data && Array.isArray(data)) {
-        // Skip header if it looks like one (e.g., first cell is "ID")
-        const startIdx = (data[0] && data[0][0] === 'ID') ? 1 : 0;
-        
-        for (let i = startIdx; i < data.length; i++) {
-          const row = data[i];
-          if (!row || row.length < 2) continue; // Need at least name
-          
-          const [
-            id, name, governorate, area, type, purpose, phone, 
-            assignedEmployeeId, assignedEmployeeName, imagesStr, linksStr, 
-            locationLink, isSoldStr, sector, block, street, avenue, 
-            plotNumber, houseNumber, location, details, lastComment, 
-            statusLabel, createdBy, createdAtStr
-          ] = row;
-
-          const propertyData: any = {
-            name: name || '',
-            governorate: governorate || '',
-            area: area || '',
-            type: type || '',
-            purpose: purpose || '',
-            phone: phone || '',
-            assignedEmployeeId: assignedEmployeeId || '',
-            assignedEmployeeName: assignedEmployeeName || '',
-            images: imagesStr ? imagesStr.split(',').filter(Boolean) : [],
-            links: linksStr ? linksStr.split(',').filter(Boolean) : [],
-            locationLink: locationLink || '',
-            isSold: isSoldStr === 'TRUE' || isSoldStr === 'نعم' || isSoldStr === 'مباع',
-            sector: sector || '',
-            block: block || '',
-            street: street || '',
-            avenue: avenue || '',
-            plotNumber: plotNumber || '',
-            houseNumber: houseNumber || '',
-            location: location || '',
-            details: details || '',
-            statusLabel: statusLabel || '',
-            updatedAt: serverTimestamp()
-          };
-
-          if (lastComment) {
-            propertyData.lastComment = lastComment;
-          }
-
-          if (id && id.length > 5) { // Likely a Firestore ID
-            try {
-              await updateDoc(doc(db, 'properties', id), propertyData);
-            } catch (e) {
-              // If ID doesn't exist, create new
-              await addDoc(collection(db, 'properties'), {
-                ...propertyData,
-                createdAt: createdAtStr ? new Date(createdAtStr) : serverTimestamp(),
-                createdBy: createdBy || user?.uid
-              });
-            }
-          } else {
-            await addDoc(collection(db, 'properties'), {
-              ...propertyData,
-              createdAt: createdAtStr ? new Date(createdAtStr) : serverTimestamp(),
-              createdBy: createdBy || user?.uid
-            });
-          }
-        }
-      }
-      
       toast.success('تمت المزامنة من الشيت بنجاح');
       setIsSyncModalOpen(false);
     } catch (e: any) {
@@ -1322,55 +1342,23 @@ export default function App() {
     }
   };
 
-  const handleSyncTo = async (rng: string) => {
-    if (!spreadsheetId) {
+  const handleSyncTo = async (id: string, rng: string) => {
+    const extractedId = extractSpreadsheetId(id);
+    const targetSpreadsheetId = extractedId || spreadsheetId;
+    if (extractedId && extractedId !== spreadsheetId) setSpreadsheetId(extractedId);
+    if (!targetSpreadsheetId) {
       toast.error('يرجى حفظ رابط الشيت أولاً');
       return;
     }
-    const idToken = await auth.currentUser?.getIdToken();
+    const session = (await supabase.auth.getSession()).data.session;
+    const idToken = session?.access_token;
     if (!idToken) return;
     
-    // Prepare data from properties state
-    const header = [
-      'ID', 'الاسم', 'المحافظة', 'المنطقة', 'النوع', 'الغرض', 'الهاتف', 
-      'ID الموظف', 'اسم الموظف', 'الصور', 'الروابط', 'رابط الموقع', 
-      'مباع', 'القطاع', 'القطعة', 'الشارع', 'الجادة', 'القسيمة', 
-      'المنزل', 'الموقع الوصفي', 'التفاصيل', 'آخر تعليق', 'ملصق الحالة', 
-      'أنشئ بواسطة', 'تاريخ الإنشاء'
-    ];
-    
-    const data = [header, ...properties.map(p => [
-      p.id, 
-      p.name || '', 
-      p.governorate || '', 
-      p.area || '', 
-      p.type || '', 
-      p.purpose || '', 
-      p.phone || '', 
-      p.assignedEmployeeId || '', 
-      p.assignedEmployeeName || '', 
-      (p.images || []).join(','), 
-      p.locationLink || '', 
-      p.isSold ? 'TRUE' : 'FALSE', 
-      p.sector || '', 
-      p.block || '', 
-      p.street || '', 
-      p.avenue || '', 
-      p.plotNumber || '', 
-      p.houseNumber || '', 
-      p.location || '', 
-      p.details || '', 
-      p.lastComment || '', 
-      p.statusLabel || '', 
-      p.createdBy || '', 
-      p.createdAt?.toDate ? p.createdAt.toDate().toISOString() : (p.createdAt || '')
-    ])];
-    
     try {
-      const response = await fetch('/api/sync', {
+      const response = await fetch('/api/sync/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken, spreadsheetId, range: rng, data })
+        body: JSON.stringify({ idToken, spreadsheetId: targetSpreadsheetId, range: rng })
       });
       if (!response.ok) {
         const errorText = await response.text();
@@ -1665,11 +1653,15 @@ export default function App() {
                           onClick={async () => {
                             const extractedId = extractSpreadsheetId(tempSpreadsheetId);
                             try {
-                              await setDoc(doc(db, 'settings', 'sync'), { spreadsheetId: extractedId }, { merge: true });
+                              await supabase.from('settings').upsert([
+                                { id: 'sync', spreadsheet_id: extractedId },
+                                { id: '1', spreadsheet_id: extractedId }
+                              ], { onConflict: 'id' });
                               setSpreadsheetId(extractedId);
                               toast.success('تم حفظ الرابط');
                             } catch (err) {
-                              handleFirestoreError(err, OperationType.WRITE, 'settings/sync');
+                              console.error(err);
+                              toast.error('تعذر حفظ رابط الشيت');
                             }
                           }}
                           className="w-full bg-emerald-600 text-white p-2 rounded-lg text-sm font-bold hover:bg-emerald-700"

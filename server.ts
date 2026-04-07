@@ -1,9 +1,12 @@
+import 'dotenv/config';
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createClient } from '@supabase/supabase-js';
 import { readSheet, writeToSheet, createSheet } from "./src/services/googleSheetsService.ts";
+import { syncAppToSheets, syncSupabaseWithSheets, getSyncHistory, rollbackSyncSnapshot } from "./src/services/syncService.ts";
+import { initializeCronJobs } from "./src/services/cronService.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -18,6 +21,27 @@ async function startServer() {
   const PORT = 3000;
 
   app.use(express.json());
+
+  const requireAdmin = async (idToken?: string) => {
+    if (!idToken) return { ok: false as const, status: 401, message: 'Unauthorized', userId: '' };
+
+    const { data: { user: caller } } = await supabaseAdmin.auth.getUser(idToken);
+    if (!caller) return { ok: false as const, status: 401, message: 'Unauthorized', userId: '' };
+
+    const { data: profile } = await supabaseAdmin
+      .from('user_profiles')
+      .select('role')
+      .eq('id', caller.id)
+      .maybeSingle();
+
+    const isAdminEmail = ["simsaraqari@gmail.com", "mostafasoliman550@gmail.com"].includes(caller.email || '');
+    const isAdminRole = ['admin', 'super_admin'].includes(profile?.role || '');
+    if (!isAdminRole && !isAdminEmail) {
+      return { ok: false as const, status: 403, message: 'Unauthorized: admin only', userId: caller.id };
+    }
+
+    return { ok: true as const, status: 200, message: 'OK', userId: caller.id };
+  };
 
   // API routes
   app.get("/api/property/:id", async (req, res) => {
@@ -55,15 +79,9 @@ async function startServer() {
     const { idToken, spreadsheetId, range, data } = req.body;
     console.log(`Sync request received for spreadsheet: ${spreadsheetId}, range: ${range}`);
     try {
-      const { data: { user: caller } } = await supabaseAdmin.auth.getUser(idToken);
-      if (!caller) return res.status(401).send('Unauthorized');
-
-      const { data: userDoc } = await supabaseAdmin.from('users').select('role').eq('uid', caller.id).maybeSingle();
-      const isAdminEmail = ["simsaraqari@gmail.com", "mostafasoliman550@gmail.com"].includes(caller.email!);
-      
-      if (userDoc?.role !== 'admin' && !isAdminEmail) {
-        console.warn(`Unauthorized sync attempt by user: ${caller.id} (${caller.email})`);
-        return res.status(403).send('Unauthorized: You must be an admin to sync.');
+      const authCheck = await requireAdmin(idToken);
+      if (!authCheck.ok) {
+        return res.status(authCheck.status).send(authCheck.message);
       }
       
       if (!process.env.GOOGLE_SHEETS_CREDENTIALS) {
@@ -86,17 +104,83 @@ async function startServer() {
     }
   });
 
+  app.post("/api/sync/auto", async (req, res) => {
+    const { idToken } = req.body || {};
+    try {
+      const authCheck = await requireAdmin(idToken);
+      if (!authCheck.ok) {
+        return res.status(authCheck.status).send(authCheck.message);
+      }
+      if (!process.env.GOOGLE_SHEETS_CREDENTIALS) {
+        return res.status(500).send('Google Sheets credentials are not configured in the server.');
+      }
+      await syncSupabaseWithSheets();
+      return res.json({ success: true, direction: 'sheet_to_app' });
+    } catch (e: any) {
+      console.error('[SYNC] /api/sync/auto error:', e);
+      return res.status(500).send(e.message || 'Internal sync error');
+    }
+  });
+
+  app.post("/api/sync/push", async (req, res) => {
+    const { idToken } = req.body || {};
+    try {
+      const authCheck = await requireAdmin(idToken);
+      if (!authCheck.ok) {
+        return res.status(authCheck.status).send(authCheck.message);
+      }
+      if (!process.env.GOOGLE_SHEETS_CREDENTIALS) {
+        return res.status(500).send('Google Sheets credentials are not configured in the server.');
+      }
+      await syncAppToSheets({ triggeredBy: authCheck.userId, note: 'manual-app-to-sheet' });
+      return res.json({ success: true, direction: 'app_to_sheet' });
+    } catch (e: any) {
+      console.error('[SYNC] /api/sync/push error:', e);
+      return res.status(500).send(e.message || 'Internal sync error');
+    }
+  });
+
+  app.get("/api/sync/history", async (req, res) => {
+    const bearer = req.headers.authorization?.replace('Bearer ', '');
+    try {
+      const authCheck = await requireAdmin(bearer);
+      if (!authCheck.ok) {
+        return res.status(authCheck.status).send(authCheck.message);
+      }
+      const limit = Number(req.query.limit || 20);
+      const history = await getSyncHistory(limit);
+      return res.json({ success: true, data: history });
+    } catch (e: any) {
+      console.error('[SYNC] /api/sync/history error:', e);
+      return res.status(500).send(e.message || 'Failed to read sync history');
+    }
+  });
+
+  app.post("/api/sync/rollback", async (req, res) => {
+    const { idToken, snapshotId } = req.body || {};
+    if (!snapshotId) return res.status(400).send('snapshotId is required');
+    try {
+      const authCheck = await requireAdmin(idToken);
+      if (!authCheck.ok) {
+        return res.status(authCheck.status).send(authCheck.message);
+      }
+      if (!process.env.GOOGLE_SHEETS_CREDENTIALS) {
+        return res.status(500).send('Google Sheets credentials are not configured in the server.');
+      }
+      await rollbackSyncSnapshot(snapshotId, authCheck.userId);
+      return res.json({ success: true, snapshotId });
+    } catch (e: any) {
+      console.error('[SYNC] /api/sync/rollback error:', e);
+      return res.status(500).send(e.message || 'Rollback failed');
+    }
+  });
+
   app.post("/api/create-sheet", async (req, res) => {
     const { idToken, title } = req.body;
     try {
-      const { data: { user: caller } } = await supabaseAdmin.auth.getUser(idToken);
-      if (!caller) return res.status(401).send('Unauthorized');
-
-      const { data: userDoc } = await supabaseAdmin.from('users').select('role').eq('uid', caller.id).maybeSingle();
-      const isAdminEmail = ["simsaraqari@gmail.com", "mostafasoliman550@gmail.com"].includes(caller.email!);
-      
-      if (userDoc?.role !== 'admin' && !isAdminEmail) {
-        return res.status(403).send('Unauthorized');
+      const authCheck = await requireAdmin(idToken);
+      if (!authCheck.ok) {
+        return res.status(authCheck.status).send(authCheck.message);
       }
 
       if (!process.env.GOOGLE_SHEETS_CREDENTIALS) {
@@ -157,6 +241,9 @@ async function startServer() {
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
+
+  initializeCronJobs();
+  console.log('[CRON] Daily app->sheet sync initialized');
 }
 
 startServer();
