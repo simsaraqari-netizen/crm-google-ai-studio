@@ -39,6 +39,16 @@ export function normalizeDigits(text: string): string {
   return text.replace(/[٠-٩۰-۹]/g, (d) => arabicDigits[d] || d);
 }
 
+export function splitMultiValue(text: string): string[] {
+  if (!text) return [];
+  // Split by common delimiters: comma, slash, "و", "and"
+  // Using \s+ to ensure "و" is a standalone word
+  const delimiters = /[,/،|]|\s+[و]\s+|\s+and\s+/gi;
+  return text.split(delimiters)
+    .map(v => v.trim())
+    .filter(Boolean);
+}
+
 export function getImageUrl(img: any): string {
   if (!img) return '';
   if (typeof img === 'string') {
@@ -148,25 +158,33 @@ export function inferArea(text: string): string {
   return '';
 }
 
-export function inferGovernorate(areaName: string, currentGov: string = ""): string {
-  if (!areaName && !currentGov) return "محافظة غير محددة";
+export function inferGovernorate(areaInput: string, currentGov: string = ""): string {
+  if (!areaInput && !currentGov) return "محافظة غير محددة";
   
-  const nArea = normalizeArabic(cleanAreaName(areaName));
-  const nGov = normalizeArabic(currentGov);
-
-  // Import AREAS here to avoid circular dependency issues at top-level
+  const areas = splitMultiValue(areaInput);
   const { AREAS } = require('./constants');
-  
-  if (nArea) {
+  const results = new Set<string>();
+
+  for (const area of areas) {
+    const nArea = normalizeArabic(cleanAreaName(area));
+    if (!nArea) continue;
+
+    let found = false;
     for (const gov of Object.keys(AREAS)) {
       if (AREAS[gov].some((x: string) => normalizeArabic(x).includes(nArea) || nArea.includes(normalizeArabic(x)))) {
-        return gov;
+        results.add(gov);
+        found = true;
+        break;
       }
     }
   }
 
+  if (results.size > 0) {
+    return Array.from(results).join(', ');
+  }
+
   // Fallback to text matching on currentGov
-  const t = nGov || nArea;
+  const t = normalizeArabic(currentGov || areaInput);
   if (t.includes('عاصمه') || t.includes('عاصمة')) return 'محافظة العاصمة';
   if (t.includes('حولي')) return 'محافظة حولي';
   if (t.includes('فروانيه') || t.includes('فروانية') || t.includes('رابعه') || t.includes('رابعة')) return 'محافظة الفروانية';

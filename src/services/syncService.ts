@@ -30,7 +30,8 @@ export const syncSupabaseWithSheets = async () => {
     const sheetData = await readSheet(spreadsheetId, range);
     
     if (sheetData && Array.isArray(sheetData)) {
-      const startIdx = (sheetData[0] && sheetData[0][0] === 'ID') ? 1 : 0;
+      const headerRow = sheetData[0];
+      const startIdx = (headerRow && headerRow[0] === 'ID') ? 1 : 0;
       
       for (let i = startIdx; i < sheetData.length; i++) {
         const row = sheetData[i];
@@ -44,80 +45,110 @@ export const syncSupabaseWithSheets = async () => {
           status_label, created_by, created_atStr
         ] = row;
 
-        const cleanVal = (val: string) => {
-          if (!val) return '';
-          let v = normalizeDigits(val); // Always convert digits first
-          v = v.replace(/resedintal|residental|residential/gi, '').trim();
-          // Standardize standalone "م" contextually
-          v = v.replace(/\bم\s+(\d+)/g, 'منزل $1');
-          return v;
+        // Fetch existing record to preserve fields if sheet is empty
+        let existing: any = null;
+        if (id) {
+          const { data } = await supabaseAdmin.from('properties').select('*').eq('id', id).single();
+          existing = data;
+        }
+
+        const cleanStr = (val: any) => {
+          if (val === undefined || val === null || val === '') return '';
+          return normalizeDigits(String(val)).trim();
         };
 
-        const cPurpose = cleanVal(purpose);
-        const cType = cleanVal(type);
-        const cName = cleanVal(name);
-        const cArea = cleanAreaName(cleanVal(area));
+        // PRIORITY LOGIC: Use sheet if not empty, otherwise keep existing
+        const getVal = (sheetVal: any, dbKey: string) => {
+          const s = cleanStr(sheetVal);
+          if (s) return s;
+          return existing ? existing[dbKey] : '';
+        };
 
+        // Multi-value handling for Area and Governorate
+        const rawArea = cleanStr(area);
+        let finalArea = existing?.area || '';
+        let finalGov = existing?.governorate || '';
+
+        if (rawArea) {
+          const areas = splitMultiValue(rawArea).map(cleanAreaName);
+          finalArea = Array.from(new Set(areas)).join(', ');
+          finalGov = inferGovernorate(finalArea, cleanStr(governorate));
+        } else if (cleanStr(governorate)) {
+          finalGov = cleanStr(governorate);
+        }
+
+        // Multi-employee handling
+        const rawEmployeeName = cleanStr(assigned_employee_name);
+        let finalEmployeeName = existing?.assigned_employee_name || '';
+        if (rawEmployeeName) {
+          const names = splitMultiValue(rawEmployeeName);
+          finalEmployeeName = Array.from(new Set(names)).join(', ');
+        }
+
+        const cName = getVal(name, 'name');
+        const cPurpose = getVal(purpose, 'purpose');
+        const cType = getVal(type, 'type');
+
+        // Infer missing purpose/type if needed
         let newPurpose = cPurpose;
         let newType = cType;
-
         if (!newPurpose || !inferPurpose(newPurpose)) {
           newPurpose = inferPurpose(cPurpose) || inferPurpose(cType) || inferPurpose(cName);
         }
-        
         if (!newType || !inferType(newType)) {
           newType = inferType(cType) || inferType(cPurpose) || inferType(cName);
         }
 
-        const newGov = inferGovernorate(cArea, cleanVal(governorate));
-
-        // Deduplicate name using contextual metadata
-        let finalName = cleanNameWithContext(cName, cArea, newPurpose, newType);
-        finalName = cleanNameText(finalName);
-
         const propertyData: any = {
-          name: finalName,
-          governorate: newGov,
-          area: cArea,
-          type: newType,
-          purpose: newPurpose,
-          phone: cleanVal(phone),
-          assigned_employee_id: assigned_employee_id || null,
-          assigned_employee_name: assigned_employee_name || '',
-          images: imagesStr ? imagesStr.split(',').filter(Boolean).map(url => ({ 
-            url, 
-            type: (url.includes('.mp4') || url.includes('.mov') || url.includes('video')) ? 'video' : 'image',
-            comment: '' 
-          })) : [],
-          links: linksStr ? linksStr.split(',').filter(Boolean) : [],
-          location_link: location_link || '',
-          is_sold: is_soldStr === 'TRUE' || is_soldStr === 'نعم' || is_soldStr === 'مباع',
-          sector: cleanVal(sector),
-          block: cleanVal(block),
-          street: cleanVal(street),
-          avenue: cleanVal(avenue),
-          plot_number: cleanVal(plot_number),
-          house_number: cleanVal(house_number),
-          location: cleanVal(location),
-          details: cleanVal(details),
-          status_label: cleanVal(status_label),
+          name: cleanNameText(cName),
+          governorate: finalGov,
+          area: finalArea,
+          type: newType || cType,
+          purpose: newPurpose || cPurpose,
+          phone: getVal(phone, 'phone'),
+          assigned_employee_id: assigned_employee_id || (existing?.assigned_employee_id || null),
+          assigned_employee_name: finalEmployeeName,
+          location_link: getVal(location_link, 'location_link'),
+          is_sold: is_soldStr ? (is_soldStr === 'TRUE' || is_soldStr === 'نعم' || is_soldStr === 'مباع') : (existing?.is_sold || false),
+          sector: getVal(sector, 'sector'),
+          block: getVal(block, 'block'),
+          street: getVal(street, 'street'),
+          avenue: getVal(avenue, 'avenue'),
+          plot_number: getVal(plot_number, 'plot_number'),
+          house_number: getVal(house_number, 'house_number'),
+          location: getVal(location, 'location'),
+          details: getVal(details, 'details'),
+          status_label: getVal(status_label, 'status_label'),
           updated_at: new Date().toISOString()
         };
 
-        if (last_comment) propertyData.last_comment = cleanVal(last_comment);
+        // Handle JSON fields (Images/Links)
+        if (imagesStr) {
+          propertyData.images = splitMultiValue(imagesStr).map(url => ({ 
+            url, 
+            type: (url.includes('.mp4') || url.includes('.mov') || url.includes('video')) ? 'video' : 'image',
+            comment: '' 
+          }));
+        }
+        if (linksStr) {
+          propertyData.links = splitMultiValue(linksStr);
+        }
+
+        if (last_comment) propertyData.last_comment = cleanStr(last_comment);
         if (created_by) propertyData.created_by = created_by;
         if (created_atStr) propertyData.created_at = new Date(created_atStr).toISOString();
 
         if (id) {
           const { error: updateError } = await supabaseAdmin.from('properties').update(propertyData).eq('id', id);
           if (updateError) {
+             // Handle case where ID might not exist yet but was provided
             await supabaseAdmin.from('properties').insert({ ...propertyData, id });
           }
         } else {
           await supabaseAdmin.from('properties').insert({ ...propertyData });
         }
       }
-      console.log('[SYNC] Successfully imported data from Sheets.');
+      console.log('[SYNC] Successfully imported data from Sheets with Priority logic.');
     }
 
     // ============================================

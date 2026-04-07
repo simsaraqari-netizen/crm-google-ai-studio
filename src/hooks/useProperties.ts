@@ -36,13 +36,14 @@ export const useProperties = (user: any, isSuperAdmin: boolean, selectedCompanyI
 
       if (filters.status === 'sold') query = query.eq('is_sold', true);
       if (filters.status === 'available') query = query.eq('is_sold', false);
-      if (filters.governorate) query = query.eq('governorate', filters.governorate);
-      if (filters.type) query = query.eq('type', filters.type);
-      if (filters.purpose) query = query.eq('purpose', filters.purpose);
+      if (filters.governorate) query = query.ilike('governorate', `%${filters.governorate}%`);
+      if (filters.type) query = query.ilike('type', `%${filters.type}%`);
+      if (filters.purpose) query = query.ilike('purpose', `%${filters.purpose}%`);
 
       if (debouncedSearchQuery) {
         const search = debouncedSearchQuery.trim();
-        query = query.or(`name.imatch.\\y${search}\\y,phone.imatch.\\y${search}\\y,area.imatch.\\y${search}\\y`);
+        // Use ilike with % for better multi-value matching during search
+        query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%,area.ilike.%${search}%,details.ilike.%${search}%`);
       }
       
       const { data, error, count } = await query.order('created_at', { ascending: false }).range(0, visibleCount - 1);

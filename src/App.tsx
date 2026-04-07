@@ -762,7 +762,11 @@ export default function App() {
     const marketers = new Set<string>();
 
     properties.forEach(p => {
-      if (p.assigned_employee_name) marketers.add(p.assigned_employee_name);
+      if (p.assigned_employee_name) {
+        // Split multi-value employee names (e.g., "Em1 / Emp2")
+        const names = p.assigned_employee_name.split(/[,\/و\s]+/).map(n => n.trim()).filter(Boolean);
+        names.forEach(n => marketers.add(n));
+      }
     });
 
     return {
@@ -815,14 +819,14 @@ export default function App() {
         if (!searchMatch(searchableText, activeSearchQuery)) return false;
       }
 
-      const matchesGov = !filters.governorate || normalizeArabic(p.governorate || '') === normalizeArabic(filters.governorate);
-      const matchesArea = !filters.area || normalizeArabic(p.area || '') === normalizeArabic(filters.area);
-      const matchesType = !filters.type || normalizeArabic(p.type || '') === normalizeArabic(filters.type);
-      const matchesPurpose = !filters.purpose || normalizeArabic(p.purpose || '') === normalizeArabic(filters.purpose);
-      const matchesLocation = !filters.location || normalizeArabic(p.location || '') === normalizeArabic(filters.location);
-      const matchesPlot = !filters.plot_number || (p.plot_number && p.plot_number === normalizeDigits(filters.plot_number));
-      const matchesHouse = !filters.house_number || (p.house_number && p.house_number === normalizeDigits(filters.house_number));
-      const matchesMarketer = !filters.marketer || normalizeArabic(p.assigned_employee_name || '') === normalizeArabic(filters.marketer);
+      const matchesGov = !filters.governorate || normalizeArabic(p.governorate || '').includes(normalizeArabic(filters.governorate));
+      const matchesArea = !filters.area || normalizeArabic(p.area || '').includes(normalizeArabic(filters.area));
+      const matchesType = !filters.type || normalizeArabic(p.type || '').includes(normalizeArabic(filters.type));
+      const matchesPurpose = !filters.purpose || normalizeArabic(p.purpose || '').includes(normalizeArabic(filters.purpose));
+      const matchesLocation = !filters.location || normalizeArabic(p.location || '').includes(normalizeArabic(filters.location));
+      const matchesPlot = !filters.plot_number || (p.plot_number && normalizeDigits(p.plot_number).includes(normalizeDigits(filters.plot_number)));
+      const matchesHouse = !filters.house_number || (p.house_number && normalizeDigits(p.house_number).includes(normalizeDigits(filters.house_number)));
+      const matchesMarketer = !filters.marketer || normalizeArabic(p.assigned_employee_name || '').includes(normalizeArabic(filters.marketer));
       const matchesStatus = !filters.status || 
                            (filters.status === 'sold' && p.is_sold) || 
                            (filters.status === 'available' && !p.is_sold);
@@ -968,6 +972,7 @@ export default function App() {
     if (!idToken) return;
     
     try {
+      toast.loading('بدء المزامنة من الشيت...', { id: 'sync-progress' });
       const response = await fetch('/api/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -980,7 +985,13 @@ export default function App() {
       const data = await response.json();
       
       if (data && Array.isArray(data)) {
+        // Fetch all existing properties to handle priority logic
+        const { data: existingProperties } = await supabase.from('properties').select('*');
+        const propertiesMap = new Map((existingProperties || []).map(p => [p.id, p]));
+
         const startIdx = (data[0] && data[0][0] === 'ID') ? 1 : 0;
+        let updateCount = 0;
+        let insertCount = 0;
         
         for (let i = startIdx; i < data.length; i++) {
           const row = data[i];
@@ -994,71 +1005,80 @@ export default function App() {
             status_label, created_by, created_atStr
           ] = row;
 
-          const cleanVal = (val: string) => val ? val.replace(/resedintal|residental|residential/gi, '').trim() : '';
+          const existing = id ? propertiesMap.get(id) : null;
+          const clean = (val: any) => typeof val === 'string' ? val.trim() : (val || '');
 
-          const cPurpose = cleanVal(purpose);
-          const cType = cleanVal(type);
-          const cName = cleanVal(name);
-          const cArea = cleanAreaName(cleanVal(area));
+          // Priority Logic: Use sheet value if not empty, otherwise use existing DB value
+          const getValue = (sheetVal: any, dbVal: any) => {
+            const s = clean(sheetVal);
+            return s !== '' ? s : (dbVal || '');
+          };
 
-          const newPurpose = inferPurpose(cPurpose) || inferPurpose(cType) || inferPurpose(cName);
-          const newType = inferType(cType) || inferType(cPurpose) || inferType(cName);
-          const newGov = inferGovernorate(cArea, cleanVal(governorate));
+          const sArea = clean(area);
+          const sName = clean(name);
+          const sType = clean(type);
+          const sPurpose = clean(purpose);
+
+          // Multi-value handling for areas and governorates
+          let finalArea = getValue(sArea, existing?.area);
+          let finalGov = getValue(clean(governorate), existing?.governorate);
+
+          if (sArea !== '') {
+            // If sheet has area, re-infer governorates
+            finalGov = inferGovernorate(sArea, clean(governorate));
+          }
+
+          // Image and links merging/priority
+          const parseList = (str: string) => str ? str.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean) : [];
+          const sheetImages = parseList(imagesStr);
+          const finalImages = sheetImages.length > 0 ? sheetImages : (existing?.images || []);
 
           const propertyData: any = {
-            name: cName,
-            governorate: newGov,
-            area: cArea,
-            type: newType,
-            purpose: newPurpose,
-            phone: cleanVal(phone),
-            assigned_employee_id: assigned_employee_id || '',
-            assigned_employee_name: assigned_employee_name || '',
-            images: imagesStr ? imagesStr.split(',').filter(Boolean) : [],
-            links: linksStr ? linksStr.split(',').filter(Boolean) : [],
-            location_link: location_link || '',
-            is_sold: is_soldStr === 'TRUE' || is_soldStr === 'نعم' || is_soldStr === 'مباع',
-            sector: cleanVal(sector),
-            block: cleanVal(block),
-            street: cleanVal(street),
-            avenue: cleanVal(avenue),
-            plot_number: cleanVal(plot_number),
-            house_number: cleanVal(house_number),
-            location: cleanVal(location),
-            details: cleanVal(details),
-            status_label: cleanVal(status_label),
+            name: getValue(sName, existing?.name),
+            governorate: finalGov,
+            area: finalArea,
+            type: getValue(sType, existing?.type) || inferType(sName) || existing?.type,
+            purpose: getValue(sPurpose, existing?.purpose) || inferPurpose(sName) || existing?.purpose,
+            phone: getValue(phone, existing?.phone),
+            assigned_employee_id: getValue(assigned_employee_id, existing?.assigned_employee_id),
+            assigned_employee_name: getValue(assigned_employee_name, existing?.assigned_employee_name),
+            images: finalImages,
+            location_link: getValue(location_link, existing?.location_link),
+            is_sold: is_soldStr !== '' ? (is_soldStr === 'TRUE' || is_soldStr === 'نعم' || is_soldStr === 'مباع') : (existing?.is_sold || false),
+            sector: getValue(sector, existing?.sector),
+            block: getValue(block, existing?.block),
+            street: getValue(street, existing?.street),
+            avenue: getValue(avenue, existing?.avenue),
+            plot_number: getValue(plot_number, existing?.plot_number),
+            house_number: getValue(house_number, existing?.house_number),
+            location: getValue(location, existing?.location),
+            details: getValue(details, existing?.details),
+            status_label: getValue(status_label, existing?.status_label),
+            last_comment: getValue(last_comment, existing?.last_comment),
             updated_at: new Date().toISOString()
           };
 
-          if (last_comment) {
-            propertyData.last_comment = cleanVal(last_comment);
-          }
-
-          if (id && id.length > 5) {
+          if (existing) {
             const { error: updateError } = await supabase.from('properties').update(propertyData).eq('id', id);
-            if (updateError) {
-              await supabase.from('properties').insert({
-                ...propertyData,
-                created_at: created_atStr ? new Date(created_atStr).toISOString() : new Date().toISOString(),
-                created_by: created_by || user?.id
-              });
-            }
+            if (!updateError) updateCount++;
           } else {
-            await supabase.from('properties').insert({
+            const { error: insertError } = await supabase.from('properties').insert({
               ...propertyData,
               created_at: created_atStr ? new Date(created_atStr).toISOString() : new Date().toISOString(),
-              created_by: created_by || user?.id
+              created_by: created_by || user?.id,
+              status: 'approved'
             });
+            if (!insertError) insertCount++;
           }
         }
+        
+        toast.success(`تمت المزامنة: تحديث ${updateCount}، إضافة ${insertCount}`, { id: 'sync-progress' });
+        setSpreadsheetId(spreadsheet_id);
+        setIsSyncModalOpen(false);
       }
-      
-      toast.success('تمت المزامنة من الشيت بنجاح');
-      setSpreadsheetId(spreadsheet_id);
-      setIsSyncModalOpen(false);
     } catch (e: any) {
       console.error(e);
-      toast.error(`حدث خطأ أثناء المزامنة من الشيت: ${e.message}`);
+      toast.error(`حدث خطأ أثناء المزامنة: ${e.message}`, { id: 'sync-progress' });
     }
   };
 
