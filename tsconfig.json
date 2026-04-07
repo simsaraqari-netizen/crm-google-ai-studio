@@ -23,5 +23,7 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "include": ["src", "server.ts", "test_sync.ts", "clean_db.ts", "restore_sheet.ts", "normalize_sheet_digits.ts"],
+  "exclude": ["node_modules", "dist"]
 }

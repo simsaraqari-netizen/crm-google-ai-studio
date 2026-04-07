@@ -11,7 +11,7 @@ export function SyncModal({ isOpen, onClose, onSyncFrom, onSyncTo }: any) {
     if (isOpen) {
       supabase.from('settings').select('*').eq('id', 'sync').single().then(({ data }) => {
         if (data) {
-          setSpreadsheetId(data.spreadsheetId || '');
+          setSpreadsheetId(data.spreadsheet_id || data.spreadsheetId || '');
         }
       });
     }
@@ -20,7 +20,7 @@ export function SyncModal({ isOpen, onClose, onSyncFrom, onSyncTo }: any) {
   const handleSyncFrom = async (id: string, rng: string) => {
     const extractedId = extractSpreadsheetId(id);
     try {
-      await supabase.from('settings').upsert({ id: 'sync', spreadsheetId: extractedId });
+      await supabase.from('settings').upsert({ id: 'sync', spreadsheet_id: extractedId });
     } catch (err) {
       console.error(err);
     }
@@ -30,7 +30,7 @@ export function SyncModal({ isOpen, onClose, onSyncFrom, onSyncTo }: any) {
   const handleSyncTo = async (id: string, rng: string) => {
     const extractedId = extractSpreadsheetId(id);
     try {
-      await supabase.from('settings').upsert({ id: 'sync', spreadsheetId: extractedId });
+      await supabase.from('settings').upsert({ id: 'sync', spreadsheet_id: extractedId });
     } catch (err) {
       console.error(err);
     }
@@ -58,7 +58,7 @@ export function SyncModal({ isOpen, onClose, onSyncFrom, onSyncTo }: any) {
       const { spreadsheetId } = await response.json();
       setSpreadsheetId(spreadsheetId);
       try {
-        await supabase.from('settings').upsert({ id: 'sync', spreadsheetId });
+        await supabase.from('settings').upsert({ id: 'sync', spreadsheet_id: spreadsheetId });
       } catch (err) {
         console.error(err);
       }

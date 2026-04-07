@@ -989,7 +989,7 @@ export default function App() {
       const response = await fetch('/api/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken, spreadsheet_id, range })
+        body: JSON.stringify({ idToken, spreadsheetId: spreadsheet_id, range })
       });
       if (!response.ok) {
         const errorText = await response.text();
@@ -1124,7 +1124,10 @@ export default function App() {
       p.phone || '', 
       p.assigned_employee_id || '', 
       p.assigned_employee_name || '', 
-      (p.images || []).join(','), 
+      (p.images || [])
+        .map((img: any) => typeof img === 'string' ? img : (img?.url || ''))
+        .filter(Boolean)
+        .join(','), 
       p.location_link || '', 
       p.is_sold ? 'TRUE' : 'FALSE', 
       p.sector || '', 
@@ -1145,7 +1148,7 @@ export default function App() {
       const response = await fetch('/api/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken, spreadsheet_id: targetId, range: rng, data })
+        body: JSON.stringify({ idToken, spreadsheetId: targetId, range: rng, data })
       });
       if (!response.ok) {
         const errorText = await response.text();

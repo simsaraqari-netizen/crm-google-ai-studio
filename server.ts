@@ -94,8 +94,9 @@ async function startServer() {
   });
 
   app.post("/api/sync", async (req, res) => {
-    const { idToken, spreadsheetId, range, data } = req.body;
-    console.log(`Sync request received for spreadsheet: ${spreadsheetId}, range: ${range}`);
+    const { idToken, spreadsheet_id, spreadsheetId, range, data } = req.body;
+    const targetSpreadsheetId = spreadsheet_id || spreadsheetId;
+    console.log(`Sync request received for spreadsheet: ${targetSpreadsheetId}, range: ${range}`);
     try {
       const { data: { user: caller } } = await supabaseAdmin.auth.getUser(idToken);
       if (!caller) return res.status(401).send('Unauthorized');
@@ -112,13 +113,17 @@ async function startServer() {
         return res.status(500).send('Google Sheets credentials are not configured in the server.');
       }
 
+      if (!targetSpreadsheetId) {
+        return res.status(400).send('Spreadsheet ID is required.');
+      }
+
       if (data) {
         console.log(`Writing ${data.length} rows to sheet...`);
-        await writeToSheet(spreadsheetId, range, data);
+        await writeToSheet(targetSpreadsheetId, range, data);
         res.send('Sync successful');
       } else {
         console.log(`Reading from sheet...`);
-        const sheetData = await readSheet(spreadsheetId, range);
+        const sheetData = await readSheet(targetSpreadsheetId, range);
         console.log(`Read ${sheetData?.length || 0} rows.`);
         res.json(sheetData);
       }

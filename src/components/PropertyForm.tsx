@@ -206,13 +206,15 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
 
       try {
         if (property) {
-          await supabase.from('properties').update(data).eq('id', property.id);
+          const { error: updateError } = await supabase.from('properties').update(data).eq('id', property.id);
+          if (updateError) throw updateError;
           await notifyFavoriteUsers(property.id, property, data);
         } else {
-          await supabase.from('properties').insert(data);
+          const { error: insertError } = await supabase.from('properties').insert(data);
+          if (insertError) throw insertError;
         }
       } catch (error) {
-        console.error("Error saving property:", error);
+        throw error;
       }
       toast.success(property ? 'تم تحديث العقار بنجاح' : 'تمت إضافة العقار بنجاح');
       
