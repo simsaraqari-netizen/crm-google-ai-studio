@@ -213,6 +213,7 @@ export default function App() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [spreadsheet_id, setSpreadsheetId] = useState('');
   const [tempSpreadsheetId, setTempSpreadsheetId] = useState('');
+  const [googleServiceAccountEmail, setGoogleServiceAccountEmail] = useState('');
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSearchQuery, setActiveSearchQuery] = useState('');
@@ -483,7 +484,19 @@ export default function App() {
       }
     };
 
+    const fetchServiceAccountEmail = async () => {
+      try {
+        const response = await fetch('/api/google-sheets-service-account-email');
+        if (!response.ok) return;
+        const data = await response.json();
+        setGoogleServiceAccountEmail(data.email || '');
+      } catch (error) {
+        console.error('Error fetching Google service account email:', error);
+      }
+    };
+
     fetchSyncSettings();
+    fetchServiceAccountEmail();
   }, []);
 
   // Properties Listener
@@ -1410,10 +1423,16 @@ export default function App() {
                       <div className="space-y-3 pt-2">
                         <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
                           <p className="text-[10px] font-bold text-blue-800 mb-1 uppercase tracking-wider">بريد حساب الخدمة (للمشاركة):</p>
-                          <p className="text-[9px] text-blue-600 break-all font-mono select-all">
-                            firebase-adminsdk-fbsvc@gen-lang-client-0876291410.iam.gserviceaccount.com
-                          </p>
-                          <p className="text-[9px] text-blue-500 mt-2 italic">* يجب إضافة هذا البريد كـ Editor في ملف الشيت.</p>
+                          {googleServiceAccountEmail ? (
+                            <p className="text-[9px] text-blue-600 break-all font-mono select-all">
+                              {googleServiceAccountEmail}
+                            </p>
+                          ) : (
+                            <p className="text-[9px] text-blue-600">
+                              لم يتم العثور على بريد حساب الخدمة. تأكد من ضبط `GOOGLE_SHEETS_CREDENTIALS` على الخادم.
+                            </p>
+                          )}
+                          <p className="text-[9px] text-blue-500 mt-2 italic">* أضف هذا البريد كـ Editor في ملف Google Sheet حتى تعمل المزامنة.</p>
                         </div>
                         <div className="space-y-1">
                           <label className="text-[10px] font-bold text-stone-500 px-1">رابط ملف Google Sheet</label>
@@ -2503,7 +2522,7 @@ export default function App() {
                                   onClick={async () => {
                                     if (!editUserName.trim()) return;
                                     try {
-                                      // Update Firestore data
+                                      // Update user profile data in Supabase
                                       const { error } = await supabase
                                         .from('user_profiles')
                                         .update({ 
@@ -3009,4 +3028,3 @@ export default function App() {
     setCompanyActionConfirm({ isOpen: false, company: null, action: null });
   }
 }
-

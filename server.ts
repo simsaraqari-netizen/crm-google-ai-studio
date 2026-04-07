@@ -4,7 +4,7 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createClient } from '@supabase/supabase-js';
-import { readSheet, writeToSheet, createSheet } from "./src/services/googleSheetsService.ts";
+import { readSheet, writeToSheet, createSheet, getGoogleSheetsServiceAccountEmail } from "./src/services/googleSheetsService.ts";
 import { initializeCronJobs } from "./src/services/cronService.ts";
 import { syncSupabaseWithSheets } from "./src/services/syncService.ts";
 
@@ -34,6 +34,11 @@ async function startServer() {
   initializeCronJobs();
 
   app.use(express.json());
+
+  app.get("/api/google-sheets-service-account-email", (_req, res) => {
+    const email = getGoogleSheetsServiceAccountEmail();
+    res.json({ email });
+  });
 
   // API routes
   app.get("/api/property/:id", async (req, res) => {
