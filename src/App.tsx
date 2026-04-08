@@ -4644,7 +4644,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
 
   const handleShare = async () => {
     const shareData = {
-      title: generatePropertyTitle(property),
+      title: property.name || 'عقار',
       text: property.details,
       url: window.location.href,
     };
@@ -4753,7 +4753,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                 ) : (
                   <img 
                     src={property.images[activeImageIndex]} 
-                    alt={generatePropertyTitle(property)} 
+                    alt={property.name} 
                     className={`w-full h-full object-cover cursor-zoom-in ${property.is_sold ? 'grayscale opacity-60' : ''}`}
                     referrerPolicy="no-referrer"
                     onClick={() => {
@@ -4812,7 +4812,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
             <div className="flex flex-col gap-6">
               <div className="space-y-4">
                 <div className="flex flex-col gap-1">
-                  <h1 className="text-xl font-bold serif text-stone-900 text-right">{generatePropertyTitle(property)}</h1>
+                  <h1 className="text-xl font-bold serif text-stone-900 text-right">{property.name || 'عقار بدون اسم'}</h1>
                   {property.created_at && (
                     <p className="text-[10px] text-stone-400 text-right">
                       تم الإضافة {formatRelativeDate(property.created_at)}

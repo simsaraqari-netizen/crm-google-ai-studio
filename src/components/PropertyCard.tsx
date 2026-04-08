@@ -20,8 +20,8 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
       onClick={() => onClick && onClick(property)}
     >
       {/* Title - Full Width */}
-      <h3 className="text-xs font-bold text-stone-900 mb-2 line-clamp-2 leading-tight w-full text-right">
-        {generatePropertyTitle(property)}
+      <h3 className="text-sm font-bold text-stone-900 mb-2 line-clamp-2 leading-tight w-full text-right">
+        {property.name || 'عقار بدون اسم'}
       </h3>
 
       <div className="flex gap-3 flex-1 items-end mb-3">
@@ -44,7 +44,7 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
                 <img 
                   loading="lazy"
                   src={property.images[0]} 
-                  alt={generatePropertyTitle(property)} 
+                  alt={property.name} 
                   className={`w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
                   referrerPolicy="no-referrer"
                 />
