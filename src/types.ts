@@ -70,7 +70,8 @@ export interface UserProfile {
   uid: string;
   id?: string;
   email: string;
-  full_name: string;
+  name: string;
+  full_name?: string;
   role: 'super_admin' | 'admin' | 'employee' | 'pending' | 'rejected';
   companyId?: string;
   createdAt?: string;

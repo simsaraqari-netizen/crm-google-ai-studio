@@ -140,7 +140,7 @@ async function syncSheetCommentsForProperty(
     .limit(200);
 
   const { data: users } = await supabaseAdmin
-    .from('user_profiles')
+    .from('profiles')
     .select('id,full_name,name')
     .in('role', ['employee', 'admin', 'super_admin']);
 

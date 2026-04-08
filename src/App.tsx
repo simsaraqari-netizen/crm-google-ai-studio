@@ -113,7 +113,7 @@ interface Comment {
 interface UserProfile {
   uid: string;
   email: string;
-  displayName: string;
+  name: string;
   role: 'super_admin' | 'admin' | 'employee' | 'pending' | 'rejected';
   companyId?: string;
   createdAt?: string;
@@ -705,7 +705,7 @@ export default function App() {
     if (isAdmin) {
       (async () => {
         try {
-          let query = supabase.from('user_profiles').select('*');
+          let query = supabase.from('profiles').select('*');
 
           if (isSuperAdmin) {
             if (selectedCompanyId) {
@@ -729,7 +729,7 @@ export default function App() {
           const channel = supabase.channel('users-changes');
           channel.on(
             'postgres_changes',
-            { event: '*', schema: 'public', table: 'user_profiles' },
+            { event: '*', schema: 'public', table: 'profiles' },
             () => {
               // Re-fetch on any change
               query.then(({ data: updated }) => {
@@ -869,7 +869,7 @@ export default function App() {
 
           // Fetch user profile
           const { data: userData, error: profileError } = await supabase
-            .from('user_profiles')
+            .from('profiles')
             .select('*')
             .eq('id', sbUser.id)
             .maybeSingle();
@@ -881,7 +881,7 @@ export default function App() {
 
             // Check force sign out
             if (userData.force_sign_out) {
-              await supabase.from('user_profiles').update({ force_sign_out: false }).eq('id', sbUser.id);
+              await supabase.from('profiles').update({ force_sign_out: false }).eq('id', sbUser.id);
               setAuthError('تم تسجيل خروجك من قبل المسؤول.');
               await supabase.auth.signOut();
               setUser(null);
@@ -914,7 +914,7 @@ export default function App() {
             let profileData = userData;
             if (SUPER_ADMIN_EMAILS.includes(sbUser.email || '') && userData.role !== 'super_admin') {
               console.log("Super Admin email detected, updating role to super_admin...");
-              await supabase.from('user_profiles').update({ role: 'super_admin' }).eq('id', sbUser.id);
+              await supabase.from('profiles').update({ role: 'super_admin' }).eq('id', sbUser.id);
               profileData = { ...userData, role: 'super_admin' };
             }
 
@@ -922,7 +922,7 @@ export default function App() {
             const mappedUser: UserProfile = {
               uid: profileData.id,
               email: sbUser.email || '',
-              displayName: profileData.name || 'User',
+              name: profileData.name || 'User',
               role: profileData.role,
               companyId: profileData.company_id,
               createdAt: profileData.created_at,
@@ -947,13 +947,13 @@ export default function App() {
               created_at: new Date().toISOString()
             };
 
-            const { error: insertError } = await supabase.from('user_profiles').insert(newProfile);
+            const { error: insertError } = await supabase.from('profiles').insert(newProfile);
             if (insertError) throw insertError;
 
             const mappedUser: UserProfile = {
               uid: newProfile.id,
               email: newProfile.email,
-              displayName: newProfile.name,
+              name: newProfile.name,
               role: newProfile.role as UserProfile['role'],
               createdAt: newProfile.created_at
             };
@@ -995,7 +995,7 @@ export default function App() {
         if (session?.user) {
           const sbUser = session.user;
           const { data: userData, error: profileError } = await supabase
-            .from('user_profiles')
+            .from('profiles')
             .select('*')
             .eq('id', sbUser.id)
             .maybeSingle();
@@ -1004,7 +1004,7 @@ export default function App() {
 
           if (userData) {
             if (userData.force_sign_out) {
-              await supabase.from('user_profiles').update({ force_sign_out: false }).eq('id', sbUser.id);
+              await supabase.from('profiles').update({ force_sign_out: false }).eq('id', sbUser.id);
               setAuthError('تم تسجيل خروجك من قبل المسؤول.');
               await supabase.auth.signOut();
               setUser(null);
@@ -1027,14 +1027,14 @@ export default function App() {
 
             let profileData = userData;
             if (SUPER_ADMIN_EMAILS.includes(sbUser.email || '') && userData.role !== 'super_admin') {
-              await supabase.from('user_profiles').update({ role: 'super_admin' }).eq('id', sbUser.id);
+              await supabase.from('profiles').update({ role: 'super_admin' }).eq('id', sbUser.id);
               profileData = { ...userData, role: 'super_admin' };
             }
 
             const mappedUser: UserProfile = {
               uid: profileData.id,
               email: sbUser.email || '',
-              displayName: profileData.name || 'User',
+              name: profileData.name || 'User',
               role: profileData.role,
               companyId: profileData.company_id,
               createdAt: profileData.created_at,
@@ -1334,12 +1334,12 @@ export default function App() {
           const newProfile = {
             id: userId,
             email: generatedEmail,
-            display_name: username,
+            name: username,
             role: role,
             created_at: new Date().toISOString()
           };
 
-          const { error: profileError } = await supabase.from('user_profiles').insert(newProfile);
+          const { error: profileError } = await supabase.from('profiles').insert(newProfile);
           if (profileError) throw profileError;
 
           if (role === 'pending') {
@@ -1356,7 +1356,7 @@ export default function App() {
           const userData: UserProfile = {
             uid: userId,
             email: generatedEmail,
-            displayName: username,
+            name: username,
             role: role,
             createdAt: new Date().toISOString()
           };
@@ -1426,7 +1426,7 @@ export default function App() {
       }
 
       // Delete profile from profiles table
-      await supabase.from('user_profiles').delete().eq('id', userUid);
+      await supabase.from('profiles').delete().eq('id', userUid);
 
       toast.success("تم حذف الحساب بنجاح. يمكنك الآن إعادة التسجيل.");
       await supabase.auth.signOut();
@@ -1769,7 +1769,7 @@ export default function App() {
                     <UserIcon size={20} />
                   </div>
                   <div>
-                    <p className="font-bold text-stone-900">{user.displayName}</p>
+                    <p className="font-bold text-stone-900">{user.name}</p>
                     <p className="text-xs text-stone-500">
                       {isSuperAdmin ? 'مدير النظام العام' : user.role === 'admin' ? 'مدير الشركة' : user.role === 'pending' ? 'قيد المراجعة' : 'موظف'}
                     </p>
@@ -2062,7 +2062,7 @@ export default function App() {
               )}
             </div>
             <div className="text-left hidden sm:block">
-              <p className="text-sm font-semibold">{user.displayName}</p>
+              <p className="text-sm font-semibold">{user.name}</p>
               <p className="text-xs text-stone-500">{user.role === 'admin' ? 'مدير النظام' : user.role === 'pending' ? 'قيد المراجعة' : 'موظف'}</p>
             </div>
           </div>
@@ -2278,7 +2278,7 @@ export default function App() {
                 <h2 className="text-2xl font-bold serif text-center">
                   {view === 'pending-properties' ? `عقارات قيد المراجعة (${filteredProperties.length})` : view === 'trash' ? `سلة المحذوفات (${filteredProperties.length})` : (searchQuery || filters.governorate || filters.area || filters.type || filters.purpose || filters.location || filters.marketer || filters.status
                     ? `نتائج البحث (${filteredProperties.length})` 
-                    : `${view === 'list' ? 'كل العقارات' : view === 'my-listings' ? 'إعلاناتي' : view === 'my-favorites' ? 'إعلاناتي المفضلة' : `عقارات ${employees.find(emp => emp.uid === selectedMarketerId)?.displayName || 'المستخدم'}`} (${filteredProperties.length})`)}
+                    : `${view === 'list' ? 'كل العقارات' : view === 'my-listings' ? 'إعلاناتي' : view === 'my-favorites' ? 'إعلاناتي المفضلة' : `عقارات ${employees.find(emp => emp.uid === selectedMarketerId)?.name || 'المستخدم'}`} (${filteredProperties.length})`)}
                 </h2>
               </div>
 
@@ -2739,7 +2739,7 @@ export default function App() {
 
                             // Check if user already exists
                             const { data: existingUsers } = await supabase
-                              .from('user_profiles')
+                              .from('profiles')
                               .select('*')
                               .eq('email', generatedEmail);
 
@@ -2776,7 +2776,7 @@ export default function App() {
 
                             if (userId) {
                               // Create user profile in Supabase
-                              await supabase.from('user_profiles').insert({
+                              await supabase.from('profiles').insert({
                                 id: userId,
                                 email: generatedEmail,
                                 name: username,
@@ -2884,7 +2884,7 @@ export default function App() {
 
                         // Check if user already exists
                         const { data: existingUsers } = await supabase
-                          .from('user_profiles')
+                          .from('profiles')
                           .select('*')
                           .eq('email', generatedEmail);
 
@@ -2922,7 +2922,7 @@ export default function App() {
 
                         if (userId) {
                           // Create user profile in Supabase
-                          await supabase.from('user_profiles').insert({
+                          await supabase.from('profiles').insert({
                             id: userId,
                             email: generatedEmail,
                             name: username,
@@ -3056,7 +3056,7 @@ export default function App() {
                                     if (!editUserName.trim()) return;
                                     try {
                                       // Update Supabase data
-                                      await supabase.from('user_profiles').update({
+                                      await supabase.from('profiles').update({
                                         name: editUserName.trim(),
                                         phone: editUserPhone.trim(),
                                         email: editUserEmail.trim()
@@ -3107,7 +3107,7 @@ export default function App() {
                           ) : (
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
-                                <h3 className="text-sm font-bold text-stone-800 truncate">{emp.displayName}</h3>
+                                <h3 className="text-sm font-bold text-stone-800 truncate">{emp.name}</h3>
                                 <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
                                   emp.role === 'admin' ? 'bg-purple-100 text-purple-600' :
                                   emp.role === 'employee' ? 'bg-blue-100 text-blue-600' :
@@ -3132,13 +3132,13 @@ export default function App() {
                           {emp.role === 'pending' && (
                             <div className="flex items-center gap-1.5">
                               <button 
-                                onClick={() => setUserActionConfirm({ isOpen: true, userId: emp.uid, action: 'approve', extraData: { displayName: emp.displayName } })}
+                                onClick={() => setUserActionConfirm({ isOpen: true, userId: emp.uid, action: 'approve', extraData: { name: emp.name } })}
                                 className="px-3 py-1.5 bg-emerald-600 text-white text-[10px] font-bold rounded-lg hover:bg-emerald-700 transition-all shadow-sm"
                               >
                                 موافقة
                               </button>
                               <button 
-                                onClick={() => setUserActionConfirm({ isOpen: true, userId: emp.uid, action: 'reject', extraData: { displayName: emp.displayName } })}
+                                onClick={() => setUserActionConfirm({ isOpen: true, userId: emp.uid, action: 'reject', extraData: { name: emp.name } })}
                                 className="px-3 py-1.5 bg-red-50 text-red-600 text-[10px] font-bold rounded-lg hover:bg-red-100 transition-all"
                               >
                                 رفض
@@ -3150,7 +3150,7 @@ export default function App() {
                             <div className="relative">
                               <select
                                 value={emp.role}
-                                onChange={(e) => setUserActionConfirm({ isOpen: true, userId: emp.uid, action: 'change-role', extraData: { newRole: e.target.value, displayName: emp.displayName } })}
+                                onChange={(e) => setUserActionConfirm({ isOpen: true, userId: emp.uid, action: 'change-role', extraData: { newRole: e.target.value, name: emp.name } })}
                                 className="text-[10px] p-1.5 pr-6 rounded-lg border border-stone-200 bg-stone-50/50 outline-none focus:ring-2 focus:ring-emerald-500 appearance-none font-bold text-stone-600"
                               >
                                 <option value="employee">موظف (إضافة وعرض العقارات)</option>
@@ -3166,7 +3166,7 @@ export default function App() {
                           <button 
                             onClick={() => {
                               setEditingUser(emp);
-                              setEditUserName(emp.displayName);
+                              setEditUserName(emp.name);
                               setEditUserPhone(emp.phone || '');
                               setEditUserEmail(emp.email || '');
                               setEditUserPassword('');
@@ -3177,7 +3177,7 @@ export default function App() {
                             تعديل
                           </button>
                           <button 
-                            onClick={() => setUserActionConfirm({ isOpen: true, userId: emp.uid, action: 'delete', extraData: { displayName: emp.displayName } })}
+                            onClick={() => setUserActionConfirm({ isOpen: true, userId: emp.uid, action: 'delete', extraData: { name: emp.name } })}
                             className="flex items-center gap-1 px-3 py-1.5 text-stone-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all text-xs font-bold"
                           >
                             <Trash2 size={14} />
@@ -3247,10 +3247,10 @@ export default function App() {
           }
           message={
             userActionConfirm.action === 'bulk-delete' ? "⚠️ تحذير: هل أنت متأكد من حذف جميع الحسابات المسجلة؟ سيتم مسح صلاحياتهم وبياناتهم من قاعدة البيانات." :
-            userActionConfirm.action === 'approve' ? `هل أنت متأكد من الموافقة على المستخدم ${userActionConfirm.extraData?.displayName || ''}؟` :
-            userActionConfirm.action === 'reject' ? `هل أنت متأكد من رفض المستخدم ${userActionConfirm.extraData?.displayName || ''}؟` :
-            userActionConfirm.action === 'change-role' ? `هل أنت متأكد من تغيير صلاحية ${userActionConfirm.extraData?.displayName} إلى ${userActionConfirm.extraData?.newRole === 'admin' ? 'مدير نظام' : 'مستخدم'}؟` :
-            `هل أنت متأكد من رغبتك في حذف ${userActionConfirm.extraData?.displayName || 'هذا المستخدم'} نهائياً؟ لا يمكن التراجع عن هذا الإجراء.`
+            userActionConfirm.action === 'approve' ? `هل أنت متأكد من الموافقة على المستخدم ${userActionConfirm.extraData?.name || ''}؟` :
+            userActionConfirm.action === 'reject' ? `هل أنت متأكد من رفض المستخدم ${userActionConfirm.extraData?.name || ''}؟` :
+            userActionConfirm.action === 'change-role' ? `هل أنت متأكد من تغيير صلاحية ${userActionConfirm.extraData?.name} إلى ${userActionConfirm.extraData?.newRole === 'admin' ? 'مدير نظام' : 'مستخدم'}؟` :
+            `هل أنت متأكد من رغبتك في حذف ${userActionConfirm.extraData?.name || 'هذا المستخدم'} نهائياً؟ لا يمكن التراجع عن هذا الإجراء.`
           }
           onConfirm={confirmUserAction}
           onCancel={() => setUserActionConfirm({ isOpen: false, userId: null, action: null })}
@@ -3492,18 +3492,18 @@ export default function App() {
     try {
       if (userActionConfirm.action === 'bulk-delete') {
         const deletePromises = employees.map(emp =>
-          supabase.from('user_profiles').delete().eq('id', emp.uid)
+          supabase.from('profiles').delete().eq('id', emp.uid)
         );
         await Promise.all(deletePromises);
       } else if (userActionConfirm.userId) {
         if (userActionConfirm.action === 'delete') {
-          await supabase.from('user_profiles').delete().eq('id', userActionConfirm.userId);
+          await supabase.from('profiles').delete().eq('id', userActionConfirm.userId);
         } else if (userActionConfirm.action === 'approve') {
-          await supabase.from('user_profiles').update({ role: 'employee' }).eq('id', userActionConfirm.userId);
+          await supabase.from('profiles').update({ role: 'employee' }).eq('id', userActionConfirm.userId);
         } else if (userActionConfirm.action === 'reject') {
-          await supabase.from('user_profiles').update({ role: 'rejected' }).eq('id', userActionConfirm.userId);
+          await supabase.from('profiles').update({ role: 'rejected' }).eq('id', userActionConfirm.userId);
         } else if (userActionConfirm.action === 'change-role') {
-          await supabase.from('user_profiles').update({ role: userActionConfirm.extraData.newRole }).eq('id', userActionConfirm.userId);
+          await supabase.from('profiles').update({ role: userActionConfirm.extraData.newRole }).eq('id', userActionConfirm.userId);
         }
       }
       setUserActionConfirm({ isOpen: false, userId: null, action: null });
@@ -3782,7 +3782,7 @@ interface FirestoreErrorInfo {
     tenantId: string | null | undefined;
     providerInfo: {
       providerId: string;
-      displayName: string | null;
+      name: string | null;
       email: string | null;
       photoUrl: string | null;
     }[];
@@ -3883,7 +3883,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
 
     (async () => {
       try {
-        let query = supabase.from('user_profiles').select('*').eq('role', 'employee');
+        let query = supabase.from('profiles').select('*').eq('role', 'employee');
 
         if (isSuperAdmin) {
           const targetCompanyId = property?.companyId || selectedCompanyId;
@@ -3904,7 +3904,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
         const channel = supabase.channel('employees-changes');
         channel.on(
           'postgres_changes',
-          { event: '*', schema: 'public', table: 'user_profiles' },
+          { event: '*', schema: 'public', table: 'profiles' },
           () => {
             // Re-fetch on any change
             query.then(({ data: updated }) => {
@@ -4006,7 +4006,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
       if (empName && !empId) {
         try {
           const { data: newEmp, error: insertError } = await supabase
-            .from('user_profiles')
+            .from('profiles')
             .insert({
               name: empName,
               role: 'employee',
@@ -4289,11 +4289,11 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
           <SearchableFilter 
             label="المستخدم / الموظف المسؤول"
             placeholder="ابحث عن مستخدم أو اكتب اسماً جديداً..."
-            options={employees.map(emp => emp.displayName)}
+            options={employees.map(emp => emp.name)}
             value={formData.assignedEmployeeName}
             creatable={true}
             onChange={(val) => {
-              const emp = employees.find(e => e.displayName === val);
+              const emp = employees.find(e => e.name === val);
               setFormData({
                 ...formData,
                 assignedEmployeeId: emp ? emp.uid : '',
@@ -4308,7 +4308,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
               setFormData({
                 ...formData,
                 assignedEmployeeId: user?.uid || '',
-                assignedEmployeeName: user?.displayName || ''
+                assignedEmployeeName: user?.name || ''
               });
             }}
             className="text-xs text-emerald-600 hover:underline mt-1"
@@ -4525,7 +4525,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
       await supabase.from('comments').insert({
         property_id: property.id,
         user_id: user.uid,
-        user_name: user.displayName,
+        user_name: user.name,
         user_phone: user.phone || '',
         text: newComment,
         images: commentImages,
@@ -4551,7 +4551,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
         await supabase.from('notifications').insert({
           type: 'new-comment',
           title: 'تعليق جديد على عقار يهمك',
-          message: `أضاف ${user.displayName} تعليقاً جديداً على العقار: ${generatePropertyTitle(property)}`,
+          message: `أضاف ${user.name} تعليقاً جديداً على العقار: ${generatePropertyTitle(property)}`,
           recipient_id: recipientId,
           user_id: user.uid,
           property_id: property.id,
