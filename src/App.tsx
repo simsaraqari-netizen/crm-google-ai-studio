@@ -705,7 +705,7 @@ export default function App() {
     if (isAdmin) {
       (async () => {
         try {
-          let query = supabase.from('profiles').select('*');
+          let query = supabase.from('user_profiles').select('*');
 
           if (isSuperAdmin) {
             if (selectedCompanyId) {
@@ -729,7 +729,7 @@ export default function App() {
           const channel = supabase.channel('users-changes');
           channel.on(
             'postgres_changes',
-            { event: '*', schema: 'public', table: 'profiles' },
+            { event: '*', schema: 'public', table: 'user_profiles' },
             () => {
               // Re-fetch on any change
               query.then(({ data: updated }) => {
@@ -869,7 +869,7 @@ export default function App() {
 
           // Fetch user profile
           const { data: userData, error: profileError } = await supabase
-            .from('profiles')
+            .from('user_profiles')
             .select('*')
             .eq('id', sbUser.id)
             .maybeSingle();
@@ -881,7 +881,7 @@ export default function App() {
 
             // Check force sign out
             if (userData.force_sign_out) {
-              await supabase.from('profiles').update({ force_sign_out: false }).eq('id', sbUser.id);
+              await supabase.from('user_profiles').update({ force_sign_out: false }).eq('id', sbUser.id);
               setAuthError('تم تسجيل خروجك من قبل المسؤول.');
               await supabase.auth.signOut();
               setUser(null);
@@ -914,7 +914,7 @@ export default function App() {
             let profileData = userData;
             if (SUPER_ADMIN_EMAILS.includes(sbUser.email || '') && userData.role !== 'super_admin') {
               console.log("Super Admin email detected, updating role to super_admin...");
-              await supabase.from('profiles').update({ role: 'super_admin' }).eq('id', sbUser.id);
+              await supabase.from('user_profiles').update({ role: 'super_admin' }).eq('id', sbUser.id);
               profileData = { ...userData, role: 'super_admin' };
             }
 
@@ -947,7 +947,7 @@ export default function App() {
               created_at: new Date().toISOString()
             };
 
-            const { error: insertError } = await supabase.from('profiles').insert(newProfile);
+            const { error: insertError } = await supabase.from('user_profiles').insert(newProfile);
             if (insertError) throw insertError;
 
             const mappedUser: UserProfile = {
@@ -995,7 +995,7 @@ export default function App() {
         if (session?.user) {
           const sbUser = session.user;
           const { data: userData, error: profileError } = await supabase
-            .from('profiles')
+            .from('user_profiles')
             .select('*')
             .eq('id', sbUser.id)
             .maybeSingle();
@@ -1004,7 +1004,7 @@ export default function App() {
 
           if (userData) {
             if (userData.force_sign_out) {
-              await supabase.from('profiles').update({ force_sign_out: false }).eq('id', sbUser.id);
+              await supabase.from('user_profiles').update({ force_sign_out: false }).eq('id', sbUser.id);
               setAuthError('تم تسجيل خروجك من قبل المسؤول.');
               await supabase.auth.signOut();
               setUser(null);
@@ -1027,7 +1027,7 @@ export default function App() {
 
             let profileData = userData;
             if (SUPER_ADMIN_EMAILS.includes(sbUser.email || '') && userData.role !== 'super_admin') {
-              await supabase.from('profiles').update({ role: 'super_admin' }).eq('id', sbUser.id);
+              await supabase.from('user_profiles').update({ role: 'super_admin' }).eq('id', sbUser.id);
               profileData = { ...userData, role: 'super_admin' };
             }
 
@@ -1334,12 +1334,12 @@ export default function App() {
           const newProfile = {
             id: userId,
             email: generatedEmail,
-            name: username,
+            display_name: username,
             role: role,
             created_at: new Date().toISOString()
           };
 
-          const { error: profileError } = await supabase.from('profiles').insert(newProfile);
+          const { error: profileError } = await supabase.from('user_profiles').insert(newProfile);
           if (profileError) throw profileError;
 
           if (role === 'pending') {
@@ -1426,7 +1426,7 @@ export default function App() {
       }
 
       // Delete profile from profiles table
-      await supabase.from('profiles').delete().eq('id', userUid);
+      await supabase.from('user_profiles').delete().eq('id', userUid);
 
       toast.success("تم حذف الحساب بنجاح. يمكنك الآن إعادة التسجيل.");
       await supabase.auth.signOut();
@@ -2739,7 +2739,7 @@ export default function App() {
 
                             // Check if user already exists
                             const { data: existingUsers } = await supabase
-                              .from('profiles')
+                              .from('user_profiles')
                               .select('*')
                               .eq('email', generatedEmail);
 
@@ -2776,7 +2776,7 @@ export default function App() {
 
                             if (userId) {
                               // Create user profile in Supabase
-                              await supabase.from('profiles').insert({
+                              await supabase.from('user_profiles').insert({
                                 id: userId,
                                 email: generatedEmail,
                                 name: username,
@@ -2884,7 +2884,7 @@ export default function App() {
 
                         // Check if user already exists
                         const { data: existingUsers } = await supabase
-                          .from('profiles')
+                          .from('user_profiles')
                           .select('*')
                           .eq('email', generatedEmail);
 
@@ -2922,7 +2922,7 @@ export default function App() {
 
                         if (userId) {
                           // Create user profile in Supabase
-                          await supabase.from('profiles').insert({
+                          await supabase.from('user_profiles').insert({
                             id: userId,
                             email: generatedEmail,
                             name: username,
@@ -3056,7 +3056,7 @@ export default function App() {
                                     if (!editUserName.trim()) return;
                                     try {
                                       // Update Supabase data
-                                      await supabase.from('profiles').update({
+                                      await supabase.from('user_profiles').update({
                                         name: editUserName.trim(),
                                         phone: editUserPhone.trim(),
                                         email: editUserEmail.trim()
@@ -3492,18 +3492,18 @@ export default function App() {
     try {
       if (userActionConfirm.action === 'bulk-delete') {
         const deletePromises = employees.map(emp =>
-          supabase.from('profiles').delete().eq('id', emp.uid)
+          supabase.from('user_profiles').delete().eq('id', emp.uid)
         );
         await Promise.all(deletePromises);
       } else if (userActionConfirm.userId) {
         if (userActionConfirm.action === 'delete') {
-          await supabase.from('profiles').delete().eq('id', userActionConfirm.userId);
+          await supabase.from('user_profiles').delete().eq('id', userActionConfirm.userId);
         } else if (userActionConfirm.action === 'approve') {
-          await supabase.from('profiles').update({ role: 'employee' }).eq('id', userActionConfirm.userId);
+          await supabase.from('user_profiles').update({ role: 'employee' }).eq('id', userActionConfirm.userId);
         } else if (userActionConfirm.action === 'reject') {
-          await supabase.from('profiles').update({ role: 'rejected' }).eq('id', userActionConfirm.userId);
+          await supabase.from('user_profiles').update({ role: 'rejected' }).eq('id', userActionConfirm.userId);
         } else if (userActionConfirm.action === 'change-role') {
-          await supabase.from('profiles').update({ role: userActionConfirm.extraData.newRole }).eq('id', userActionConfirm.userId);
+          await supabase.from('user_profiles').update({ role: userActionConfirm.extraData.newRole }).eq('id', userActionConfirm.userId);
         }
       }
       setUserActionConfirm({ isOpen: false, userId: null, action: null });
@@ -3883,7 +3883,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
 
     (async () => {
       try {
-        let query = supabase.from('profiles').select('*').eq('role', 'employee');
+        let query = supabase.from('user_profiles').select('*').eq('role', 'employee');
 
         if (isSuperAdmin) {
           const targetCompanyId = property?.companyId || selectedCompanyId;
@@ -3904,7 +3904,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
         const channel = supabase.channel('employees-changes');
         channel.on(
           'postgres_changes',
-          { event: '*', schema: 'public', table: 'profiles' },
+          { event: '*', schema: 'public', table: 'user_profiles' },
           () => {
             // Re-fetch on any change
             query.then(({ data: updated }) => {
@@ -4006,7 +4006,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
       if (empName && !empId) {
         try {
           const { data: newEmp, error: insertError } = await supabase
-            .from('profiles')
+            .from('user_profiles')
             .insert({
               name: empName,
               role: 'employee',

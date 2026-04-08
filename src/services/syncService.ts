@@ -140,7 +140,7 @@ async function syncSheetCommentsForProperty(
     .limit(200);
 
   const { data: users } = await supabaseAdmin
-    .from('profiles')
+    .from('user_profiles')
     .select('id,full_name,name')
     .in('role', ['employee', 'admin', 'super_admin']);
 
@@ -483,7 +483,7 @@ export const syncSupabaseWithSheets = async () => {
         }
 
         const propertyData: any = {
-          title: cleanNameText(cName),
+          name: cleanNameText(cName),
           governorate: finalGov,
           area: finalArea,
           type: newType || cType,
