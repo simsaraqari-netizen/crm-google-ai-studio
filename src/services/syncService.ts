@@ -236,12 +236,10 @@ async function saveSyncSnapshot(params: {
 
 function buildSheetHeader() {
   return [
-    "ID", "تاريخ الادخال", "الاسم", "الغرض", "الهاتف", "الهاتف ٢",
-    "المنطقة", "نوع العقار", "المحافظة", "القطاع", "التوزيعة",
-    "القطعة", "الشارع", "الجادة", "رقم القسيمة", "المنزل",
-    "الموقع", "رابط الموقع", "حالة العقار", "موظف الادخال",
-    "تعليقات", "تعليقات ٢", "تعليقات ٣", "الصور", "الروابط",
-    "المسؤول الرقمي", "المسؤول"
+    "الاسم", "الغرض", "الهاتف", "الهاتف ٢", "المنطقة", "نوع العقار",
+    "المحافظة", "القطاع", "التوزيعة", "القطعة", "الشارع", "الجادة",
+    "رقم القسيمة", "المنزل", "الموقع", "رابط الموقع", "حالة العقار",
+    "موظف الادخال", "تعليقات", "تعليقات ٢", "تعليقات ٣", "ID", "تاريخ الادخال"
   ];
 }
 
@@ -272,8 +270,6 @@ async function buildSupabaseSheetPayload(): Promise<any[][]> {
 
   const header = buildSheetHeader();
   const rows = allProps.map(p => [
-    p.id,
-    p.created_at ? new Date(p.created_at).toLocaleString('ar-KW') : '',
     normalizeDigits(p.name || ''),
     normalizeDigits(p.purpose || ''),
     normalizeDigits(p.phone || ''),
@@ -291,14 +287,12 @@ async function buildSupabaseSheetPayload(): Promise<any[][]> {
     normalizeDigits(p.location || ''),
     p.location_link || '',
     normalizeDigits(p.status_label || ''),
-    normalizeDigits(p.created_by_name || p.created_by || ''),
+    normalizeDigits(p.assigned_employee_name || ''),
     normalizeDigits(p.last_comment || ''),
     normalizeDigits(p.comments_2 || ''),
     normalizeDigits(p.comments_3 || ''),
-    (p.images || []).map((img: any) => typeof img === 'string' ? img : (img.url || '')).filter(Boolean).join(','),
-    (p.links || []).join(','),
-    p.assigned_employee_id || '',
-    normalizeDigits(p.assigned_employee_name || ''),
+    p.id,
+    p.created_at ? new Date(p.created_at).toLocaleString('ar-KW') : '',
   ]);
 
   return [header, ...rows];
@@ -410,31 +404,29 @@ export const syncSupabaseWithSheets = async () => {
         const row = sheetData[i];
         if (!row || row.length < 2) continue;
         
-        const id = readCell(row, ['ID', 'Id', 'id'], 0);
-        const created_atStr = readCell(row, ['تاريخ الادخال', 'تاريخ الإنشاء', 'تاريخ الإضافة', 'التاريخ', 'created_at'], 0);
-        const name = readCell(row, ['الاسم', 'اسم العميل', 'name'], 1);
-        const purpose = readCell(row, ['الغرض', 'الغرض من العملية', 'purpose'], 2);
-        const phone = readCell(row, ['الهاتف', 'تليفون', 'رقم الهاتف', 'phone'], 3);
-        const phone_2 = readCell(row, ['الهاتف ٢', 'هاتف ٢', 'رقم ٢', 'phone_2'], 4);
-        const area = readCell(row, ['المنطقة', 'area'], 5);
-        const type = readCell(row, ['نوع العقار', 'النوع', 'type'], 6);
-        const governorate = readCell(row, ['المحافظة', 'governorate'], 7);
-        const sector = readCell(row, ['القطاع', 'sector'], 8);
-        const distribution = readCell(row, ['التوزيعة', 'الصبة', 'distribution'], 9);
-        const block = readCell(row, ['القطعة', 'block'], 10);
-        const street = readCell(row, ['الشارع', 'street'], 11);
-        const avenue = readCell(row, ['الجادة', 'avenue'], 12);
-        const plot_number = readCell(row, ['رقم القسيمة', 'القسيمة', 'plot_number'], 13);
-        const house_number = readCell(row, ['المنزل', 'house_number'], 14);
-        const location = readCell(row, ['الموقع الوصفي', 'الموقع', 'location'], 15);
-        const location_link = readCell(row, ['رابط الموقع', 'location_link'], 16);
-        const status_label = readCell(row, ['حالة العقار', 'ملصق الحالة', 'حالة الحجز', 'الحالة', 'status_label'], 17);
-        const assigned_employee_name = readCell(row, ['موظف الادخال', 'اسم الموظف', 'المسؤول', 'موظف', 'assigned_employee_name'], 18);
-        const last_comment = readCell(row, ['تعليقات', 'التعليق', 'آخر تعليق', 'last_comment'], 19);
-        const comments_2 = readCell(row, ['تعليقات ٢', 'comments_2'], 20);
-        const comments_3 = readCell(row, ['تعليقات ٣', 'comments_3'], 21);
-        const imagesStr = readCell(row, ['الصور', 'images'], 22);
-        const linksStr = readCell(row, ['الروابط', 'links'], 23);
+        const name = readCell(row, ['الاسم', 'name'], 0);
+        const purpose = readCell(row, ['الغرض', 'purpose'], 1);
+        const phone = readCell(row, ['الهاتف', 'phone'], 2);
+        const phone_2 = readCell(row, ['الهاتف ٢', 'phone_2'], 3);
+        const area = readCell(row, ['المنطقة', 'area'], 4);
+        const type = readCell(row, ['نوع العقار', 'type'], 5);
+        const governorate = readCell(row, ['المحافظة', 'governorate'], 6);
+        const sector = readCell(row, ['القطاع', 'sector'], 7);
+        const distribution = readCell(row, ['التوزيعة', 'distribution'], 8);
+        const block = readCell(row, ['القطعة', 'block'], 9);
+        const street = readCell(row, ['الشارع', 'street'], 10);
+        const avenue = readCell(row, ['الجادة', 'avenue'], 11);
+        const plot_number = readCell(row, ['رقم القسيمة', 'plot_number'], 12);
+        const house_number = readCell(row, ['المنزل', 'house_number'], 13);
+        const location = readCell(row, ['الموقع', 'location'], 14);
+        const location_link = readCell(row, ['رابط الموقع', 'location_link'], 15);
+        const status_label = readCell(row, ['حالة العقار', 'status_label'], 16);
+        const assigned_employee_name = readCell(row, ['موظف الادخال', 'assigned_employee_name'], 17);
+        const last_comment = readCell(row, ['تعليقات', 'last_comment'], 18);
+        const comments_2 = readCell(row, ['تعليقات ٢', 'comments_2'], 19);
+        const comments_3 = readCell(row, ['تعليقات ٣', 'comments_3'], 20);
+        const id = readCell(row, ['ID', 'id'], 21);
+        const created_atStr = readCell(row, ['تاريخ الادخال', 'created_at'], 22);
 
         // Fetch existing record to preserve fields if sheet is empty
         let existing: any = null;
@@ -498,10 +490,10 @@ export const syncSupabaseWithSheets = async () => {
           purpose: newPurpose || cPurpose,
           phone: getVal(phone, 'phone'),
           phone_2: getVal(phone_2, 'phone_2'),
-          assigned_employee_id: assigned_employee_id || (existing?.assigned_employee_id || null),
+          assigned_employee_id: existing?.assigned_employee_id || null, // Keep existing if present
           assigned_employee_name: finalEmployeeName,
           location_link: getVal(location_link, 'location_link'),
-          is_sold: is_soldStr ? (is_soldStr === 'TRUE' || is_soldStr === 'نعم' || is_soldStr === 'مباع') : (existing?.is_sold || false),
+          is_sold: existing?.is_sold || false, // Use existing as sheet doesn't have it explicitly yet
           sector: getVal(sector, 'sector'),
           distribution: getVal(distribution, 'distribution'),
           block: getVal(block, 'block'),
@@ -510,26 +502,13 @@ export const syncSupabaseWithSheets = async () => {
           plot_number: getVal(plot_number, 'plot_number'),
           house_number: getVal(house_number, 'house_number'),
           location: getVal(location, 'location'),
-          details: getVal(details, 'details'),
+          details: getVal(last_comment, 'details'), // Map first comment to details for legacy
           status_label: getVal(status_label, 'status_label'),
           comments_2: getVal(comments_2, 'comments_2'),
           comments_3: getVal(comments_3, 'comments_3'),
+          last_comment: cleanStr(last_comment)
         };
 
-        // Handle JSON fields (Images/Links)
-        if (imagesStr) {
-          propertyData.images = splitMultiValue(imagesStr).map(url => ({ 
-            url, 
-            type: (url.includes('.mp4') || url.includes('.mov') || url.includes('video')) ? 'video' : 'image',
-            comment: '' 
-          }));
-        }
-        if (linksStr) {
-          propertyData.links = splitMultiValue(linksStr);
-        }
-
-        if (last_comment) propertyData.last_comment = cleanStr(last_comment);
-        if (created_by) propertyData.created_by = created_by;
         if (created_atStr) propertyData.created_at = new Date(created_atStr).toISOString();
 
         let targetPropertyId = '';

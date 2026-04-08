@@ -62,13 +62,15 @@ interface Property {
   type: string;
   purpose: string;
   phone: string;
+  phone_2?: string;
   companyId: string;
   assignedEmployeeId?: string;
   assignedEmployeeName?: string;
-  images: string[];
+  images: any[];
   locationLink?: string;
   isSold?: boolean;
   sector?: string;
+  distribution?: string;
   block?: string;
   street?: string;
   avenue?: string;
@@ -78,11 +80,14 @@ interface Property {
   price?: string;
   details?: string;
   lastComment?: string;
+  comments_2?: string;
+  comments_3?: string;
   statusLabel?: string;
   status: 'pending' | 'approved' | 'rejected' | 'deleted';
+  isDeleted?: boolean;
+  deletedAt?: any;
   createdBy: string;
   createdAt: any;
-  deletedAt?: any;
 }
 
 interface Company {

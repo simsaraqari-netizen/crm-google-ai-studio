@@ -6,23 +6,31 @@ export interface Property {
   type: string;
   purpose: string;
   phone: string;
+  phone_2?: string;
   companyId: string;
   assignedEmployeeId?: string;
   assignedEmployeeName?: string;
-  images: string[];
+  images: any[]; // Changed to any[] to support object-based media if needed
   locationLink?: string;
+  location_link?: string; // Support both naming conventions
   isSold?: boolean;
   sector?: string;
+  distribution?: string;
   block?: string;
   street?: string;
   avenue?: string;
   plotNumber?: string;
+  plot_number?: string;
   houseNumber?: string;
+  house_number?: string;
   location: string;
   price?: string;
   details?: string;
   lastComment?: string;
+  comments_2?: string;
+  comments_3?: string;
   statusLabel?: string;
+  status_label?: string;
   status: 'pending' | 'approved' | 'rejected' | 'deleted';
   isDeleted?: boolean;
   deletedAt?: any;

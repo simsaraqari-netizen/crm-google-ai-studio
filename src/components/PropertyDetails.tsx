@@ -365,24 +365,48 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                 </div>
                 {property.details && (
                   <div className="text-base text-stone-700 leading-relaxed whitespace-pre-wrap text-right bg-stone-50 p-4 rounded-xl border border-stone-100">
+                    <p className="font-bold text-xs text-stone-400 mb-1">تعليقات ١:</p>
                     {property.details}
+                  </div>
+                )}
+                {property.comments_2 && (
+                  <div className="text-base text-stone-700 leading-relaxed whitespace-pre-wrap text-right bg-stone-50 p-4 rounded-xl border border-stone-100">
+                    <p className="font-bold text-xs text-stone-400 mb-1">تعليقات ٢:</p>
+                    {property.comments_2}
+                  </div>
+                )}
+                {property.comments_3 && (
+                  <div className="text-base text-stone-700 leading-relaxed whitespace-pre-wrap text-right bg-stone-50 p-4 rounded-xl border border-stone-100">
+                    <p className="font-bold text-xs text-stone-400 mb-1">تعليقات ٣:</p>
+                    {property.comments_3}
                   </div>
                 )}
               </div>
               
-              <div className="flex flex-col md:flex-row gap-3 w-full">
-                <a 
-                  href={`tel:${property.assignedEmployeePhone || property.phone || ''}`}
-                  className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-xl hover:bg-emerald-700 transition-all font-bold text-sm shadow-sm"
-                >
-                  <span>{property.assignedEmployeePhone || property.phone || ''}</span>
-                  <Phone size={16} />
-                </a>
+              <div className="flex flex-col gap-3 w-full">
+                <div className="flex flex-col md:flex-row gap-3 w-full">
+                  <a 
+                    href={`tel:${property.assignedEmployeePhone || property.phone || ''}`}
+                    className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-xl hover:bg-emerald-700 transition-all font-bold text-sm shadow-sm"
+                  >
+                    <span>{property.assignedEmployeePhone || property.phone || ''}</span>
+                    <Phone size={16} />
+                  </a>
+                  {property.phone_2 && (
+                    <a 
+                      href={`tel:${property.phone_2}`}
+                      className="flex-1 flex items-center justify-center gap-2 bg-emerald-100 text-emerald-800 px-6 py-3 rounded-xl hover:bg-emerald-200 transition-all font-bold text-sm shadow-sm"
+                    >
+                      <span>{property.phone_2}</span>
+                      <Phone size={16} />
+                    </a>
+                  )}
+                </div>
                 <a 
                   href={whatsappUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 flex items-center justify-center gap-2 bg-green-500 text-white px-6 py-3 rounded-xl hover:bg-green-600 active:scale-95 transition-all font-bold text-sm shadow-sm"
+                  className="w-full flex items-center justify-center gap-2 bg-green-500 text-white px-6 py-3 rounded-xl hover:bg-green-600 active:scale-95 transition-all font-bold text-sm shadow-sm"
                 >
                   <MessageCircle size={16} />
                   واتساب مباشر
@@ -817,6 +841,13 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                 <span className="text-[10px] text-stone-500 mb-1">الموقع العام</span>
                 <span className="text-xs font-bold text-stone-800">{property.location}</span>
               </button>
+            )}
+            {/* Distribution */}
+            {property.distribution && (
+              <div className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 text-right col-span-2">
+                <span className="text-[10px] text-stone-500 mb-1">التوزيعة</span>
+                <span className="text-xs font-bold text-stone-800">{property.distribution}</span>
+              </div>
             )}
             {/* Location Link */}
             {property.locationLink && (

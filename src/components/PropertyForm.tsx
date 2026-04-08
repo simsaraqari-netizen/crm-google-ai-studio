@@ -41,23 +41,29 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
     name: property?.name || '',
     governorate: property?.governorate || '',
     area: property?.area || '',
+    phone: property?.phone || '',
+    phone_2: property?.phone_2 || '',
     type: property?.type || '',
     purpose: property?.purpose || '',
     assignedEmployeeId: property?.assignedEmployeeId || '',
     assignedEmployeeName: property?.assignedEmployeeName || '',
     assignedEmployeePhone: property?.assignedEmployeePhone || '',
     images: (property?.images || []).map((img: any) => typeof img === 'string' ? { url: img, type: img.startsWith('data:video/') ? 'video' : 'image' } : img),
-    locationLink: property?.locationLink || '',
+    locationLink: property?.locationLink || property?.location_link || '',
     isSold: property?.isSold || false,
     sector: property?.sector || '',
+    distribution: property?.distribution || '',
     block: property?.block || '',
     street: property?.street || '',
     avenue: property?.avenue || '',
-    plotNumber: property?.plotNumber || '',
-    houseNumber: property?.houseNumber || '',
+    plotNumber: property?.plotNumber || property?.plot_number || '',
+    houseNumber: property?.houseNumber || property?.house_number || '',
     location: property?.location || '',
     price: property?.price || '',
     details: property?.details || '',
+    lastComment: property?.lastComment || '',
+    comments_2: property?.comments_2 || '',
+    comments_3: property?.comments_3 || '',
     statusLabel: property?.statusLabel || '',
     companyId: property?.companyId || ''
   });
@@ -296,6 +302,24 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
                 onChange={(e) => setFormData({...formData, name: e.target.value})}
               />
             </div>
+            <div className="relative">
+              <input 
+                type="tel"
+                placeholder="الهاتف ١"
+                className="w-full px-4 py-2 bg-stone-50 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
+                value={(formData as any).phone}
+                onChange={(e) => setFormData({...formData, phone: e.target.value})}
+              />
+            </div>
+            <div className="relative">
+              <input 
+                type="tel"
+                placeholder="الهاتف ٢"
+                className="w-full px-4 py-2 bg-stone-50 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
+                value={(formData as any).phone_2}
+                onChange={(e) => setFormData({...formData, phone_2: e.target.value})}
+              />
+            </div>
             <SearchableFilter 
               placeholder="نوع العقار"
               options={PROPERTY_TYPES}
@@ -391,6 +415,12 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
                 onChange={(e) => setFormData({...formData, [field.id]: e.target.value})}
               />
             ))}
+            <input 
+              placeholder="التوزيعة"
+              className="w-full px-4 py-2 bg-stone-50 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm text-center"
+              value={(formData as any).distribution}
+              onChange={(e) => setFormData({...formData, distribution: e.target.value})}
+            />
           </div>
         </div>
 
@@ -398,10 +428,24 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
         <div className="space-y-6">
           <textarea 
             rows={3}
-            placeholder="وصف إضافي وتفاصيل العقار..."
+            placeholder="تعليقات ١ (وصف إضافي وتفاصيل العقار...)"
             className="w-full p-3 bg-stone-50 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm resize-none"
-            value={formData.details}
+            value={formData.details || (formData as any).lastComment}
             onChange={(e) => setFormData({...formData, details: e.target.value})}
+          />
+          <textarea 
+            rows={2}
+            placeholder="تعليقات ٢"
+            className="w-full p-3 bg-stone-50 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm resize-none"
+            value={(formData as any).comments_2}
+            onChange={(e) => setFormData({...formData, comments_2: e.target.value})}
+          />
+          <textarea 
+            rows={2}
+            placeholder="تعليقات ٣"
+            className="w-full p-3 bg-stone-50 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm resize-none"
+            value={(formData as any).comments_3}
+            onChange={(e) => setFormData({...formData, comments_3: e.target.value})}
           />
         </div>
 
