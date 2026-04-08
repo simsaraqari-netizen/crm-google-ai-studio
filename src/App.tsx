@@ -4917,23 +4917,33 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                   معرض الصور ({(property.images || []).length})
                 </h3>
                 <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                  {property.images.map((img: string, i: number) => (
-                    <button 
-                      key={i} 
-                      onClick={() => {
-                        setViewerImages(property.images);
-                        setViewerIndex(i);
-                        setShowViewer(true);
-                      }}
-                      className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${i === activeImageIndex ? 'border-emerald-500 scale-95' : 'border-transparent hover:border-stone-300'}`}
-                    >
-                      {img.startsWith('data:video/') ? (
-                        <video src={img} className="w-full h-full object-cover" />
-                      ) : (
-                        <img src={img} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" />
-                      )}
-                    </button>
-                  ))}
+                  {(property.images || []).map((img: any, i: number) => {
+                    const url = typeof img === 'string' ? img : (img?.url || '');
+                    const isVideo = typeof img === 'string' 
+                      ? (img.startsWith('data:video/') || img.toLowerCase().endsWith('.mp4')) 
+                      : (img?.type === 'video' || (img?.url && img.url.toLowerCase().endsWith('.mp4')));
+                    
+                    return (
+                      <button 
+                        key={i} 
+                        onClick={() => {
+                          const imageList = (property.images || []).map((item: any) => typeof item === 'string' ? item : (item?.url || ''));
+                          setViewerImages(imageList);
+                          setViewerIndex(i);
+                          setShowViewer(true);
+                        }}
+                        className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${i === activeImageIndex ? 'border-emerald-500 scale-95' : 'border-transparent hover:border-stone-300'}`}
+                      >
+                        {isVideo ? (
+                          <div className="w-full h-full bg-black flex items-center justify-center">
+                            <video src={url} className="w-full h-full object-cover" />
+                          </div>
+                        ) : (
+                          <img src={url} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
