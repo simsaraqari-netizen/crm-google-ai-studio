@@ -3539,7 +3539,7 @@ const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavori
     >
       {/* Title - Full Width */}
       <h3 className="text-sm font-bold text-stone-900 mb-2 line-clamp-2 leading-tight w-full text-right">
-        {generatePropertyTitle(property)}
+        {property.name || 'عقار بدون اسم'}
       </h3>
 
       <div className="flex gap-3 flex-1 items-end mb-3">

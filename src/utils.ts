@@ -113,47 +113,7 @@ export function searchMatch(source: string, query: string): boolean {
 
 export function generatePropertyTitle(property: any): string {
   if (!property) return "";
-  const parts = [];
-  
-  // الاسم
-  if (property.name) parts.push(property.name);
-  
-  // الغرض
-  if (property.purpose) {
-    let p = property.purpose.trim();
-    if (p === 'بيع') p = 'للبيع';
-    else if (p === 'إيجار' || p === 'ايجار') p = 'للايجار';
-    else if (p === 'بدل') p = 'للبدل';
-    else if (p === 'شراء') p = 'شراي';
-    else if (p === 'مستأجر') p = 'مستأجر';
-    else if (!p.startsWith('ل')) p = 'ل' + p;
-    parts.push(p);
-  }
-  
-  // المنطقة مسبوقة بحرف في
-  if (property.area) {
-    parts.push(`في ${cleanAreaName(property.area)}`);
-  }
-  
-  // النوع
-  if (property.type) {
-    parts.push(property.type);
-  }
-  
-  // الموقع
-  const addressParts = [];
-  if (property.sector) addressParts.push(property.sector);
-  if (property.block) addressParts.push(`ق ${property.block}`);
-  if (property.street) addressParts.push(`ش ${property.street}`);
-  if (property.plotNumber) addressParts.push(`قسيمة ${property.plotNumber}`);
-  if (property.houseNumber) addressParts.push(`م ${property.houseNumber}`);
-  if (property.location) addressParts.push(`موقع ${property.location}`);
-  
-  if (addressParts.length > 0) {
-    parts.push(addressParts.join(' '));
-  }
-  
-  return parts.filter(Boolean).join(' ');
+  return property.name || 'عقار بدون اسم';
 }
 
 export function employeeIdToEmail(employeeId: string): string {
