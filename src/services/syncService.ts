@@ -140,8 +140,8 @@ async function syncSheetCommentsForProperty(
     .limit(200);
 
   const { data: users } = await supabaseAdmin
-    .from('user_profiles')
-    .select('id,full_name,display_name')
+    .from('profiles')
+    .select('id,full_name,name')
     .in('role', ['employee', 'admin', 'super_admin']);
 
   const userPool = users || [];
@@ -161,12 +161,12 @@ async function syncSheetCommentsForProperty(
     const uniqueAliases = Array.from(new Set(aliases));
 
     const matchedUsers = userPool.filter((u: any) => {
-      const name = normalizeLoose(u.full_name || u.display_name || '');
+      const name = normalizeLoose(u.full_name || u.name || '');
       return uniqueAliases.some(alias => name.includes(normalizeLoose(alias)));
     });
 
     const userNames = matchedUsers.length > 0
-      ? matchedUsers.map((u: any) => u.full_name || u.display_name).filter(Boolean)
+      ? matchedUsers.map((u: any) => u.full_name || u.name).filter(Boolean)
       : uniqueAliases;
     const userName = userNames.length > 0 ? Array.from(new Set(userNames)).join('، ') : 'مزامنة الشيت';
     const userId = matchedUsers.length === 1 ? matchedUsers[0].id : null;

@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchUserProfile = async (userId: string) => {
     try {
       const { data: userData, error } = await supabase
-        .from('user_profiles')
+        .from('profiles')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
@@ -67,7 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (userData) {
         if (userData.force_sign_out) {
-          await supabase.from('user_profiles').update({ force_sign_out: false }).eq('id', sbUser.id);
+          await supabase.from('profiles').update({ force_sign_out: false }).eq('id', sbUser.id);
           setAuthError('تم تسجيل خروجك من قبل المسؤول.');
           await supabase.auth.signOut();
           setUser(null);
@@ -87,7 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (SUPER_ADMIN_EMAILS.includes(sbUser.email || '') && userData.role !== 'super_admin') {
-          await supabase.from('user_profiles').update({ role: 'super_admin' }).eq('id', sbUser.id);
+          await supabase.from('profiles').update({ role: 'super_admin' }).eq('id', sbUser.id);
           userData.role = 'super_admin';
         }
         setUser(userData as UserProfile);
@@ -98,18 +98,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           id: sbUser.id,
           email: sbUser.email || '',
           full_name: sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'User',
-          display_name: sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'User',
+          name: sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'User',
           role: isSuper ? 'super_admin' : 'pending',
           created_at: new Date().toISOString()
         };
-        const { error: insertError } = await supabase.from('user_profiles').insert(newProfile);
+        const { error: insertError } = await supabase.from('profiles').insert(newProfile);
         if (insertError) throw insertError;
 
         if (!isSuper) {
           await supabase.from('notifications').insert({
             type: 'new-user',
             title: 'طلب انضمام جديد',
-            message: `الموظف ${newProfile.display_name} يطلب الانضمام للنظام`,
+            message: `الموظف ${newProfile.name} يطلب الانضمام للنظام`,
             user_id: sbUser.id,
             read: false
           });
