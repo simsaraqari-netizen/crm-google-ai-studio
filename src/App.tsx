@@ -100,14 +100,22 @@ interface Company {
 
 interface Comment {
   id: string;
-  propertyId: string;
-  userId: string;
-  userName: string;
+  property_id?: string;
+  propertyId?: string;
+  user_id?: string;
+  userId?: string;
+  user_name?: string;
+  userName?: string;
   text: string;
-  images?: string[];
+  images?: any[];
+  image_url?: string;
   imageUrl?: string;
+  user_phone?: string;
   userPhone?: string;
-  createdAt: any;
+  created_at?: any;
+  createdAt?: any;
+  is_deleted?: boolean;
+  isDeleted?: boolean;
 }
 
 interface UserProfile {
@@ -5083,25 +5091,35 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                         
                         {(c.images && c.images.length > 0) ? (
                           <div className="flex flex-wrap gap-2 mt-2">
-                            {c.images.map((img, idx) => (
-                              <motion.div
-                                key={idx}
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                onClick={() => {
-                                  setViewerImages(c.images!);
-                                  setViewerIndex(idx);
-                                  setShowViewer(true);
-                                }}
-                                className="relative w-20 h-20 rounded-lg overflow-hidden border border-stone-200 cursor-pointer shadow-sm"
-                              >
-                                {img.startsWith('data:video/') ? (
-                                  <video src={img} className="w-full h-full object-cover" />
-                                ) : (
-                                  <img src={img} alt="" className="w-full h-full object-cover" />
-                                )}
-                              </motion.div>
-                            ))}
+                            {c.images.map((img: any, idx) => {
+                              const url = typeof img === 'string' ? img : (img?.url || '');
+                              const isVideo = typeof img === 'string' 
+                                ? (img.startsWith('data:video/') || img.toLowerCase().endsWith('.mp4')) 
+                                : (img?.type === 'video' || (img?.url && img.url.toLowerCase().endsWith('.mp4')));
+
+                              return (
+                                <motion.div
+                                  key={idx}
+                                  whileHover={{ scale: 1.02 }}
+                                  whileTap={{ scale: 0.98 }}
+                                  onClick={() => {
+                                    const imageList = c.images!.map((i: any) => typeof i === 'string' ? i : (i?.url || ''));
+                                    setViewerImages(imageList);
+                                    setViewerIndex(idx);
+                                    setShowViewer(true);
+                                  }}
+                                  className="relative w-20 h-20 rounded-lg overflow-hidden border border-stone-200 cursor-pointer shadow-sm"
+                                >
+                                  {isVideo ? (
+                                    <div className="w-full h-full bg-black flex items-center justify-center">
+                                      <video src={url} className="w-full h-full object-cover" />
+                                    </div>
+                                  ) : (
+                                    <img src={url} alt="" className="w-full h-full object-cover" />
+                                  )}
+                                </motion.div>
+                              );
+                            })}
                           </div>
                         ) : c.image_url ? (
                           <div className="mt-2">
@@ -5115,7 +5133,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                               }}
                               className="relative w-24 h-24 rounded-lg overflow-hidden border border-stone-200 cursor-pointer shadow-sm"
                             >
-                              {c.image_url.startsWith('data:video/') ? (
+                              {c.image_url.startsWith('data:video/') || c.image_url.toLowerCase().endsWith('.mp4') ? (
                                 <video src={c.image_url} className="w-full h-full object-cover" />
                               ) : (
                                 <img src={c.image_url} alt="" className="w-full h-full object-cover" />
