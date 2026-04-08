@@ -1,6 +1,7 @@
 export interface Property {
   id: string;
   name: string;
+  title?: string;
   governorate: string;
   area: string;
   type: string;
@@ -35,6 +36,8 @@ export interface Property {
   isDeleted?: boolean;
   deletedAt?: any;
   createdBy: string;
+  created_by?: string;
+  created_by_name?: string;
   createdAt: any;
 }
 

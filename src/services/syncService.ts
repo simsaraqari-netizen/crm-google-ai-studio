@@ -468,7 +468,7 @@ export const syncSupabaseWithSheets = async () => {
           finalEmployeeName = Array.from(new Set(names)).join(', ');
         }
 
-        const cName = getVal(name, 'name');
+        const cName = getVal(name, 'title');
         const cPurpose = getVal(purpose, 'purpose');
         const cType = getVal(type, 'type');
 
@@ -483,7 +483,7 @@ export const syncSupabaseWithSheets = async () => {
         }
 
         const propertyData: any = {
-          name: cleanNameText(cName),
+          title: cleanNameText(cName),
           governorate: finalGov,
           area: finalArea,
           type: newType || cType,
