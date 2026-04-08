@@ -427,21 +427,26 @@ function ImageViewer({ images, initialIndex, onClose, isSold }: any) {
       )}
 
         <div className="max-w-5xl w-full h-full flex items-center justify-center relative">
-        {images[currentIndex]?.startsWith('data:video/') ? (
-          <video 
-            src={images[currentIndex]} 
-            controls 
-            autoPlay
-            className={`max-w-full max-h-full object-contain rounded-lg shadow-2xl ${isSold ? 'grayscale opacity-60' : ''}`}
-          />
-        ) : (
-          <img 
-            src={images[currentIndex]} 
-            className={`max-w-full max-h-full object-contain rounded-lg shadow-2xl ${isSold ? 'grayscale opacity-60' : ''}`} 
-            referrerPolicy="no-referrer"
-            alt=""
-          />
-        )}
+        {(() => {
+          const img = images[currentIndex];
+          const isVideo = typeof img === 'string' && (img.startsWith('data:video/') || img.toLowerCase().endsWith('.mp4') || img.includes('/video/'));
+          
+          return isVideo ? (
+            <video 
+              src={img} 
+              controls 
+              autoPlay
+              className={`max-w-full max-h-full object-contain rounded-lg shadow-2xl ${isSold ? 'grayscale opacity-60' : ''}`}
+            />
+          ) : (
+            <img 
+              src={img} 
+              className={`max-w-full max-h-full object-contain rounded-lg shadow-2xl ${isSold ? 'grayscale opacity-60' : ''}`} 
+              referrerPolicy="no-referrer"
+              alt=""
+            />
+          );
+        })()}
         {isSold && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
             <span className="text-white font-black text-6xl tracking-wider transform -rotate-12 border-4 border-white px-8 py-3 rounded-2xl shadow-2xl bg-stone-700/80 backdrop-blur-sm">مباع</span>
