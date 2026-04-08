@@ -4596,6 +4596,8 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
   };
 
   const whatsappUrl = `https://wa.me/${(property.assigned_employee_phone || property.phone || '').replace(/\+/g, '').replace(/\s/g, '')}`;
+  const employeeWhatsappUrl = property.assigned_employee_phone ? `https://wa.me/${property.assigned_employee_phone.replace(/\+/g, '').replace(/\s/g, '')}` : null;
+  const propertyWhatsappUrl = property.phone ? `https://wa.me/${property.phone.replace(/\+/g, '').replace(/\s/g, '')}` : null;
 
   const handleCommentImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []) as File[];
@@ -4826,23 +4828,65 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                 )}
               </div>
               
-              <div className="flex flex-col md:flex-row gap-3 w-full">
-                <a 
-                  href={`tel:${property.assigned_employee_phone || property.phone || ''}`}
-                  className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-xl hover:bg-emerald-700 transition-all font-bold text-sm shadow-sm"
-                >
-                  <span>{property.assigned_employee_phone || property.phone || ''}</span>
-                  <Phone size={16} />
-                </a>
-                <a 
-                  href={whatsappUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 flex items-center justify-center gap-2 bg-green-500 text-white px-6 py-3 rounded-xl hover:bg-green-600 active:scale-95 transition-all font-bold text-sm shadow-sm"
-                >
-                  <MessageCircle size={16} />
-                  واتساب مباشر
-                </a>
+              <div className="flex flex-col gap-3 w-full">
+                {/* Agent Contact */}
+                {property.assigned_employee_phone && (
+                  <div className="space-y-2">
+                    <p className="text-[10px] text-stone-400 text-right pr-2">تواصل مع المسؤول: {property.assigned_employee_name}</p>
+                    <div className="flex flex-col md:flex-row gap-2">
+                      <a 
+                        href={`tel:${property.assigned_employee_phone}`}
+                        className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-xl hover:bg-emerald-700 transition-all font-bold text-sm shadow-sm"
+                      >
+                        <span>{property.assigned_employee_phone}</span>
+                        <Phone size={16} />
+                      </a>
+                      <a 
+                        href={employeeWhatsappUrl || '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 flex items-center justify-center gap-2 bg-green-500 text-white px-6 py-3 rounded-xl hover:bg-green-600 transition-all font-bold text-sm shadow-sm"
+                      >
+                        <MessageCircle size={16} />
+                        واتساب المسؤول
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                {/* Property Contact */}
+                {property.phone && (
+                  <div className="space-y-2 mt-2">
+                    <p className="text-[10px] text-stone-400 text-right pr-2">هاتف العقار المسجل</p>
+                    <div className="flex flex-col md:flex-row gap-2">
+                      <a 
+                        href={`tel:${property.phone}`}
+                        className="flex-1 flex items-center justify-center gap-2 bg-stone-100 text-stone-800 px-6 py-3 rounded-xl hover:bg-stone-200 transition-all font-bold text-sm shadow-sm"
+                      >
+                        <span>{property.phone}</span>
+                        <Phone size={16} />
+                      </a>
+                      {property.phone_2 && (
+                        <a 
+                          href={`tel:${property.phone_2}`}
+                          className="flex-1 flex items-center justify-center gap-2 bg-stone-50 text-stone-600 px-6 py-3 rounded-xl hover:bg-stone-100 transition-all font-bold text-sm shadow-sm border border-stone-100"
+                        >
+                          <span>{property.phone_2}</span>
+                          <Phone size={16} />
+                        </a>
+                      )}
+                      <a 
+                        href={propertyWhatsappUrl || '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 flex items-center justify-center gap-2 bg-white text-green-600 border border-green-200 px-6 py-3 rounded-xl hover:bg-green-50 transition-all font-bold text-sm shadow-sm"
+                      >
+                        <MessageCircle size={16} />
+                        واتساب العقار
+                      </a>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

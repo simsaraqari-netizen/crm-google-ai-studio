@@ -144,7 +144,9 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
     }, 0);
   };
 
-  const whatsappUrl = `https://wa.me/${(property.assigned_employee_phone || property.phone || '').replace(/\+/g, '').replace(/\s/g, '')}`;
+  const whatsappUrl = `https://wa.me/${(property.assigned_employee_phone || property.phone || '').replace(/\+/g, '').replace(/\s/g, '')}`; // This remains for the "WhatsApp Direct" button but we can split it.
+  const employeeWhatsappUrl = property.assigned_employee_phone ? `https://wa.me/${property.assigned_employee_phone.replace(/\+/g, '').replace(/\s/g, '')}` : null;
+  const propertyWhatsappUrl = property.phone ? `https://wa.me/${property.phone.replace(/\+/g, '').replace(/\s/g, '')}` : null;
 
   const handleCommentImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []) as File[];
@@ -384,33 +386,64 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
               </div>
               
               <div className="flex flex-col gap-3 w-full">
-                <div className="flex flex-col md:flex-row gap-3 w-full">
-                  <a 
-                    href={`tel:${property.assigned_employee_phone || property.phone || ''}`}
-                    className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-xl hover:bg-emerald-700 transition-all font-bold text-sm shadow-sm"
-                  >
-                    <span>{property.assigned_employee_phone || property.phone || ''}</span>
-                    <Phone size={16} />
-                  </a>
-                  {property.phone_2 && (
-                    <a 
-                      href={`tel:${property.phone_2}`}
-                      className="flex-1 flex items-center justify-center gap-2 bg-emerald-100 text-emerald-800 px-6 py-3 rounded-xl hover:bg-emerald-200 transition-all font-bold text-sm shadow-sm"
-                    >
-                      <span>{property.phone_2}</span>
-                      <Phone size={16} />
-                    </a>
-                  )}
-                </div>
-                <a 
-                  href={whatsappUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full flex items-center justify-center gap-2 bg-green-500 text-white px-6 py-3 rounded-xl hover:bg-green-600 active:scale-95 transition-all font-bold text-sm shadow-sm"
-                >
-                  <MessageCircle size={16} />
-                  واتساب مباشر
-                </a>
+                {/* Employee Contact - Priority */}
+                {property.assigned_employee_phone && (
+                  <div className="space-y-2">
+                    <p className="text-[10px] text-stone-400 text-right pr-2">تواصل مع المسؤول: {property.assigned_employee_name}</p>
+                    <div className="flex flex-col md:flex-row gap-2">
+                      <a 
+                        href={`tel:${property.assigned_employee_phone}`}
+                        className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-xl hover:bg-emerald-700 transition-all font-bold text-sm shadow-sm"
+                      >
+                        <span>{property.assigned_employee_phone}</span>
+                        <Phone size={16} />
+                      </a>
+                      <a 
+                        href={employeeWhatsappUrl || '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 flex items-center justify-center gap-2 bg-green-500 text-white px-6 py-3 rounded-xl hover:bg-green-600 transition-all font-bold text-sm shadow-sm"
+                      >
+                        <MessageCircle size={16} />
+                        واتساب المسؤول
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                {/* Property Contact */}
+                {property.phone && (
+                  <div className="space-y-2 mt-2">
+                    <p className="text-[10px] text-stone-400 text-right pr-2">هاتف العقار المسجل</p>
+                    <div className="flex flex-col md:flex-row gap-2">
+                      <a 
+                        href={`tel:${property.phone}`}
+                        className="flex-1 flex items-center justify-center gap-2 bg-stone-100 text-stone-800 px-6 py-3 rounded-xl hover:bg-stone-200 transition-all font-bold text-sm shadow-sm"
+                      >
+                        <span>{property.phone}</span>
+                        <Phone size={16} />
+                      </a>
+                      {property.phone_2 && (
+                        <a 
+                          href={`tel:${property.phone_2}`}
+                          className="flex-1 flex items-center justify-center gap-2 bg-stone-50 text-stone-600 px-6 py-3 rounded-xl hover:bg-stone-100 transition-all font-bold text-sm shadow-sm border border-stone-100"
+                        >
+                          <span>{property.phone_2}</span>
+                          <Phone size={16} />
+                        </a>
+                      )}
+                      <a 
+                        href={propertyWhatsappUrl || '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 flex items-center justify-center gap-2 bg-white text-green-600 border border-green-200 px-6 py-3 rounded-xl hover:bg-green-50 transition-all font-bold text-sm shadow-sm"
+                      >
+                        <MessageCircle size={16} />
+                        واتساب العقار
+                      </a>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -737,7 +770,7 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
               </button>
               <p className="text-[10px] text-stone-500">مستخدم معتمد</p>
               <span className="text-xs font-bold text-stone-600 mt-1">
-                {property.assigned_employee_phone || property.phone}
+                {property.assigned_employee_phone || 'بدون هاتف'}
               </span>
             </div>
             
@@ -745,18 +778,18 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
             <div className="flex flex-col items-start gap-2">
               <div className="flex items-center gap-2" dir="ltr">
                 <a
-                  href={`https://wa.me/${(property.assigned_employee_phone || property.phone).replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`السلام عليكم، بخصوص هذا العقار: ${window.location.href}`)}`}
+                  href={`https://wa.me/${(property.assigned_employee_phone || '').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`السلام عليكم، بخصوص هذا العقار: ${window.location.href}`)}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-8 h-8 flex items-center justify-center text-green-600 bg-stone-50 border border-stone-100 hover:bg-green-50 rounded-full transition-colors shadow-sm"
-                  title="واتساب"
+                  className={`w-8 h-8 flex items-center justify-center text-green-600 bg-stone-50 border border-stone-100 hover:bg-green-50 rounded-full transition-colors shadow-sm ${!property.assigned_employee_phone ? 'opacity-30 pointer-events-none' : ''}`}
+                  title="واتساب المسؤول"
                 >
                   <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
                 </a>
                 <a 
-                  href={`tel:${property.assigned_employee_phone || property.phone}`}
-                  className="w-8 h-8 flex items-center justify-center text-emerald-600 bg-stone-50 border border-stone-100 hover:bg-emerald-50 rounded-full transition-colors shadow-sm"
-                  title="اتصال"
+                  href={property.assigned_employee_phone ? `tel:${property.assigned_employee_phone}` : '#'}
+                  className={`w-8 h-8 flex items-center justify-center text-emerald-600 bg-stone-50 border border-stone-100 hover:bg-emerald-50 rounded-full transition-colors shadow-sm ${!property.assigned_employee_phone ? 'opacity-30 pointer-events-none' : ''}`}
+                  title="اتصال بالمسؤول"
                 >
                   <Phone size={20} />
                 </a>

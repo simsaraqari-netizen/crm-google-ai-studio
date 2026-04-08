@@ -302,19 +302,17 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
                 onChange={(e) => setFormData({...formData, name: e.target.value})}
               />
             </div>
-            <div className="relative">
               <input 
                 type="tel"
-                placeholder="الهاتف ١"
+                placeholder="هاتف المالك / العقار ١"
                 className="w-full px-4 py-2 bg-stone-50 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
                 value={(formData as any).phone}
                 onChange={(e) => setFormData({...formData, phone: e.target.value})}
               />
-            </div>
             <div className="relative">
               <input 
                 type="tel"
-                placeholder="الهاتف ٢"
+                placeholder="هاتف المالك / العقار ٢"
                 className="w-full px-4 py-2 bg-stone-50 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
                 value={(formData as any).phone_2}
                 onChange={(e) => setFormData({...formData, phone_2: e.target.value})}
@@ -482,8 +480,8 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
 
           <input 
             type="tel"
-            placeholder="رقم هاتف المسؤول..."
-            className="w-full px-4 py-2 bg-stone-50 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm mt-2"
+            placeholder="رقم هاتف الموظف المسؤول..."
+            className="w-full px-4 py-2 bg-stone-50 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm mt-2 font-bold text-emerald-700"
             value={formData.assigned_employee_phone || ''}
             onChange={(e) => setFormData({...formData, assigned_employee_phone: e.target.value})}
           />
