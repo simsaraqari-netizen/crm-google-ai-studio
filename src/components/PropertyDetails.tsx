@@ -623,25 +623,35 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                         
                         {(c.images && c.images.length > 0) ? (
                           <div className="flex flex-wrap gap-2 mt-2">
-                            {c.images.map((img, idx) => (
-                              <motion.div
-                                key={idx}
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                onClick={() => {
-                                  setViewerImages(c.images!);
-                                  setViewerIndex(idx);
-                                  setShowViewer(true);
-                                }}
-                                className="relative w-16 h-16 rounded-lg overflow-hidden border border-stone-200 cursor-pointer shadow-sm"
-                              >
-                                {img.startsWith('data:video/') ? (
-                                  <video src={img} className="w-full h-full object-cover" />
-                                ) : (
-                                  <img loading="lazy" src={img} alt="" className="w-full h-full object-cover" />
-                                )}
-                              </motion.div>
-                            ))}
+                            {c.images.map((img: any, idx) => {
+                              const url = typeof img === 'string' ? img : (img?.url || '');
+                              const isVideo = typeof img === 'string' 
+                                ? (img.startsWith('data:video/') || img.toLowerCase().endsWith('.mp4')) 
+                                : (img?.type === 'video' || (img?.url && img.url.toLowerCase().endsWith('.mp4')));
+
+                              return (
+                                <motion.div
+                                  key={idx}
+                                  whileHover={{ scale: 1.02 }}
+                                  whileTap={{ scale: 0.98 }}
+                                  onClick={() => {
+                                    const imageList = c.images!.map((i: any) => typeof i === 'string' ? i : (i?.url || ''));
+                                    setViewerImages(imageList);
+                                    setViewerIndex(idx);
+                                    setShowViewer(true);
+                                  }}
+                                  className="relative w-16 h-16 rounded-lg overflow-hidden border border-stone-200 cursor-pointer shadow-sm"
+                                >
+                                  {isVideo ? (
+                                    <div className="w-full h-full bg-black flex items-center justify-center">
+                                      <video src={url} className="w-full h-full object-cover" />
+                                    </div>
+                                  ) : (
+                                    <img loading="lazy" src={url} alt="" className="w-full h-full object-cover" />
+                                  )}
+                                </motion.div>
+                              );
+                            })}
                           </div>
                         ) : c.image_url ? (
                           <div className="mt-2">
