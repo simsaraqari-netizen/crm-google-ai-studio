@@ -87,7 +87,8 @@ export function useDeletedProperties(isAdmin: boolean, companyId?: string | null
       if (companyId) {
         query = query.eq('companyId', companyId);
       }
-      const { data, error } = await query;
+      // Increased limit to avoid default 1000 row cap
+      const { data, error } = await query.order('createdAt', { ascending: false }).limit(5000);
       if (error) throw error;
       return data as Property[];
     },

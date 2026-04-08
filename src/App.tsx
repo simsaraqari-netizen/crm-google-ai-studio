@@ -1110,27 +1110,43 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
 
-    (async () => {
+    const fetchAllProperties = async () => {
       try {
-        let query = supabase.from('properties').select('*');
+        let allPropsData: any[] = [];
+        let from = 0;
+        const step = 1000;
+        let fetchMore = true;
 
-        if (isSuperAdmin) {
-          if (selectedCompanyId) {
-            query = query.eq('company_id', selectedCompanyId);
+        while (fetchMore) {
+          let query = supabase.from('properties').select('*');
+
+          if (isSuperAdmin) {
+            if (selectedCompanyId) {
+              query = query.eq('company_id', selectedCompanyId);
+            }
+          } else if (user.companyId) {
+            query = query.eq('company_id', user.companyId);
+          } else {
+            setProperties([]);
+            return;
           }
-        } else if (user.companyId) {
-          query = query.eq('company_id', user.companyId);
-        } else {
-          // User has no company assigned yet (pending)
-          setProperties([]);
-          return;
+
+          const { data, error } = await query
+            .order('created_at', { ascending: false })
+            .range(from, from + step - 1);
+
+          if (error) throw error;
+          
+          if (data && data.length > 0) {
+            allPropsData = [...allPropsData, ...data];
+            from += step;
+            if (data.length < step) fetchMore = false;
+          } else {
+            fetchMore = false;
+          }
         }
 
-        const { data: allPropsData, error } = await query.order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        const allProps = (allPropsData || []).map(data => ({
+        const allProps = allPropsData.map(data => ({
           id: data.id,
           ...data,
           location: data.location === 'شارع واحد | سد' ? 'شارع واحد' : data.location
@@ -1139,14 +1155,12 @@ export default function App() {
         const now = Date.now();
         const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
 
-        // Auto-cleanup logic for deleted properties older than 30 days
         const deleted = allProps.filter(p => p.status === 'deleted');
         const active = allProps.filter(p => p.status !== 'deleted');
 
         setProperties(active);
         setDeletedProperties(deleted);
 
-        // Optional: Admin-side cleanup of old trash
         if (isAdmin) {
           deleted.forEach(async (p) => {
             const deletedAtField = (p as any).deleted_at || p.deletedAt;
@@ -1162,32 +1176,26 @@ export default function App() {
             }
           });
         }
-
-        // Subscribe to changes
-        const channel = supabase.channel('properties-changes');
-        channel.on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'properties' },
-          () => {
-            // Re-fetch on any change
-            supabase.from('properties').select('*').order('created_at', { ascending: false }).then(({ data: updated }) => {
-              const updated_props = (updated || []).map(data => ({
-                id: data.id,
-                ...data,
-                location: data.location === 'شارع واحد | سد' ? 'شارع واحد' : data.location
-              } as Property));
-              const deleted_upd = updated_props.filter(p => p.status === 'deleted');
-              const active_upd = updated_props.filter(p => p.status !== 'deleted');
-              setProperties(active_upd);
-              setDeletedProperties(deleted_upd);
-            });
-          }
-        ).subscribe();
-
-        return () => { channel.unsubscribe(); };
       } catch (error) {
-        console.error("Properties listener error:", error);
+        console.error("Properties fetch error:", error);
       }
+    };
+
+    (async () => {
+      await fetchAllProperties();
+
+      // Subscribe to changes
+      const channel = supabase.channel('properties-changes');
+      channel.on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'properties' },
+        () => {
+          // Re-fetch on any change
+          fetchAllProperties();
+        }
+      ).subscribe();
+
+      return () => { channel.unsubscribe(); };
     })();
   }, [user, isSuperAdmin, selectedCompanyId]);
 
