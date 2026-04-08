@@ -236,11 +236,12 @@ async function saveSyncSnapshot(params: {
 
 function buildSheetHeader() {
   return [
-    "ID", "الاسم", "المحافظة", "المنطقة", "النوع", "الغرض", "تليفون",
-    "المسؤول الرقمي", "المسؤول", "الصور", "الروابط",
-    "رابط الموقع", "مباع؟", "القطاع", "القطعة", "الشارع", "الجادة",
-    "القسيمة", "المنزل", "الموقع", "التفاصيل", "آخر تعليق",
-    "حالة الحجز", "بواسطة", "تاريخ الإضافة"
+    "ID", "تاريخ الادخال", "الاسم", "الغرض", "الهاتف", "الهاتف ٢",
+    "المنطقة", "نوع العقار", "المحافظة", "القطاع", "التوزيعة",
+    "القطعة", "الشارع", "الجادة", "رقم القسيمة", "المنزل",
+    "الموقع", "رابط الموقع", "حالة العقار", "موظف الادخال",
+    "تعليقات", "تعليقات ٢", "تعليقات ٣", "الصور", "الروابط",
+    "المسؤول الرقمي", "المسؤول"
   ];
 }
 
@@ -272,30 +273,32 @@ async function buildSupabaseSheetPayload(): Promise<any[][]> {
   const header = buildSheetHeader();
   const rows = allProps.map(p => [
     p.id,
+    p.created_at ? new Date(p.created_at).toLocaleString('ar-KW') : '',
     normalizeDigits(p.name || ''),
-    normalizeDigits(p.governorate || ''),
-    normalizeDigits(p.area || ''),
-    normalizeDigits(p.type || ''),
     normalizeDigits(p.purpose || ''),
     normalizeDigits(p.phone || ''),
-    p.assigned_employee_id || '',
-    normalizeDigits(p.assigned_employee_name || ''),
-    (p.images || []).map((img: any) => typeof img === 'string' ? img : (img.url || '')).filter(Boolean).join(','),
-    (p.links || []).join(','),
-    p.location_link || '',
-    p.is_sold ? "مباع" : "متاح",
+    normalizeDigits(p.phone_2 || ''),
+    normalizeDigits(p.area || ''),
+    normalizeDigits(p.type || ''),
+    normalizeDigits(p.governorate || ''),
     normalizeDigits(p.sector || ''),
+    normalizeDigits(p.distribution || ''),
     normalizeDigits(p.block || ''),
     normalizeDigits(p.street || ''),
     normalizeDigits(p.avenue || ''),
     normalizeDigits(p.plot_number || ''),
     normalizeDigits(p.house_number || ''),
     normalizeDigits(p.location || ''),
-    normalizeDigits(p.details || ''),
-    normalizeDigits(p.last_comment || ''),
+    p.location_link || '',
     normalizeDigits(p.status_label || ''),
-    normalizeDigits(p.created_by || ''),
-    p.created_at ? new Date(p.created_at).toLocaleString('ar-KW') : '',
+    normalizeDigits(p.created_by_name || p.created_by || ''),
+    normalizeDigits(p.last_comment || ''),
+    normalizeDigits(p.comments_2 || ''),
+    normalizeDigits(p.comments_3 || ''),
+    (p.images || []).map((img: any) => typeof img === 'string' ? img : (img.url || '')).filter(Boolean).join(','),
+    (p.links || []).join(','),
+    p.assigned_employee_id || '',
+    normalizeDigits(p.assigned_employee_name || ''),
   ]);
 
   return [header, ...rows];
@@ -408,30 +411,30 @@ export const syncSupabaseWithSheets = async () => {
         if (!row || row.length < 2) continue;
         
         const id = readCell(row, ['ID', 'Id', 'id'], 0);
+        const created_atStr = readCell(row, ['تاريخ الادخال', 'تاريخ الإنشاء', 'تاريخ الإضافة', 'التاريخ', 'created_at'], 0);
         const name = readCell(row, ['الاسم', 'اسم العميل', 'name'], 1);
-        const governorate = readCell(row, ['المحافظة', 'governorate'], 2);
-        const area = readCell(row, ['المنطقة', 'area'], 3);
-        const type = readCell(row, ['النوع', 'type'], 4);
-        const purpose = readCell(row, ['الغرض', 'الغرض من العملية', 'purpose'], 5);
-        const phone = readCell(row, ['الهاتف', 'تليفون', 'phone'], 6);
-        const assigned_employee_id = readCell(row, ['ID الموظف', 'المسؤول الرقمي', 'assigned_employee_id'], 7);
-        const assigned_employee_name = readCell(row, ['اسم الموظف', 'المسؤول', 'assigned_employee_name'], 8);
-        const imagesStr = readCell(row, ['الصور', 'images'], 9);
-        const linksStr = readCell(row, ['الروابط', 'links'], 10);
-        const location_link = readCell(row, ['رابط الموقع', 'location_link'], 11);
-        const is_soldStr = readCell(row, ['مباع', 'مباع؟', 'is_sold'], 12);
-        const sector = readCell(row, ['القطاع', 'sector'], 13);
-        const block = readCell(row, ['القطعة', 'block'], 14);
-        const street = readCell(row, ['الشارع', 'street'], 15);
-        const avenue = readCell(row, ['الجادة', 'avenue'], 16);
-        const plot_number = readCell(row, ['القسيمة', 'plot_number'], 17);
-        const house_number = readCell(row, ['المنزل', 'house_number'], 18);
-        const location = readCell(row, ['الموقع الوصفي', 'الموقع', 'location'], 19);
-        const details = readCell(row, ['التفاصيل', 'details'], 20);
-        const last_comment = readCell(row, ['آخر تعليق', 'last_comment'], 21);
-        const status_label = readCell(row, ['ملصق الحالة', 'حالة الحجز', 'status_label'], 22);
-        const created_by = readCell(row, ['أنشئ بواسطة', 'بواسطة', 'created_by'], 23);
-        const created_atStr = readCell(row, ['تاريخ الإنشاء', 'تاريخ الإضافة', 'created_at'], 24);
+        const purpose = readCell(row, ['الغرض', 'الغرض من العملية', 'purpose'], 2);
+        const phone = readCell(row, ['الهاتف', 'تليفون', 'رقم الهاتف', 'phone'], 3);
+        const phone_2 = readCell(row, ['الهاتف ٢', 'هاتف ٢', 'رقم ٢', 'phone_2'], 4);
+        const area = readCell(row, ['المنطقة', 'area'], 5);
+        const type = readCell(row, ['نوع العقار', 'النوع', 'type'], 6);
+        const governorate = readCell(row, ['المحافظة', 'governorate'], 7);
+        const sector = readCell(row, ['القطاع', 'sector'], 8);
+        const distribution = readCell(row, ['التوزيعة', 'الصبة', 'distribution'], 9);
+        const block = readCell(row, ['القطعة', 'block'], 10);
+        const street = readCell(row, ['الشارع', 'street'], 11);
+        const avenue = readCell(row, ['الجادة', 'avenue'], 12);
+        const plot_number = readCell(row, ['رقم القسيمة', 'القسيمة', 'plot_number'], 13);
+        const house_number = readCell(row, ['المنزل', 'house_number'], 14);
+        const location = readCell(row, ['الموقع الوصفي', 'الموقع', 'location'], 15);
+        const location_link = readCell(row, ['رابط الموقع', 'location_link'], 16);
+        const status_label = readCell(row, ['حالة العقار', 'ملصق الحالة', 'حالة الحجز', 'الحالة', 'status_label'], 17);
+        const assigned_employee_name = readCell(row, ['موظف الادخال', 'اسم الموظف', 'المسؤول', 'موظف', 'assigned_employee_name'], 18);
+        const last_comment = readCell(row, ['تعليقات', 'التعليق', 'آخر تعليق', 'last_comment'], 19);
+        const comments_2 = readCell(row, ['تعليقات ٢', 'comments_2'], 20);
+        const comments_3 = readCell(row, ['تعليقات ٣', 'comments_3'], 21);
+        const imagesStr = readCell(row, ['الصور', 'images'], 22);
+        const linksStr = readCell(row, ['الروابط', 'links'], 23);
 
         // Fetch existing record to preserve fields if sheet is empty
         let existing: any = null;
@@ -494,11 +497,13 @@ export const syncSupabaseWithSheets = async () => {
           type: newType || cType,
           purpose: newPurpose || cPurpose,
           phone: getVal(phone, 'phone'),
+          phone_2: getVal(phone_2, 'phone_2'),
           assigned_employee_id: assigned_employee_id || (existing?.assigned_employee_id || null),
           assigned_employee_name: finalEmployeeName,
           location_link: getVal(location_link, 'location_link'),
           is_sold: is_soldStr ? (is_soldStr === 'TRUE' || is_soldStr === 'نعم' || is_soldStr === 'مباع') : (existing?.is_sold || false),
           sector: getVal(sector, 'sector'),
+          distribution: getVal(distribution, 'distribution'),
           block: getVal(block, 'block'),
           street: getVal(street, 'street'),
           avenue: getVal(avenue, 'avenue'),
@@ -506,7 +511,9 @@ export const syncSupabaseWithSheets = async () => {
           house_number: getVal(house_number, 'house_number'),
           location: getVal(location, 'location'),
           details: getVal(details, 'details'),
-          status_label: getVal(status_label, 'status_label')
+          status_label: getVal(status_label, 'status_label'),
+          comments_2: getVal(comments_2, 'comments_2'),
+          comments_3: getVal(comments_3, 'comments_3'),
         };
 
         // Handle JSON fields (Images/Links)
