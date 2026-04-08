@@ -38,21 +38,21 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
               {property.images[0].startsWith('data:video/') ? (
                 <video 
                   src={property.images[0]} 
-                  className={`w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 ${property.isSold ? 'grayscale opacity-60' : ''}`}
+                  className={`w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
                 />
               ) : (
                 <img 
                   loading="lazy"
                   src={property.images[0]} 
                   alt={generatePropertyTitle(property)} 
-                  className={`w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 ${property.isSold ? 'grayscale opacity-60' : ''}`}
+                  className={`w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
                   referrerPolicy="no-referrer"
                 />
               )}
               <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
                 <ImageIcon className="text-white" size={14} />
               </div>
-              {property.isSold && (
+              {property.is_sold && (
                 <div className="absolute inset-0 flex items-center justify-center bg-stone-700/80 backdrop-blur-sm z-20">
                   <span className="text-white font-black text-[10px] tracking-wider transform -rotate-12 border-2 border-white px-1 py-0.5 rounded shadow-lg">مباع</span>
                 </div>
@@ -75,7 +75,7 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
               <span className="text-[9px] font-bold text-emerald-800 text-center z-10 leading-tight drop-shadow-sm px-1 bg-white/70 rounded py-0.5 max-w-[90%] truncate">
                 {cleanAreaName(property.area)}
               </span>
-              {property.isSold && (
+              {property.is_sold && (
                 <div className="absolute inset-0 flex items-center justify-center bg-stone-700/80 backdrop-blur-sm z-20">
                   <span className="text-white font-black text-[10px] tracking-wider transform -rotate-12 border-2 border-white px-1 py-0.5 rounded shadow-lg">مباع</span>
                 </div>
@@ -84,10 +84,10 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
           )}
           
           {/* Badge on Image */}
-          {property.statusLabel && (
+          {property.status_label && (
             <div className="absolute top-0 right-0 left-0 z-10">
               <span className="bg-amber-500/90 text-white px-1 py-0.5 text-[8px] font-black uppercase block text-center tracking-widest shadow-sm">
-                {property.statusLabel}
+                {property.status_label}
               </span>
             </div>
           )}
@@ -107,10 +107,10 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
                 {property.details}
               </p>
             )}
-            {property.lastComment && (
+            {property.last_comment && (
               <div className="mt-2 p-2 rounded-lg border-r-2 border-emerald-500">
                 <p className="text-xs text-stone-700 line-clamp-1">
-                  {property.lastComment}
+                  {property.last_comment}
                 </p>
               </div>
             )}
@@ -155,9 +155,9 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
 
       {/* Footer: Icons + Time */}
       <div className="flex items-center justify-between pt-0.5">
-        {property.createdAt && (
+        {property.created_at && (
           <span className="text-[9px] text-stone-400 font-normal">
-            {formatRelativeDate(property.createdAt)}
+            {formatRelativeDate(property.created_at)}
           </span>
         )}
         <div className="flex items-center gap-1">
@@ -237,7 +237,7 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
                   const shareUrl = `${window.location.origin}?propertyId=${property.id}`;
                   if (navigator.share) {
                     navigator.share({
-                      title: property.title || 'عقار',
+                      title: property.name || 'عقار',
                       text: property.details,
                       url: shareUrl,
                     }).catch(console.error);

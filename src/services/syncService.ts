@@ -468,7 +468,7 @@ export const syncSupabaseWithSheets = async () => {
           finalEmployeeName = Array.from(new Set(names)).join(', ');
         }
 
-        const cName = getVal(name, 'title');
+        const cName = getVal(name, 'name');
         const cPurpose = getVal(purpose, 'purpose');
         const cType = getVal(type, 'type');
 

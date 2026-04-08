@@ -64,10 +64,10 @@ interface Property {
   phone: string;
   phone_2?: string;
   companyId: string;
-  assignedEmployeeId?: string;
+  assigned_employee_id?: string;
   assignedEmployeeName?: string;
   images: any[];
-  locationLink?: string;
+  location_link?: string;
   isSold?: boolean;
   sector?: string;
   distribution?: string;
@@ -79,7 +79,7 @@ interface Property {
   location: string;
   price?: string;
   details?: string;
-  lastComment?: string;
+  last_comment?: string;
   comments_2?: string;
   comments_3?: string;
   statusLabel?: string;
@@ -1358,7 +1358,7 @@ export default function App() {
             email: generatedEmail,
             name: username,
             role: role,
-            createdAt: new Date().toISOString()
+            created_at: new Date().toISOString()
           };
           setUser(userData);
         }
@@ -1480,7 +1480,7 @@ export default function App() {
       // View specific filtering
       if (view === 'my-listings' && p.createdBy !== user?.uid) return false;
       if (view === 'my-favorites' && !favorites.includes(p.id)) return false;
-      if (view === 'user-listings' && selectedMarketerId && p.assignedEmployeeId !== selectedMarketerId) return false;
+      if (view === 'user-listings' && selectedMarketerId && p.assigned_employee_id !== selectedMarketerId) return false;
       if (view === 'pending-properties' && p.status !== 'pending') return false;
       
       // Approval status filtering - REMOVED to allow all users to see all properties
@@ -3535,7 +3535,7 @@ const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavori
           className="w-16 h-16 bg-stone-100 relative shrink-0 rounded-lg overflow-hidden shadow-inner group/img" 
           onClick={(e) => {
             e.stopPropagation();
-            if (property.images?.length > 0) onImageClick(property.images, 0);
+            if ((property.images || []).length > 0) onImageClick(property.images, 0);
           }}
         >
           {property.images?.[0] ? (
@@ -3543,20 +3543,21 @@ const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavori
               {property.images[0].startsWith('data:video/') ? (
                 <video 
                   src={property.images[0]} 
-                  className={`w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 ${property.isSold ? 'grayscale opacity-60' : ''}`}
+                  className={`w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
                 />
               ) : (
                 <img 
+                  loading="lazy"
                   src={property.images[0]} 
                   alt={generatePropertyTitle(property)} 
-                  className={`w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 ${property.isSold ? 'grayscale opacity-60' : ''}`}
+                  className={`w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
                   referrerPolicy="no-referrer"
                 />
               )}
               <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
                 <ImageIcon className="text-white" size={14} />
               </div>
-              {property.isSold && (
+              {property.is_sold && (
                 <div className="absolute inset-0 flex items-center justify-center bg-stone-700/80 backdrop-blur-sm z-20">
                   <span className="text-white font-black text-[10px] tracking-wider transform -rotate-12 border-2 border-white px-1 py-0.5 rounded shadow-lg">مباع</span>
                 </div>
@@ -3579,7 +3580,7 @@ const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavori
               <span className="text-[9px] font-bold text-emerald-800 text-center z-10 leading-tight drop-shadow-sm px-1 bg-white/70 rounded py-0.5 max-w-[90%] truncate">
                 {cleanAreaName(property.area)}
               </span>
-              {property.isSold && (
+              {property.is_sold && (
                 <div className="absolute inset-0 flex items-center justify-center bg-stone-700/80 backdrop-blur-sm z-20">
                   <span className="text-white font-black text-[10px] tracking-wider transform -rotate-12 border-2 border-white px-1 py-0.5 rounded shadow-lg">مباع</span>
                 </div>
@@ -3588,10 +3589,10 @@ const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavori
           )}
           
           {/* Badge on Image */}
-          {property.statusLabel && (
+          {property.status_label && (
             <div className="absolute top-0 right-0 left-0 z-10">
               <span className="bg-amber-500/90 text-white px-1 py-0.5 text-[8px] font-black uppercase block text-center tracking-widest shadow-sm">
-                {property.statusLabel}
+                {property.status_label}
               </span>
             </div>
           )}
@@ -3611,10 +3612,10 @@ const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavori
                 {property.details}
               </p>
             )}
-            {property.lastComment && (
+            {property.last_comment && (
               <div className="mt-2 p-2 rounded-lg border-r-2 border-emerald-500">
                 <p className="text-xs text-stone-700 line-clamp-1">
-                  {property.lastComment}
+                  {property.last_comment}
                 </p>
               </div>
             )}
@@ -3658,9 +3659,9 @@ const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavori
         >
           {property.type || 'غير محدد'}
         </button>
-        {property.createdAt && (
+        {property.created_at && (
           <span className="text-[9px] text-stone-400 font-normal">
-            {formatRelativeDate(property.createdAt)}
+            {formatRelativeDate(property.created_at)}
           </span>
         )}
         <span className="flex-1"></span>
@@ -3856,11 +3857,11 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
     area: property?.area || '',
     type: property?.type || '',
     purpose: property?.purpose || '',
-    assignedEmployeeId: property?.assignedEmployeeId || '',
+    assigned_employee_id: property?.assigned_employee_id || '',
     assignedEmployeeName: property?.assignedEmployeeName || '',
     assignedEmployeePhone: property?.assignedEmployeePhone || '',
     images: (property?.images || []).map((img: any) => typeof img === 'string' ? { url: img, type: img.startsWith('data:video/') ? 'video' : 'image' } : img),
-    locationLink: property?.locationLink || '',
+    location_link: property?.location_link || '',
     isSold: property?.isSold || false,
     sector: property?.sector || '',
     block: property?.block || '',
@@ -3999,7 +4000,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const userId = session?.user?.id;
-      let empId = formData.assignedEmployeeId;
+      let empId = formData.assigned_employee_id;
       let empName = formData.assignedEmployeeName;
 
       // If we have a name but no ID, it means it's a new marketer
@@ -4029,7 +4030,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
         assigned_employee_id: empId,
         assigned_employee_name: empName,
         images: formData.images,
-        location_link: formData.locationLink.trim(),
+        location_link: formData.location_link.trim(),
         is_sold: formData.isSold,
         updated_at: new Date().toISOString(),
         created_at: property ? property.created_at : new Date().toISOString(),
@@ -4043,7 +4044,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
 
           // Check for significant updates to notify interested users
           const priceChanged = property.price !== data.price;
-          const statusChanged = property.is_sold !== data.is_sold || property.statusLabel !== data.statusLabel;
+          const statusChanged = property.is_sold !== data.is_sold || property.status_label !== data.statusLabel;
 
           if (priceChanged || statusChanged) {
             // Find all users who favorited this property
@@ -4202,8 +4203,8 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
               type="url"
               placeholder="رابط العنوان (مثال: رابط خرائط جوجل)"
               className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
-              value={formData.locationLink}
-              onChange={(e) => setFormData({...formData, locationLink: e.target.value})}
+              value={formData.location_link}
+              onChange={(e) => setFormData({...formData, location_link: e.target.value})}
               dir="ltr"
             />
             {isAdmin && property && (
@@ -4296,7 +4297,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
               const emp = employees.find(e => e.name === val);
               setFormData({
                 ...formData,
-                assignedEmployeeId: emp ? emp.uid : '',
+                assigned_employee_id: emp ? emp.uid : '',
                 assignedEmployeeName: val
               });
             }}
@@ -4307,7 +4308,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
             onClick={() => {
               setFormData({
                 ...formData,
-                assignedEmployeeId: user?.uid || '',
+                assigned_employee_id: user?.uid || '',
                 assignedEmployeeName: user?.name || ''
               });
             }}
@@ -4594,7 +4595,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
     }, 0);
   };
 
-  const whatsappUrl = `https://wa.me/${(property.assignedEmployeePhone || property.phone || '').replace(/\+/g, '').replace(/\s/g, '')}`;
+  const whatsappUrl = `https://wa.me/${(property.assigned_employee_phone || property.phone || '').replace(/\+/g, '').replace(/\s/g, '')}`;
 
   const handleCommentImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []) as File[];
@@ -4670,7 +4671,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
           images={viewerImages} 
           initialIndex={viewerIndex} 
           onClose={() => setShowViewer(false)} 
-          isSold={property.isSold}
+          isSold={property.is_sold}
         />
       )}
 
@@ -4747,13 +4748,13 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                   <video 
                     src={property.images[activeImageIndex]} 
                     controls 
-                    className={`w-full h-full object-cover ${property.isSold ? 'grayscale opacity-60' : ''}`}
+                    className={`w-full h-full object-cover ${property.is_sold ? 'grayscale opacity-60' : ''}`}
                   />
                 ) : (
                   <img 
                     src={property.images[activeImageIndex]} 
                     alt={generatePropertyTitle(property)} 
-                    className={`w-full h-full object-cover cursor-zoom-in ${property.isSold ? 'grayscale opacity-60' : ''}`}
+                    className={`w-full h-full object-cover cursor-zoom-in ${property.is_sold ? 'grayscale opacity-60' : ''}`}
                     referrerPolicy="no-referrer"
                     onClick={() => {
                       setViewerImages(property.images);
@@ -4762,7 +4763,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                     }}
                   />
                 )}
-                {property.isSold && (
+                {property.is_sold && (
                   <div className="absolute inset-0 flex items-center justify-center bg-stone-700/80 backdrop-blur-sm pointer-events-none z-10">
                     <span className="text-white font-black text-4xl tracking-wider transform -rotate-12 border-4 border-white px-6 py-2 rounded-xl shadow-2xl">مباع</span>
                   </div>
@@ -4771,7 +4772,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
             ) : (
               <div className="w-full h-full flex items-center justify-center text-stone-300 relative">
                 <ImageIcon size={48} />
-                {property.isSold && (
+                {property.is_sold && (
                   <div className="absolute inset-0 flex items-center justify-center bg-stone-700/80 backdrop-blur-sm pointer-events-none z-10">
                     <span className="text-white font-black text-4xl tracking-wider transform -rotate-12 border-4 border-white px-6 py-2 rounded-xl shadow-2xl">مباع</span>
                   </div>
@@ -4779,16 +4780,16 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
               </div>
             )}
             
-            {property.images.length > 1 && (
+            {(property.images || []).length > 1 && (
               <div className="absolute inset-0 flex items-center justify-between p-4 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button 
-                  onClick={() => setActiveImageIndex(prev => (prev === 0 ? property.images.length - 1 : prev - 1))}
+                  onClick={() => setActiveImageIndex(prev => (prev === 0 ? (property.images?.length || 1) - 1 : prev - 1))}
                   className="p-2 bg-white/80 backdrop-blur rounded-full text-stone-800 hover:bg-white transition-all shadow-md"
                 >
                   <ChevronRight size={20} />
                 </button>
                 <button 
-                  onClick={() => setActiveImageIndex(prev => (prev === property.images.length - 1 ? 0 : prev + 1))}
+                  onClick={() => setActiveImageIndex(prev => (prev === (property.images?.length || 1) - 1 ? 0 : prev + 1))}
                   className="p-2 bg-white/80 backdrop-blur rounded-full text-stone-800 hover:bg-white transition-all shadow-md"
                 >
                   <ChevronLeft size={20} />
@@ -4797,7 +4798,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
             )}
 
             <div className="absolute bottom-4 right-4 flex gap-1.5">
-              {property.images.map((_: any, i: number) => (
+              {(property.images || []).map((_: any, i: number) => (
                 <button 
                   key={i}
                   onClick={() => setActiveImageIndex(i)}
@@ -4812,9 +4813,9 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
               <div className="space-y-4">
                 <div className="flex flex-col gap-1">
                   <h1 className="text-xl font-bold serif text-stone-900 text-right">{generatePropertyTitle(property)}</h1>
-                  {property.createdAt && (
+                  {property.created_at && (
                     <p className="text-[10px] text-stone-400 text-right">
-                      تم الإضافة {formatRelativeDate(property.createdAt)}
+                      تم الإضافة {formatRelativeDate(property.created_at)}
                     </p>
                   )}
                 </div>
@@ -4827,10 +4828,10 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
               
               <div className="flex flex-col md:flex-row gap-3 w-full">
                 <a 
-                  href={`tel:${property.assignedEmployeePhone || property.phone || ''}`}
+                  href={`tel:${property.assigned_employee_phone || property.phone || ''}`}
                   className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-xl hover:bg-emerald-700 transition-all font-bold text-sm shadow-sm"
                 >
-                  <span>{property.assignedEmployeePhone || property.phone || ''}</span>
+                  <span>{property.assigned_employee_phone || property.phone || ''}</span>
                   <Phone size={16} />
                 </a>
                 <a 
@@ -4845,11 +4846,11 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
               </div>
             </div>
 
-            {property.images.length > 1 && (
+            {(property.images || []).length > 1 && (
               <div className="mt-8 pt-6 border-t border-stone-100">
                 <h3 className="text-sm font-bold text-stone-900 mb-4 flex items-center gap-2 justify-center">
                   <ImageIcon size={16} className="text-emerald-600" />
-                  معرض الصور ({property.images.length})
+                  معرض الصور ({(property.images || []).length})
                 </h3>
                 <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
                   {property.images.map((img: string, i: number) => (
@@ -4896,26 +4897,26 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
             ) : (
               comments.map((c) => (
                 <div key={c.id} className="flex flex-col items-start w-full">
-                  <div className={`w-full p-4 rounded-xl shadow-sm ${c.userId === user.uid ? 'bg-emerald-50 border border-emerald-100' : 'bg-stone-50 border border-stone-100'}`}>
+                  <div className={`w-full p-4 rounded-xl shadow-sm ${c.user_id === user.uid ? 'bg-emerald-50 border border-emerald-100' : 'bg-stone-50 border border-stone-100'}`}>
                     <div className="flex items-center justify-between gap-4 mb-2">
-                      <p className="text-sm font-bold text-stone-900">{c.userName}</p>
-                      {c.userPhone && (
+                      <p className="text-sm font-bold text-stone-900">{c.user_name}</p>
+                      {c.user_phone && (
                         <a
-                          href={`https://wa.me/${c.userPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`السلام عليكم، بخصوص هذا العقار: ${window.location.href}`)}`}
+                          href={`https://wa.me/${c.user_phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`السلام عليكم، بخصوص هذا العقار: ${window.location.href}`)}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-xs text-green-700 flex items-center gap-1 hover:underline"
                         >
-                          {c.userPhone}
+                          {c.user_phone}
                           <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
                         </a>
                       )}
                       <div className="flex items-center gap-3">
                         <p className="text-xs text-stone-500">
-                          {formatDateTime(c.createdAt) || 'جاري التحميل...'}
+                          {formatDateTime(c.created_at) || 'جاري التحميل...'}
                         </p>
                         <div className="flex items-center gap-2">
-                          {(c.userId === user.uid || isAdmin) && (
+                          {(c.user_id === user.uid || isAdmin) && (
                             <button 
                               onClick={() => {
                                 setEditingCommentId(c.id);
@@ -5028,22 +5029,22 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                               </motion.div>
                             ))}
                           </div>
-                        ) : c.imageUrl ? (
+                        ) : c.image_url ? (
                           <div className="mt-2">
                             <motion.div
                               whileHover={{ scale: 1.02 }}
                               whileTap={{ scale: 0.98 }}
                               onClick={() => {
-                                setViewerImages([c.imageUrl!]);
+                                setViewerImages([c.image_url!]);
                                 setViewerIndex(0);
                                 setShowViewer(true);
                               }}
                               className="relative w-24 h-24 rounded-lg overflow-hidden border border-stone-200 cursor-pointer shadow-sm"
                             >
-                              {c.imageUrl.startsWith('data:video/') ? (
-                                <video src={c.imageUrl} className="w-full h-full object-cover" />
+                              {c.image_url.startsWith('data:video/') ? (
+                                <video src={c.image_url} className="w-full h-full object-cover" />
                               ) : (
-                                <img src={c.imageUrl} alt="" className="w-full h-full object-cover" />
+                                <img src={c.image_url} alt="" className="w-full h-full object-cover" />
                               )}
                             </motion.div>
                           </div>
@@ -5153,7 +5154,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
             <div className="flex flex-col items-start gap-2" dir="ltr">
               <div className="flex items-center gap-2">
                 <a
-                  href={`https://wa.me/${(property.assignedEmployeePhone || property.phone).replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`السلام عليكم، بخصوص هذا العقار: ${window.location.href}`)}`}
+                  href={`https://wa.me/${(property.assigned_employee_phone || property.phone).replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`السلام عليكم، بخصوص هذا العقار: ${window.location.href}`)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-10 h-10 flex items-center justify-center text-green-600 bg-white border border-stone-100 hover:bg-green-50 rounded-full transition-colors shadow-sm"
@@ -5162,7 +5163,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                   <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
                 </a>
                 <a 
-                  href={`tel:${property.assignedEmployeePhone || property.phone}`}
+                  href={`tel:${property.assigned_employee_phone || property.phone}`}
                   className="w-10 h-10 flex items-center justify-center text-emerald-600 bg-white border border-stone-100 hover:bg-emerald-50 rounded-full transition-colors shadow-sm"
                   title="اتصال"
                 >
@@ -5170,24 +5171,24 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                 </a>
               </div>
               <span className="text-xs font-bold text-stone-600">
-                {property.assignedEmployeePhone || property.phone}
+                {property.assigned_employee_phone || property.phone}
               </span>
-              {property.createdAt && (
+              {property.created_at && (
                 <p className="text-xs text-stone-400 mt-1">
-                  تاريخ الإدخال: {formatDateTime(property.createdAt) || 'جاري التحميل...'}
+                  تاريخ الإدخال: {formatDateTime(property.created_at) || 'جاري التحميل...'}
                 </p>
               )}
             </div>
             <div className="flex-1 min-w-0 text-right">
               <button 
                 onClick={() => {
-                  if (onUserClick && property.assignedEmployeeId) {
-                    onUserClick(property.assignedEmployeeId);
+                  if (onUserClick && property.assigned_employee_id) {
+                    onUserClick(property.assigned_employee_id);
                   }
                 }}
                 className="text-xs font-bold text-stone-900 hover:text-emerald-700 transition-colors text-right truncate w-full block"
               >
-                {property.assignedEmployeeName || 'غير محدد'}
+                {property.assigned_employee_name || 'غير محدد'}
               </button>
               <p className="text-[10px] text-stone-500 mt-0.5">مستخدم معتمد</p>
             </div>
@@ -5238,10 +5239,10 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
               </button>
             )}
             {/* Plot Number */}
-            {property.plotNumber && (
-              <button onClick={() => onFilter('plotNumber', property.plotNumber)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
+            {property.plot_number && (
+              <button onClick={() => onFilter('plotNumber', property.plot_number)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
                 <span className="text-[10px] text-stone-500 mb-1">القسيمة</span>
-                <span className="text-xs font-bold text-stone-800">{property.plotNumber}</span>
+                <span className="text-xs font-bold text-stone-800">{property.plot_number}</span>
               </button>
             )}
             {/* Street */}
@@ -5259,10 +5260,10 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
               </button>
             )}
             {/* House Number */}
-            {property.houseNumber && (
-              <button onClick={() => onFilter('houseNumber', property.houseNumber)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
+            {property.house_number && (
+              <button onClick={() => onFilter('houseNumber', property.house_number)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
                 <span className="text-[10px] text-stone-500 mb-1">المنزل</span>
-                <span className="text-xs font-bold text-stone-800">{property.houseNumber}</span>
+                <span className="text-xs font-bold text-stone-800">{property.house_number}</span>
               </button>
             )}
             {/* Location */}
@@ -5273,10 +5274,10 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
               </button>
             )}
             {/* Location Link */}
-            {property.locationLink && (
+            {property.location_link && (
               <div className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 text-right col-span-2">
                 <span className="text-[10px] text-stone-500 mb-1">رابط العنوان</span>
-                <a href={property.locationLink} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-blue-600 hover:underline truncate w-full" dir="ltr">
+                <a href={property.location_link} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-blue-600 hover:underline truncate w-full" dir="ltr">
                   عرض على الخريطة
                 </a>
               </div>
