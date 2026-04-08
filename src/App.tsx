@@ -3535,25 +3535,36 @@ const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavori
           className="w-16 h-16 bg-stone-100 relative shrink-0 rounded-lg overflow-hidden shadow-inner group/img" 
           onClick={(e) => {
             e.stopPropagation();
-            if ((property.images || []).length > 0) onImageClick(property.images, 0);
+            if ((property.images || []).length > 0) {
+              const imageList = property.images.map((img: any) => typeof img === 'string' ? img : (img?.url || ''));
+              onImageClick(imageList, 0);
+            }
           }}
         >
           {property.images?.[0] ? (
-            <>
-              {property.images[0].startsWith('data:video/') ? (
-                <video 
-                  src={property.images[0]} 
-                  className={`w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
-                />
-              ) : (
-                <img 
-                  loading="lazy"
-                  src={property.images[0]} 
-                  alt={generatePropertyTitle(property)} 
-                  className={`w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
-                  referrerPolicy="no-referrer"
-                />
-              )}
+            <div className="w-full h-full relative">
+              {(() => {
+                const img = property.images[0];
+                const url = typeof img === 'string' ? img : (img?.url || '');
+                const isVideo = typeof img === 'string' 
+                  ? (img.startsWith('data:video/') || img.toLowerCase().endsWith('.mp4')) 
+                  : (img?.type === 'video' || (img?.url && img.url.toLowerCase().endsWith('.mp4')));
+                
+                return isVideo ? (
+                  <video 
+                    src={url} 
+                    className={`w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
+                  />
+                ) : (
+                  <img 
+                    loading="lazy"
+                    src={url} 
+                    alt={generatePropertyTitle(property)} 
+                    className={`w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
+                    referrerPolicy="no-referrer"
+                  />
+                );
+              })()}
               <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
                 <ImageIcon className="text-white" size={14} />
               </div>
@@ -3562,7 +3573,7 @@ const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavori
                   <span className="text-white font-black text-[10px] tracking-wider transform -rotate-12 border-2 border-white px-1 py-0.5 rounded shadow-lg">مباع</span>
                 </div>
               )}
-            </>
+            </div>
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-stone-50 relative overflow-hidden">
               <div className="absolute inset-0 flex items-center justify-center opacity-50">
@@ -4745,32 +4756,41 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
         <div className="ios-card overflow-hidden">
           <div className="relative aspect-square bg-stone-50 group">
              {property.images?.[activeImageIndex] ? (
-              <>
-                {property.images[activeImageIndex].startsWith('data:video/') ? (
-                  <video 
-                    src={property.images[activeImageIndex]} 
-                    controls 
-                    className={`w-full h-full object-cover ${property.is_sold ? 'grayscale opacity-60' : ''}`}
-                  />
-                ) : (
-                  <img 
-                    src={property.images[activeImageIndex]} 
-                    alt={property.name} 
-                    className={`w-full h-full object-cover cursor-zoom-in ${property.is_sold ? 'grayscale opacity-60' : ''}`}
-                    referrerPolicy="no-referrer"
-                    onClick={() => {
-                      setViewerImages(property.images);
-                      setViewerIndex(activeImageIndex);
-                      setShowViewer(true);
-                    }}
-                  />
-                )}
-                {property.is_sold && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-stone-700/80 backdrop-blur-sm pointer-events-none z-10">
-                    <span className="text-white font-black text-4xl tracking-wider transform -rotate-12 border-4 border-white px-6 py-2 rounded-xl shadow-2xl">مباع</span>
-                  </div>
-                )}
-              </>
+              <div className="w-full h-full relative">
+                 {(() => {
+                   const img = property.images[activeImageIndex];
+                   const url = typeof img === 'string' ? img : (img?.url || '');
+                   const isVideo = typeof img === 'string' 
+                     ? (img.startsWith('data:video/') || img.toLowerCase().endsWith('.mp4')) 
+                     : (img?.type === 'video' || (img?.url && img.url.toLowerCase().endsWith('.mp4')));
+
+                   return isVideo ? (
+                     <video 
+                       src={url} 
+                       controls 
+                       className={`w-full h-full object-contain bg-black ${property.is_sold ? 'grayscale opacity-60' : ''}`}
+                     />
+                   ) : (
+                     <img 
+                       src={url} 
+                       alt={property.name} 
+                       className={`w-full h-full object-contain cursor-zoom-in ${property.is_sold ? 'grayscale opacity-60' : ''}`}
+                       referrerPolicy="no-referrer"
+                       onClick={() => {
+                         const imageList = (property.images || []).map((i: any) => typeof i === 'string' ? i : (i?.url || ''));
+                         setViewerImages(imageList);
+                         setViewerIndex(activeImageIndex);
+                         setShowViewer(true);
+                       }}
+                     />
+                   );
+                 })()}
+                 {property.is_sold && (
+                   <div className="absolute inset-0 flex items-center justify-center bg-stone-700/80 backdrop-blur-sm pointer-events-none z-10">
+                     <span className="text-white font-black text-4xl tracking-wider transform -rotate-12 border-4 border-white px-6 py-2 rounded-xl shadow-2xl">مباع</span>
+                   </div>
+                 )}
+              </div>
             ) : (
               <div className="w-full h-full flex items-center justify-center text-stone-300 relative">
                 <ImageIcon size={48} />

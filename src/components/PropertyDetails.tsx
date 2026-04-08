@@ -39,6 +39,16 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
   const [newComment, setNewComment] = useState('');
   const [commentImages, setCommentImages] = useState<Array<{ url: string, type: 'image' | 'video' }>>([]);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+
+  // Safely extract URL and check if video
+  const getImageData = (img: any) => {
+    if (!img) return { url: '', isVideo: false };
+    if (typeof img === 'string') {
+      return { url: img, isVideo: img.startsWith('data:video/') || img.includes('/video/') || img.toLowerCase().endsWith('.mp4') };
+    }
+    return { url: img.url || '', isVideo: img.type === 'video' || (img.url && (img.url.startsWith('data:video/') || img.url.toLowerCase().endsWith('.mp4'))) };
+  };
+
   const [showViewer, setShowViewer] = useState(false);
   const [viewerImages, setViewerImages] = useState<string[]>([]);
   const [viewerIndex, setViewerIndex] = useState(0);
@@ -289,21 +299,22 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
           <div className="relative aspect-square bg-stone-50 group">
              {property.images?.[activeImageIndex] ? (
               <>
-                {property.images[activeImageIndex].startsWith('data:video/') ? (
+                {getImageData(property.images[activeImageIndex]).isVideo ? (
                   <video 
-                    src={property.images[activeImageIndex]} 
+                    src={getImageData(property.images[activeImageIndex]).url} 
                     controls 
-                    className={`w-full h-full object-cover ${property.is_sold ? 'grayscale opacity-60' : ''}`}
+                    className={`w-full h-full object-contain bg-black ${property.is_sold ? 'grayscale opacity-60' : ''}`}
                   />
                 ) : (
                   <img 
                     loading="lazy"
-                    src={property.images[activeImageIndex]} 
+                    src={getImageData(property.images[activeImageIndex]).url} 
                     alt={property.name} 
-                    className={`w-full h-full object-cover cursor-zoom-in ${property.is_sold ? 'grayscale opacity-60' : ''}`}
+                    className={`w-full h-full object-contain cursor-zoom-in ${property.is_sold ? 'grayscale opacity-60' : ''}`}
                     referrerPolicy="no-referrer"
                     onClick={() => {
-                      setViewerImages(property.images || []);
+                      const imageList = (property.images || []).map((img: any) => getImageData(img).url);
+                      setViewerImages(imageList);
                       setViewerIndex(activeImageIndex);
                       setShowViewer(true);
                     }}
@@ -454,23 +465,27 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                   معرض الصور ({(property.images || []).length})
                 </h3>
                 <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                  {(property.images || []).map((img: string, i: number) => (
-                    <button 
-                      key={i} 
-                      onClick={() => {
-                        setViewerImages(property.images || []);
-                        setViewerIndex(i);
-                        setShowViewer(true);
-                      }}
-                      className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${i === activeImageIndex ? 'border-emerald-500 scale-95' : 'border-transparent hover:border-stone-300'}`}
-                    >
-                      {img.startsWith('data:video/') ? (
-                        <video src={img} className="w-full h-full object-cover" />
-                      ) : (
-                        <img loading="lazy" src={img} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" />
-                      )}
-                    </button>
-                  ))}
+                  {(property.images || []).map((img: any, i: number) => {
+                    const { url, isVideo } = getImageData(img);
+                    return (
+                      <button 
+                        key={i} 
+                        onClick={() => {
+                          const imageList = (property.images || []).map((item: any) => getImageData(item).url);
+                          setViewerImages(imageList);
+                          setViewerIndex(i);
+                          setShowViewer(true);
+                        }}
+                        className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${i === activeImageIndex ? 'border-emerald-500 scale-95' : 'border-transparent hover:border-stone-300'}`}
+                      >
+                        {isVideo ? (
+                          <video src={url} className="w-full h-full object-cover" />
+                        ) : (
+                          <img loading="lazy" src={url} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}

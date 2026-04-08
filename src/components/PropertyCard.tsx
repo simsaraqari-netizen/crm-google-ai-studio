@@ -30,25 +30,36 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
           className="w-16 h-16 bg-stone-100 relative shrink-0 rounded-lg overflow-hidden shadow-inner group/img" 
           onClick={(e) => {
             e.stopPropagation();
-            if (property.images?.length > 0) onImageClick(property.images, 0);
+            if (property.images?.length > 0) {
+              const imageList = property.images.map((img: any) => typeof img === 'string' ? img : img.url);
+              onImageClick(imageList, 0);
+            }
           }}
         >
-          {property.images?.[0] ? (
-            <>
-              {property.images[0].startsWith('data:video/') ? (
-                <video 
-                  src={property.images[0]} 
-                  className={`w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
-                />
-              ) : (
-                <img 
-                  loading="lazy"
-                  src={property.images[0]} 
-                  alt={property.name} 
-                  className={`w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
-                  referrerPolicy="no-referrer"
-                />
-              )}
+           {property.images?.[0] ? (
+            <div className="w-full h-full relative">
+              {(() => {
+                const img = property.images[0];
+                const url = typeof img === 'string' ? img : (img?.url || '');
+                const isVideo = typeof img === 'string' 
+                  ? (img.startsWith('data:video/') || img.toLowerCase().endsWith('.mp4')) 
+                  : (img?.type === 'video' || (img?.url && img.url.toLowerCase().endsWith('.mp4')));
+                
+                return isVideo ? (
+                  <video 
+                    src={url} 
+                    className={`w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
+                  />
+                ) : (
+                  <img 
+                    loading="lazy"
+                    src={url} 
+                    alt={property.name} 
+                    className={`w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
+                    referrerPolicy="no-referrer"
+                  />
+                );
+              })()}
               <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
                 <ImageIcon className="text-white" size={14} />
               </div>
@@ -57,7 +68,7 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
                   <span className="text-white font-black text-[10px] tracking-wider transform -rotate-12 border-2 border-white px-1 py-0.5 rounded shadow-lg">مباع</span>
                 </div>
               )}
-            </>
+            </div>
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-stone-50 relative overflow-hidden">
               <div className="absolute inset-0 flex items-center justify-center opacity-50">

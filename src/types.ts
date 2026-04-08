@@ -54,14 +54,21 @@ export interface Company {
 
 export interface Comment {
   id: string;
-  propertyId: string;
-  userId: string;
-  userName: string;
+  property_id?: string;
+  propertyId?: string;
+  user_id?: string;
+  userId?: string;
+  user_name?: string;
+  userName?: string;
   text: string;
-  images?: string[];
+  images?: any[];
+  image_url?: string;
   imageUrl?: string;
+  user_phone?: string;
   userPhone?: string;
-  createdAt: any;
+  created_at?: any;
+  createdAt?: any;
+  is_deleted?: boolean;
   isDeleted?: boolean;
   deletedAt?: any;
 }
