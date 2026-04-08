@@ -4619,9 +4619,9 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
     }, 0);
   };
 
-  const whatsappUrl = `https://wa.me/${(property.assigned_employee_phone || property.phone || '').replace(/\+/g, '').replace(/\s/g, '')}`;
-  const employeeWhatsappUrl = property.assigned_employee_phone ? `https://wa.me/${property.assigned_employee_phone.replace(/\+/g, '').replace(/\s/g, '')}` : null;
-  const propertyWhatsappUrl = property.phone ? `https://wa.me/${property.phone.replace(/\+/g, '').replace(/\s/g, '')}` : null;
+  const whatsappUrl = `https://wa.me/${String(property.assigned_employee_phone || property.phone || '').replace(/\+/g, '').replace(/\s/g, '')}`;
+  const employeeWhatsappUrl = property.assigned_employee_phone ? `https://wa.me/${String(property.assigned_employee_phone).replace(/\+/g, '').replace(/\s/g, '')}` : null;
+  const propertyWhatsappUrl = property.phone ? `https://wa.me/${String(property.phone).replace(/\+/g, '').replace(/\s/g, '')}` : null;
 
   const handleCommentImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []) as File[];
@@ -4685,6 +4685,9 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
       console.error('Error sharing:', err);
     }
   };
+
+  // Normalize images to always be an array
+  const safeImages = Array.isArray(property.images) ? property.images : [];
 
   return (
     <motion.div 
@@ -4768,10 +4771,10 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
 
         <div className="ios-card overflow-hidden">
           <div className="relative aspect-square bg-stone-50 group">
-             {property.images?.[activeImageIndex] ? (
+             {safeImages[activeImageIndex] ? (
               <div className="w-full h-full relative">
                  {(() => {
-                   const img = property.images[activeImageIndex];
+                   const img = safeImages[activeImageIndex];
                    const url = typeof img === 'string' ? img : (img?.url || '');
                    const isVideo = typeof img === 'string' 
                      ? (img.startsWith('data:video/') || img.toLowerCase().endsWith('.mp4')) 
@@ -4790,7 +4793,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                        className={`w-full h-full object-contain cursor-zoom-in ${property.is_sold ? 'grayscale opacity-60' : ''}`}
                        referrerPolicy="no-referrer"
                        onClick={() => {
-                         const imageList = (property.images || []).map((i: any) => typeof i === 'string' ? i : (i?.url || ''));
+                         const imageList = safeImages.map((i: any) => typeof i === 'string' ? i : (i?.url || ''));
                          setViewerImages(imageList);
                          setViewerIndex(activeImageIndex);
                          setShowViewer(true);
@@ -4815,16 +4818,16 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
               </div>
             )}
             
-            {(property.images || []).length > 1 && (
+            {safeImages.length > 1 && (
               <div className="absolute inset-0 flex items-center justify-between p-4 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button 
-                  onClick={() => setActiveImageIndex(prev => (prev === 0 ? (property.images?.length || 1) - 1 : prev - 1))}
+                  onClick={() => setActiveImageIndex(prev => (prev === 0 ? safeImages.length - 1 : prev - 1))}
                   className="p-2 bg-white/80 backdrop-blur rounded-full text-stone-800 hover:bg-white transition-all shadow-md"
                 >
                   <ChevronRight size={20} />
                 </button>
                 <button 
-                  onClick={() => setActiveImageIndex(prev => (prev === (property.images?.length || 1) - 1 ? 0 : prev + 1))}
+                  onClick={() => setActiveImageIndex(prev => (prev === safeImages.length - 1 ? 0 : prev + 1))}
                   className="p-2 bg-white/80 backdrop-blur rounded-full text-stone-800 hover:bg-white transition-all shadow-md"
                 >
                   <ChevronLeft size={20} />
@@ -4833,7 +4836,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
             )}
 
             <div className="absolute bottom-4 right-4 flex gap-1.5">
-              {(property.images || []).map((_: any, i: number) => (
+              {safeImages.map((_: any, i: number) => (
                 <button 
                   key={i}
                   onClick={() => setActiveImageIndex(i)}
@@ -4923,14 +4926,14 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
               </div>
             </div>
 
-            {(property.images || []).length > 1 && (
+            {safeImages.length > 1 && (
               <div className="mt-8 pt-6 border-t border-stone-100">
                 <h3 className="text-sm font-bold text-stone-900 mb-4 flex items-center gap-2 justify-center">
                   <ImageIcon size={16} className="text-emerald-600" />
-                  معرض الصور ({(property.images || []).length})
+                  معرض الصور ({safeImages.length})
                 </h3>
                 <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                  {(property.images || []).map((img: any, i: number) => {
+                  {safeImages.map((img: any, i: number) => {
                     const url = typeof img === 'string' ? img : (img?.url || '');
                     const isVideo = typeof img === 'string' 
                       ? (img.startsWith('data:video/') || img.toLowerCase().endsWith('.mp4')) 
@@ -4940,7 +4943,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                       <button 
                         key={i} 
                         onClick={() => {
-                          const imageList = (property.images || []).map((item: any) => typeof item === 'string' ? item : (item?.url || ''));
+                          const imageList = safeImages.map((item: any) => typeof item === 'string' ? item : (item?.url || ''));
                           setViewerImages(imageList);
                           setViewerIndex(i);
                           setShowViewer(true);
@@ -5094,13 +5097,13 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                           </div>
                         )}
                         
-                        {(c.images && c.images.length > 0) ? (
+                        {(Array.isArray(c.images) && c.images.length > 0) ? (
                           <div className="flex flex-wrap gap-2 mt-2">
                             {c.images.map((img: any, idx) => {
                               const url = typeof img === 'string' ? img : (img?.url || '');
                               const isVideo = typeof img === 'string' 
                                 ? (img.startsWith('data:video/') || img.toLowerCase().endsWith('.mp4')) 
-                                : (img?.type === 'video' || (img?.url && img.url.toLowerCase().endsWith('.mp4')));
+                                : (img?.type === 'video' || (img?.url && String(img.url).startsWith('data:video/') || String(img.url).toLowerCase().endsWith('.mp4')));
 
                               return (
                                 <motion.div
@@ -5108,7 +5111,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                                   whileHover={{ scale: 1.02 }}
                                   whileTap={{ scale: 0.98 }}
                                   onClick={() => {
-                                    const imageList = c.images!.map((i: any) => typeof i === 'string' ? i : (i?.url || ''));
+                                    const imageList = Array.isArray(c.images) ? c.images.map((i: any) => typeof i === 'string' ? i : (i?.url || '')) : [];
                                     setViewerImages(imageList);
                                     setViewerIndex(idx);
                                     setShowViewer(true);
@@ -5126,19 +5129,19 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                               );
                             })}
                           </div>
-                        ) : c.image_url ? (
+                        ) : (typeof c.image_url === 'string' && c.image_url) ? (
                           <div className="mt-2">
                             <motion.div
                               whileHover={{ scale: 1.02 }}
                               whileTap={{ scale: 0.98 }}
                               onClick={() => {
-                                setViewerImages([c.image_url!]);
+                                setViewerImages([String(c.image_url)]);
                                 setViewerIndex(0);
                                 setShowViewer(true);
                               }}
                               className="relative w-24 h-24 rounded-lg overflow-hidden border border-stone-200 cursor-pointer shadow-sm"
                             >
-                              {c.image_url.startsWith('data:video/') || c.image_url.toLowerCase().endsWith('.mp4') ? (
+                              {(c.image_url.startsWith('data:video/') || c.image_url.toLowerCase().endsWith('.mp4')) ? (
                                 <video src={c.image_url} className="w-full h-full object-cover" />
                               ) : (
                                 <img src={c.image_url} alt="" className="w-full h-full object-cover" />
