@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { readSheet, writeToSheet } from './googleSheetsService.ts';
-import { cleanAreaName, inferGovernorate, inferPurpose, inferType, cleanNameText, cleanNameWithContext, normalizeDigits, splitMultiValue } from '../utils.ts';
+import { cleanAreaName, inferGovernorate, inferPurpose, inferType, cleanNameText, cleanNameWithContext, normalizeDigits, normalizeHamza, splitMultiValue } from '../utils.ts';
 
 const supabaseAdmin = createClient(
   process.env.VITE_SUPABASE_URL!,
@@ -453,7 +453,8 @@ export const syncSupabaseWithSheets = async () => {
         let finalGov = existing?.governorate || '';
 
         if (rawArea) {
-          const areas = splitMultiValue(rawArea).map(cleanAreaName);
+          // normalizeHamza: treat أ/إ/آ as ا when storing area values (e.g. أشبيلية → اشبيلية)
+          const areas = splitMultiValue(rawArea).map(a => normalizeHamza(cleanAreaName(a)));
           finalArea = Array.from(new Set(areas)).join(', ');
           finalGov = inferGovernorate(finalArea, cleanStr(governorate));
         } else if (cleanStr(governorate)) {
@@ -483,7 +484,7 @@ export const syncSupabaseWithSheets = async () => {
         }
 
         const propertyData: any = {
-          name: cleanNameText(cName),
+          name: normalizeHamza(cleanNameText(cName)),
           governorate: finalGov,
           area: finalArea,
           type: newType || cType,

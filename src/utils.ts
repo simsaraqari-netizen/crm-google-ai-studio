@@ -24,18 +24,23 @@ export function normalizeDigits(text: string): string {
   return text.replace(/[٠-٩۰-۹]/g, (d) => arabicDigits[d] || d);
 }
 
+export function normalizeHamza(text: string): string {
+  if (!text) return "";
+  return normalizeDigits(text).replace(/[أإآ]/g, "ا");
+}
+
 export function normalizeArabic(text: string): string {
   if (!text) return "";
   // 1. تحويل الأرقام أولاً
   let normalized = normalizeDigits(text);
-  
+
   // 2. تحويل الحروف العربية
   normalized = normalized
     .replace(/[أإآ]/g, "ا")
     .replace(/ة/g, "ه")
     .replace(/ى/g, "ي")
     .replace(/[\u064B-\u0652]/g, ""); // إزالة التشكيل
-  
+
   return normalized;
 }
 
