@@ -4086,24 +4086,39 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
       let empId = formData.assigned_employee_id;
       let empName = formData.assigned_employee_name;
 
-      // If we have a name but no ID, it means it's a new marketer
+      // If we have a name but no ID, it means it's a new marketer or selected by name
       if (empName && !empId) {
         try {
-          const { data: newEmp, error: insertError } = await supabase
+          // First try to find if this employee already exists by name
+          const { data: existingEmp } = await supabase
             .from('profiles')
-            .insert({
-              name: empName,
-              role: 'employee',
-              company_id: isSuperAdmin ? selectedCompanyId : user?.company_id,
-              created_at: new Date().toISOString()
-            })
             .select('id')
-            .single();
+            .eq('name', empName)
+            .maybeSingle();
 
-          if (insertError) throw insertError;
-          empId = newEmp?.id;
+          if (existingEmp) {
+            empId = existingEmp.id;
+          } else {
+            // Try to create but don't fail the whole save if it fails (e.g. 403 Forbidden)
+            const { data: newEmp, error: insertError } = await supabase
+              .from('profiles')
+              .insert({
+                name: empName,
+                role: 'employee',
+                company_id: isSuperAdmin ? selectedCompanyId : user?.company_id,
+                created_at: new Date().toISOString()
+              })
+              .select('id')
+              .single();
+
+            if (!insertError && newEmp) {
+              empId = newEmp.id;
+            } else {
+              console.warn("Could not create new marketer profile (likely RLS), proceeding with name only:", insertError);
+            }
+          }
         } catch (error) {
-          handleSupabaseError(error, OperationType.CREATE, 'users');
+          console.error("Error in marketer lookup/creation:", error);
         }
       }
 
