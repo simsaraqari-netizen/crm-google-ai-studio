@@ -187,19 +187,13 @@ async function handleSupabaseError(error: unknown, operationType: OperationType,
     errorMessage = String(error);
   }
 
-  const errInfo: SupabaseErrorInfo = {
-    error: errorMessage,
-    authInfo: {
-      userId: session?.user?.id,
-      email: session?.user?.email || null,
-      emailVerified: !!session?.user?.email_confirmed_at,
-      isAnonymous: session?.user?.is_anonymous,
-      tenantId: null,
-      providerInfo: session?.user?.app_metadata?.provider || []
-    },
     operationType,
     path
   }
+  
+  console.error('Unified Error Info:', errInfo);
+  throw new Error(JSON.stringify(errInfo));
+}
   
 // --- Helper Functions ---
 const compressImage = (file: File): Promise<Blob> => {
@@ -4788,7 +4782,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
         setComments((commentsData || []) as PropertyComment[]);
         const channel = supabase.channel(`comments-${property.id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'comments', filter: `property_id=eq.${property.id}` }, () => {
           supabase.from('comments').select('*').eq('property_id', property.id).order('created_at', { ascending: false }).then(({ data: updated }) => {
-            setComments((updated || []) as Comment[]);
+            setComments((updated || []) as PropertyComment[]);
           });
         }).subscribe();
         return () => { channel.unsubscribe(); };
@@ -4901,8 +4895,73 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
         </div>
       </div>
       <div className="space-y-4">
-        <div className="ios-card flex flex-col h-[500px]">
-                    )}
+          <div className="p-4 border-b border-stone-100 flex items-center justify-between bg-stone-50/50">
+            <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2">
+              <MessageSquare size={16} className="text-emerald-600" />
+              التعليقات والملاحظات ({comments.length})
+            </h3>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
+            {comments.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-stone-400 space-y-2">
+                <MessageSquare size={32} strokeWidth={1.5} />
+                <p className="text-xs">لا توجد تعليقات بعد</p>
+              </div>
+            ) : (
+              comments.map((comment) => (
+                <motion.div 
+                  layout
+                  key={comment.id} 
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="group"
+                >
+                  <div className="flex gap-3">
+                    <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 text-xs font-bold flex-shrink-0">
+                      {comment.user_name?.charAt(0) || 'U'}
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-stone-900" onClick={() => comment.user_id && onUserClick(comment.user_id)}>{comment.user_name}</span>
+                        <span className="text-[10px] text-stone-400">{formatRelativeDate(comment.created_at || comment.createdAt)}</span>
+                      </div>
+                      <div className="bg-stone-50 rounded-2xl rounded-tr-none p-3 text-sm text-stone-800 border border-stone-100 whitespace-pre-wrap">
+                        {comment.text}
+                      </div>
+                      
+                      {comment.images && comment.images.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {comment.images.map((img: any, idx: number) => (
+                            <div 
+                              key={idx} 
+                              className="relative w-20 h-20 rounded-lg overflow-hidden border border-stone-200 cursor-zoom-in group/img"
+                              onClick={() => {
+                                setViewerImages((comment.images as any).map((i: any) => i.url));
+                                setViewerIndex(idx);
+                                setShowViewer(true);
+                              }}
+                            >
+                              {img.type === 'video' ? (
+                                <video src={img.url} className="w-full h-full object-cover" />
+                              ) : (
+                                <img src={img.url} alt="" className="w-full h-full object-cover" />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {(isAdmin || comment.user_id === user.uid) && (
+                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity pt-1">
+                          <button 
+                            onClick={() => onDeleteComment(comment.id)}
+                            className="text-[10px] text-red-400 hover:text-red-600 font-bold"
+                          >
+                            حذف
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </motion.div>
               ))
