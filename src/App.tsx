@@ -3402,7 +3402,7 @@ export default function App() {
                 // Extract storage path from URL and delete from Supabase storage
                 const pathMatch = url.match(/\/storage\/v1\/object\/public\/[^\/]+\/(.+)$/);
                 if (pathMatch) {
-                  await supabase.storage.from('property-images').remove([pathMatch[1]]);
+                  await supabase.storage.from('properties_media').remove([pathMatch[1]]);
                 }
               } catch (e) {
                 console.error("Error deleting file:", e);
@@ -3969,13 +3969,13 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
 
         const fileName = `${Date.now()}_${file.name}`;
         const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('property-images')
+          .from('properties_media')
           .upload(`properties/${fileName}`, fileToUpload);
 
         if (uploadError) throw uploadError;
 
         const { data: publicUrl } = supabase.storage
-          .from('property-images')
+          .from('properties_media')
           .getPublicUrl(`properties/${fileName}`);
 
         newImages.push({ url: publicUrl.publicUrl, type: file.type.startsWith('video/') ? 'video' : 'image' });

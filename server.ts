@@ -70,7 +70,10 @@ async function startServer() {
       
       const title = property?.name || 'عقار مميز';
       const description = property?.details || 'تفاصيل العقار';
-      const image = property?.images?.[0] || 'https://via.placeholder.com/600x400';
+      
+      // Robustly get the first image URL, handling both old string format and new object format
+      const firstImage = property?.images?.[0];
+      const imageUrl = (typeof firstImage === 'string' ? firstImage : (firstImage?.url || '')) || 'https://via.placeholder.com/600x400';
 
       res.send(`
         <!DOCTYPE html>
@@ -78,7 +81,7 @@ async function startServer() {
           <head>
             <meta property="og:title" content="${title}" />
             <meta property="og:description" content="${description}" />
-            <meta property="og:image" content="${image}" />
+            <meta property="og:image" content="${imageUrl}" />
             <meta property="og:type" content="website" />
             <meta http-equiv="refresh" content="0;url=/?propertyId=${req.params.id}" />
           </head>
