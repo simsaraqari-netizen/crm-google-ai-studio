@@ -1130,6 +1130,7 @@ export default function App() {
 
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
   const [editUserName, setEditUserName] = useState('');
   const [editUserPhone, setEditUserPhone] = useState('');
@@ -2007,6 +2008,10 @@ export default function App() {
                            (status === 'sold' && p.is_sold) || 
                            (status === 'available' && !p.is_sold);
 
+      // Only show results if search has been performed, unless in specific management views
+      const isManagementView = view === 'pending-properties' || view === 'trash' || view === 'my-favorites';
+      if (!hasSearched && !isManagementView) return false;
+
       return matchesSearch && matchesGov && matchesArea && matchesType && matchesPurpose && matchesLocation && matchesMarketer && matchesStatus;
     }).sort((a, b) => {
       const dateA = a.createdAt?.seconds || 0;
@@ -2586,12 +2591,11 @@ export default function App() {
                           className="w-full bg-transparent border-none outline-none text-sm py-1"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(normalizeDigits(e.target.value))}
-                          onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
                               setAppliedFilters({ ...filters, query: searchQuery });
+                              setHasSearched(true);
                             }
-                          }}
                         />
                         {searchQuery && (
                           <button
@@ -2610,7 +2614,10 @@ export default function App() {
 
                   {/* MASTER SEARCH BUTTON - 1/3 Width */}
                   <button
-                    onClick={() => setAppliedFilters({ ...filters, query: searchQuery })}
+                    onClick={() => {
+                      setAppliedFilters({ ...filters, query: searchQuery });
+                      setHasSearched(true);
+                    }}
                     className="flex-1 bg-emerald-500 text-white py-3 px-6 rounded-xl hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-200/50 flex items-center justify-center gap-2 min-h-[52px]"
                     title="بحث"
                   >
@@ -2635,6 +2642,7 @@ export default function App() {
                       setFilters(emptyFilters);
                       setSearchQuery('');
                       setAppliedFilters({ ...emptyFilters, query: '' });
+                      setHasSearched(false);
                     }}
                     className="px-4 py-2 text-xs font-bold text-stone-400 hover:text-emerald-600 transition-colors uppercase tracking-widest flex items-center gap-2 whitespace-nowrap"
                   >
@@ -2726,6 +2734,7 @@ export default function App() {
                         <button 
                           onClick={() => {
                             setAppliedFilters({ ...filters, query: searchQuery });
+                            setHasSearched(true);
                             setShowAdvancedSearch(false);
                           }}
                           className="flex-1 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-100"
