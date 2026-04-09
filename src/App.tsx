@@ -39,7 +39,9 @@ import {
   Building2,
   AlertTriangle,
   Download,
-  Clock
+  Clock,
+  Maximize,
+  Play
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
@@ -715,7 +717,6 @@ export default function App() {
   const [tempSpreadsheetId, setTempSpreadsheetId] = useState('');
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeSearchQuery, setActiveSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   
   useEffect(() => {
@@ -751,20 +752,6 @@ export default function App() {
     status: ''
   });
 
-  const searchSuggestions = useMemo(() => {
-    if (!searchQuery.trim()) return [];
-    const query = normalizeArabic(searchQuery);
-    const suggestions = new Set<string>();
-    
-    properties.forEach(p => {
-      if (normalizeArabic(p.name).includes(query)) suggestions.add(p.name);
-      if (normalizeArabic(p.phone).includes(query)) suggestions.add(p.phone);
-      if (normalizeArabic(p.area).includes(query)) suggestions.add(p.area);
-      if (p.assignedEmployeeName && normalizeArabic(p.assignedEmployeeName).includes(query)) suggestions.add(p.assignedEmployeeName);
-    });
-    
-    return Array.from(suggestions).slice(0, 8);
-  }, [searchQuery, properties]);
 
   const [users, setUsers] = useState<UserProfile[]>([]);
   
@@ -2157,22 +2144,11 @@ export default function App() {
             >
               {/* Search & Filters */}
               <div className="bg-white/40 backdrop-blur-xl border border-white/40 p-5 rounded-2xl shadow-xl shadow-stone-200/50 w-full space-y-4">
-                {/* Quick Search & Toggle */}
+                {/* Search Bar Row: 2/3 Input, 1/3 Button */}
                 <div className="flex flex-col md:flex-row gap-3">
-                  <div className="flex-1 relative bg-white/70 backdrop-blur-md border border-stone-200 rounded-xl focus-within:border-emerald-500 focus-within:ring-4 focus-within:ring-emerald-500/10 transition-all flex items-center p-2 px-4 min-h-[52px] shadow-sm hover:border-stone-300">
-                    <div 
-                      className="flex flex-1 items-center gap-2 cursor-text"
-                      onClick={() => {
-                        if (!isSearchFocused) {
-                          setIsSearchFocused(true);
-                          setTimeout(() => {
-                            const input = document.getElementById('main-search-input');
-                            if (input) input.focus();
-                          }, 0);
-                        }
-                      }}
-                    >
-                      <Search className="text-stone-500 ml-1" size={18} />
+                  <div className="flex-[2] relative bg-white/70 backdrop-blur-md border border-stone-200 rounded-xl focus-within:border-emerald-500 focus-within:ring-4 focus-within:ring-emerald-500/10 transition-all flex items-center p-2 px-4 min-h-[52px] shadow-sm hover:border-stone-300">
+                    <div className="flex flex-1 items-center gap-2 cursor-text">
+                      <Search className="text-stone-500 ml-1 shrink-0" size={18} />
                       
                       {Object.entries(filters).filter(([_, val]) => val !== '').slice(0, 2).map(([key, value]) => (
                         <span key={key} className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-lg text-[10px] font-bold whitespace-nowrap shadow-sm">
@@ -2199,143 +2175,82 @@ export default function App() {
                         </span>
                       )}
 
-                      {searchQuery && !isSearchFocused && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-500 text-white rounded-lg text-[10px] font-bold whitespace-nowrap shadow-sm">
-                          {searchQuery}
+                      <div className="flex-1 flex items-center relative min-w-[120px]">
+                        <input 
+                          id="main-search-input"
+                          type="text"
+                          placeholder="ابحث بالاسم، الرقم، أو المنطقة..."
+                          className="w-full bg-transparent border-none outline-none text-sm py-1"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(normalizeDigits(e.target.value))}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              // Mastering everything: Apply ALL criteria on Enter
+                              setAppliedFilters({ ...filters, query: searchQuery });
+                            }
+                          }}
+                        />
+                        {searchQuery && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               setSearchQuery('');
                             }}
-                            className="hover:bg-emerald-600 rounded-full p-0.5 transition-colors"
+                            className="absolute right-0 text-stone-400 hover:text-stone-600 p-1"
                           >
-                            <X size={10} />
+                            <X size={16} />
                           </button>
-                        </span>
-                      )}
-
-                      {/* Search Input and Button Container */}
-                      <div className="flex-1 flex gap-2 items-center">
-                        <div className={`flex-[2] flex items-center relative ${searchQuery && !isSearchFocused ? 'hidden' : ''}`}>
-                          <input 
-                            id="main-search-input"
-                            type="text"
-                            placeholder="ابحث بالاسم، الرقم، أو المنطقة..."
-                            className="w-full bg-transparent border-none outline-none text-sm py-1"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(normalizeDigits(e.target.value))}
-                            onFocus={() => setIsSearchFocused(true)}
-                            onBlur={() => {
-                              setTimeout(() => setIsSearchFocused(false), 200);
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                // Mastering the trigger: Apply all filters on Enter
-                                setAppliedFilters({ ...filters, query: searchQuery });
-                                setIsSearchFocused(false);
-                              }
-                            }}
-                          />
-                          {searchQuery && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSearchQuery('');
-                              }}
-                              className="absolute right-0 text-stone-400 hover:text-stone-600 p-1"
-                            >
-                              <X size={16} />
-                            </button>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => {
-                          setFilters({
-                            governorate: '',
-                            area: '',
-                            type: '',
-                            purpose: '',
-                            location: '',
-                            marketer: '',
-                            status: ''
-                          });
-                          setSearchQuery('');
-                          setAppliedFilters({
-                            query: '',
-                            governorate: '',
-                            area: '',
-                            type: '',
-                            purpose: '',
-                            location: '',
-                            marketer: '',
-                            status: ''
-                          });
-                        }}
-                        className="px-4 py-2 text-xs font-bold text-stone-500 hover:text-stone-900 transition-colors uppercase tracking-widest flex items-center gap-2 whitespace-nowrap"
-                      >
-                        <RefreshCcw size={14} className="animate-hover" />
-                        مسح الكل
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                        <button
-                          onClick={() => {
-                            setAppliedFilters({ ...filters, query: searchQuery });
-                            setIsSearchFocused(false);
-                          }}
-                          className="flex-1 bg-emerald-500 text-white py-2 rounded-xl hover:bg-emerald-600 transition-all shadow-sm flex items-center justify-center gap-2 min-w-[80px]"
-                          title="بحث"
-                        >
-                          <Search size={18} />
-                          <span className="text-xs font-bold">بحث</span>
-                        </button>
+                        )}
                       </div>
                     </div>
-                    
-                    <AnimatePresence>
-                      {isSearchFocused && searchSuggestions.length > 0 && (
-                        <>
-                          <div className="fixed inset-0 z-[80]" onClick={() => setIsSearchFocused(false)} />
-                          <motion.div
-                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                            className="absolute top-full right-0 left-0 mt-2 bg-white/95 backdrop-blur-2xl border border-stone-100 rounded-xl shadow-2xl z-[90] overflow-hidden"
-                          >
-                            <div className="max-h-60 overflow-y-auto p-2 space-y-1">
-                              {searchSuggestions.map((opt, idx) => (
-                                <button
-                                  key={idx}
-                                  type="button"
-                                  onClick={() => { setSearchQuery(opt); setIsSearchFocused(false); }}
-                                  className="w-full text-right p-3 text-sm rounded-lg hover:bg-emerald-50 text-stone-700 transition-colors flex items-center justify-between"
-                                >
-                                  <span>{opt}</span>
-                                  <Search size={14} className="text-stone-300" />
-                                </button>
-                              ))}
-                            </div>
-                          </motion.div>
-                        </>
-                      )}
-                    </AnimatePresence>
                   </div>
+
+                  {/* MASTER SEARCH BUTTON - 1/3 Width (flex-1 against flex-2) */}
+                  <button
+                    onClick={() => setAppliedFilters({ ...filters, query: searchQuery })}
+                    className="flex-1 bg-emerald-500 text-white py-3 px-6 rounded-xl hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-200/50 flex items-center justify-center gap-2 min-h-[52px]"
+                    title="بحث"
+                  >
+                    <Search size={20} />
+                    <span className="font-bold">بحث</span>
+                  </button>
+                </div>
+
+                {/* Secondary Actions Row */}
+                <div className="flex items-center justify-between gap-3 border-t border-stone-100/50 pt-2">
+                  <button
+                    onClick={() => {
+                      const emptyFilters = {
+                        governorate: '',
+                        area: '',
+                        type: '',
+                        purpose: '',
+                        location: '',
+                        marketer: '',
+                        status: ''
+                      };
+                      setFilters(emptyFilters);
+                      setSearchQuery('');
+                      setAppliedFilters({ ...emptyFilters, query: '' });
+                    }}
+                    className="px-4 py-2 text-xs font-bold text-stone-400 hover:text-emerald-600 transition-colors uppercase tracking-widest flex items-center gap-2 whitespace-nowrap"
+                  >
+                    <RefreshCw size={14} className="animate-hover" />
+                    مسح الكل
+                  </button>
 
                   <button
                     onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}
-                    className={`flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold transition-all shadow-sm whitespace-nowrap min-h-[52px] ${showAdvancedSearch ? 'bg-emerald-600 text-white shadow-emerald-200' : 'bg-white text-emerald-600 border border-emerald-100 hover:bg-emerald-50'}`}
+                    className={`flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold transition-all shadow-sm whitespace-nowrap ${showAdvancedSearch ? 'bg-emerald-600 text-white shadow-emerald-200' : 'bg-stone-50 text-stone-600 border border-stone-200 hover:bg-stone-100'}`}
                   >
-                    <Filter size={18} />
+                    <Filter size={16} />
                     البحث الدقيق
                     {showAdvancedSearch ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                   </button>
                 </div>
 
-                {/* Advanced Search Section */}
+                {/* Advanced Search Section (Dropdowns) */}
                 <AnimatePresence>
                   {showAdvancedSearch && (
                     <motion.div
@@ -2344,7 +2259,7 @@ export default function App() {
                       exit={{ height: 0, opacity: 0 }}
                       className="overflow-hidden"
                     >
-                      <div className="pt-4 border-t border-stone-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      <div className="pt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                         <SearchableFilter 
                           placeholder="المحافظة..."
                           options={availableFilterOptions.governorates}
@@ -2407,24 +2322,15 @@ export default function App() {
                       
                       <div className="mt-4 flex flex-col sm:flex-row gap-2">
                         <button 
-                          onClick={() => setShowAdvancedSearch(false)}
+                          onClick={() => {
+                            setAppliedFilters({ ...filters, query: searchQuery });
+                            setShowAdvancedSearch(false);
+                          }}
                           className="flex-1 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-100"
                         >
                           <Search size={18} />
-                          تطبيق فلاتر البحث
+                          تطبيق البحث
                         </button>
-                        {(searchQuery || filters.governorate || filters.area || filters.type || filters.purpose || filters.location || filters.marketer || filters.status !== '') && (
-                          <button 
-                            onClick={() => {
-                              setSearchQuery('');
-                              setFilters({ governorate: '', area: '', type: '', purpose: '', location: '', marketer: '', status: '' });
-                            }}
-                            className="px-6 py-3 bg-stone-100 text-stone-600 rounded-xl hover:bg-stone-200 transition-all font-bold flex items-center justify-center gap-2"
-                          >
-                            <X size={16} />
-                            مسح الكل
-                          </button>
-                        )}
                       </div>
                     </motion.div>
                   )}
@@ -2434,7 +2340,7 @@ export default function App() {
               {/* Actions & Results Header */}
               <div className="flex justify-center items-center">
                 <h2 className="text-2xl font-bold serif text-center">
-                  {view === 'pending-properties' ? `عقارات قيد المراجعة (${filteredProperties.length})` : view === 'trash' ? `سلة المحذوفات (${filteredProperties.length})` : (searchQuery || filters.governorate || filters.area || filters.type || filters.purpose || filters.location || filters.marketer || filters.status
+                  {view === 'pending-properties' ? `عقارات قيد المراجعة (${filteredProperties.length})` : view === 'trash' ? `سلة المحذوفات (${filteredProperties.length})` : (appliedFilters.query || appliedFilters.governorate || appliedFilters.area || appliedFilters.type || appliedFilters.purpose || appliedFilters.location || appliedFilters.marketer || appliedFilters.status
                     ? `نتائج البحث (${filteredProperties.length})` 
                     : `${view === 'list' ? 'كل العقارات' : view === 'my-listings' ? 'إعلاناتي' : view === 'my-favorites' ? 'إعلاناتي المفضلة' : `عقارات ${employees.find(emp => emp.uid === selectedMarketerId)?.name || 'المستخدم'}`} (${filteredProperties.length})`)}
                 </h2>
@@ -3731,10 +3637,13 @@ const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavori
             })()}
             
             {/* Visual feedback for click-to-enlarge */}
-            <div className="absolute inset-0 bg-black/10 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
-              <div className="bg-white/20 backdrop-blur-md p-2 rounded-full border border-white/30 shadow-xl">
-                <Search className="text-white" size={20} />
+            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-2">
+              <div className="bg-white/30 backdrop-blur-md p-3 rounded-full border border-white/40 shadow-2xl transform scale-75 group-hover/img:scale-100 transition-transform duration-500">
+                <Maximize text-white size={24} />
               </div>
+              <span className="text-white text-[10px] font-bold tracking-widest uppercase bg-black/40 backdrop-blur-sm px-3 py-1 rounded-full border border-white/10 transform translate-y-2 group-hover/img:translate-y-0 transition-transform duration-500">
+                انقر للتكبير
+              </span>
             </div>
 
             {property.is_sold && (
@@ -4247,8 +4156,11 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
 
       try {
         if (property) {
-          const { error: updateError } = await supabase.from('properties').update(data).eq('id', property.id);
+          const { data: updatedObj, error: updateError } = await supabase.from('properties').update(data).eq('id', property.id).select().single();
           if (updateError) throw updateError;
+          
+          // Use the latest data from server
+          const finalData = { ...updatedObj };
 
           // Check for significant updates to notify interested users
           const priceChanged = property.price !== data.price;
@@ -4295,14 +4207,21 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
             }
           }
         } else {
-          const { error: insertError } = await supabase.from('properties').insert(data);
+          const { data: insertedObj, error: insertError } = await supabase.from('properties').insert(data).select().single();
           if (insertError) throw insertError;
+          
+          // Use the latest data from server
+          const finalData = { ...insertedObj };
+          
+          toast.success('تمت إضافة العقار بنجاح');
+          onSave(finalData);
+          return; // Exit here for new property
         }
       } catch (error) {
         handleSupabaseError(error, property ? OperationType.UPDATE : OperationType.CREATE, 'properties');
       }
-      toast.success(property ? 'تم تحديث العقار بنجاح' : 'تمت إضافة العقار بنجاح');
-      onSave(property ? { ...data, id: property.id } : data);
+      toast.success('تم تحديث العقار بنجاح');
+      onSave(finalData);
     } catch (error: any) {
       console.error("Error saving property:", error);
       let message = error.message;
@@ -4547,9 +4466,6 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
             className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-sm mt-2"
             value={formData.assigned_employee_phone || ''}
             onChange={(e) => setFormData({...formData, assigned_employee_phone: e.target.value})}
-          />
-        </div>
-
         {/* Section 5: Media */}
         <div className="space-y-6">
           <div className="flex items-center gap-2 text-emerald-600 border-b border-emerald-100 pb-2">
@@ -4711,13 +4627,11 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
 
         setComments((commentsData || []).map(doc => ({ id: doc.id, ...doc })) as Comment[]);
 
-        // Subscribe to changes
         const channel = supabase.channel(`comments-${property.id}`);
         channel.on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'comments', filter: `property_id=eq.${property.id}` },
           () => {
-            // Re-fetch on any change
             supabase
               .from('comments')
               .select('*')
@@ -4757,12 +4671,10 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
         created_at: new Date().toISOString()
       });
 
-      // Update last comment on property
       await supabase.from('properties').update({
         last_comment: newComment || (commentImages.length > 0 ? 'تم إضافة صور' : '')
       }).eq('id', property.id);
 
-      // Notify interested users (who favorited the property)
       const { data: favs } = await supabase
         .from('favorites')
         .select('user_id')
@@ -4771,8 +4683,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
       const interestedUserIds = (favs || []).map(f => f.user_id);
 
       for (const recipientId of interestedUserIds) {
-        if (recipientId === user.uid) continue; // Don't notify the commenter
-
+        if (recipientId === user.uid) continue;
         await supabase.from('notifications').insert({
           type: 'new-comment',
           title: 'تعليق جديد على عقار يهمك',
@@ -4795,33 +4706,6 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
       setIsUploading(false);
     }
   };
-
-  const insertAtCursor = (textToInsert: string) => {
-    const textarea = document.getElementById('comment-textarea') as HTMLTextAreaElement;
-    if (!textarea) {
-      setNewComment(prev => prev + textToInsert);
-      return;
-    }
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-
-    setNewComment(prev => {
-      const before = prev.substring(0, start);
-      const after = prev.substring(end, prev.length);
-      return before + textToInsert + after;
-    });
-    
-    // Set focus back to textarea
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + textToInsert.length, start + textToInsert.length);
-    }, 0);
-  };
-
-  const whatsappUrl = `https://wa.me/${String(property.assigned_employee_phone || property.phone || '').replace(/\+/g, '').replace(/\s/g, '')}`;
-  const employeeWhatsappUrl = property.assigned_employee_phone ? `https://wa.me/${String(property.assigned_employee_phone).replace(/\+/g, '').replace(/\s/g, '')}` : null;
-  const propertyWhatsappUrl = property.phone ? `https://wa.me/${String(property.phone).replace(/\+/g, '').replace(/\s/g, '')}` : null;
 
   const handleCommentImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []) as File[];
@@ -4865,10 +4749,6 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
     }
   };
 
-  const removeCommentImage = (index: number) => {
-    setCommentImages(prev => prev.filter((_, i) => i !== index));
-  };
-
   const handleShare = async () => {
     const shareData = {
       title: property.name || 'عقار',
@@ -4887,8 +4767,28 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
     }
   };
 
-  // Normalize images to always be an array
+  const insertAtCursor = (textToInsert: string) => {
+    const textarea = document.getElementById('comment-textarea') as HTMLTextAreaElement;
+    if (!textarea) {
+      setNewComment(prev => prev + textToInsert);
+      return;
+    }
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    setNewComment(prev => {
+      const before = prev.substring(0, start);
+      const after = prev.substring(end, prev.length);
+      return before + textToInsert + after;
+    });
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + textToInsert.length, start + textToInsert.length);
+    }, 0);
+  };
+
   const safeImages = Array.isArray(property.images) ? property.images : [];
+  const employeeWhatsappUrl = property.assigned_employee_phone ? `https://wa.me/${String(property.assigned_employee_phone).replace(/\+/g, '').replace(/\s/g, '')}` : null;
+  const propertyWhatsappUrl = property.phone ? `https://wa.me/${String(property.phone).replace(/\+/g, '').replace(/\s/g, '')}` : null;
 
   return (
     <motion.div 
@@ -4905,7 +4805,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
         />
       )}
 
-      {/* Left: Info */}
+      {/* Left Column: Property Details Content */}
       <div className="lg:col-span-2 space-y-4">
         <div className="flex items-center justify-between">
           <button onClick={onBack} className="flex items-center gap-2 text-stone-500 hover:text-stone-900 transition-all text-sm font-bold p-2">
@@ -4916,55 +4816,31 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
           <div className="flex items-center gap-1">
             {isAdmin && property.status === 'deleted' ? (
               <>
-                <button 
-                  onClick={onRestore}
-                  className="p-2.5 text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-full transition-all active:scale-90"
-                  title="استعادة"
-                >
+                <button onClick={onRestore} className="p-2.5 text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-full transition-all active:scale-90" title="استعادة">
                   <RefreshCw size={18} />
                 </button>
-                <button 
-                  onClick={onPermanentDelete}
-                  className="p-2.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full transition-all active:scale-90"
-                  title="حذف نهائي"
-                >
+                <button onClick={onPermanentDelete} className="p-2.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full transition-all active:scale-90" title="حذف نهائي">
                   <Trash2 size={18} />
                 </button>
               </>
             ) : (
               <>
                 {isAdmin && (
-                  <button 
-                    onClick={onEdit}
-                    className="p-2.5 text-blue-500 hover:text-blue-700 rounded-full transition-all active:scale-90"
-                    title="تعديل"
-                  >
+                  <button onClick={onEdit} className="p-2.5 text-blue-500 hover:text-blue-700 rounded-full transition-all active:scale-90" title="تعديل">
                     <Edit size={18} />
                   </button>
                 )}
                 {isAdmin && (
-                  <button 
-                    onClick={onDelete}
-                    className="p-2.5 text-red-500 hover:text-red-700 hover:bg-white rounded-full transition-all active:scale-90"
-                    title="حذف"
-                  >
+                  <button onClick={onDelete} className="p-2.5 text-red-500 hover:text-red-700 hover:bg-white rounded-full transition-all active:scale-90" title="حذف">
                     <Trash2 size={18} />
                   </button>
                 )}
               </>
             )}
-            <button 
-              onClick={handleShare}
-              className="p-2.5 text-stone-600 hover:text-emerald-600 rounded-full transition-all active:scale-90"
-              title="مشاركة"
-            >
+            <button onClick={handleShare} className="p-2.5 text-stone-600 hover:text-emerald-600 rounded-full transition-all active:scale-90" title="مشاركة">
               <Share2 size={18} />
             </button>
-            <button 
-              onClick={onFavorite}
-              className={`p-2.5 rounded-full transition-all active:scale-90 ${isFavorite ? 'text-red-500' : 'text-stone-600 hover:text-red-500'}`}
-              title="المفضلة"
-            >
+            <button onClick={onFavorite} className={`p-2.5 rounded-full transition-all active:scale-90 ${isFavorite ? 'text-red-500' : 'text-stone-600 hover:text-red-500'}`} title="المفضلة">
               <Heart size={18} fill={isFavorite ? 'currentColor' : 'none'} />
             </button>
           </div>
@@ -4982,11 +4858,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                      : (img?.type === 'video' || (img?.url && img.url.toLowerCase().endsWith('.mp4')));
 
                    return isVideo ? (
-                     <video 
-                       src={url} 
-                       controls 
-                       className={`w-full h-full object-contain bg-black ${property.is_sold ? 'grayscale opacity-60' : ''}`}
-                     />
+                     <video src={url} controls className={`w-full h-full object-contain bg-black ${property.is_sold ? 'grayscale opacity-60' : ''}`} />
                    ) : (
                      <img 
                        src={url} 
@@ -5015,7 +4887,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                   <div className="absolute inset-0 flex items-center justify-center bg-stone-700/80 backdrop-blur-sm pointer-events-none z-10">
                     <span className="text-white font-black text-4xl tracking-wider transform -rotate-12 border-4 border-white px-6 py-2 rounded-xl shadow-2xl">مباع</span>
                   </div>
-                )}
+                 )}
               </div>
             )}
             
@@ -5035,119 +4907,85 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                 </button>
               </div>
             )}
-
-            <div className="absolute bottom-4 right-4 flex gap-1.5">
-              {safeImages.map((_: any, i: number) => (
-                <button 
-                  key={i}
-                  onClick={() => setActiveImageIndex(i)}
-                  className={`w-2 h-2 rounded-full transition-all ${i === activeImageIndex ? 'bg-white w-4' : 'bg-white/50'}`}
-                />
-              ))}
-            </div>
           </div>
           
           <div className="p-6">
-            <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-6 text-right">
               <div className="space-y-4">
                 <div className="flex flex-col gap-1">
                   <div className="flex justify-between items-center w-full">
-                    {property.price && (
-                      <span className="text-emerald-600 font-black text-xl">{property.price}</span>
-                    )}
-                    <h1 className="text-xl font-bold serif text-stone-900 text-right">{property.name || 'عقار بدون اسم'}</h1>
+                    {property.price && <span className="text-emerald-600 font-black text-xl">{property.price}</span>}
+                    <h1 className="text-xl font-bold serif text-stone-900">{property.name || 'عقار بدون اسم'}</h1>
                   </div>
                   {property.created_at && (
-                    <p className="text-[10px] text-stone-400 text-right">
-                      تم الإضافة {formatRelativeDate(property.created_at)}
-                    </p>
+                    <p className="text-[10px] text-stone-400">تم الإضافة {formatRelativeDate(property.created_at)}</p>
                   )}
                 </div>
                 {property.details && (
-                  <div className="text-base text-stone-700 leading-relaxed whitespace-pre-wrap text-right bg-stone-50 p-4 rounded-xl border border-stone-100">
+                  <div className="text-base text-stone-700 leading-relaxed whitespace-pre-wrap bg-stone-50 p-4 rounded-xl border border-stone-100 italic">
                     {property.details}
                   </div>
                 )}
               </div>
-              
-              <div className="flex flex-col gap-3 w-full">
-                {/* Agent Contact */}
+
+              {/* Gallery Thumbnails */}
+              {safeImages.length > 1 && (
+                <div className="space-y-4">
+                  <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2 justify-end">
+                    معرض الصور ({safeImages.length})
+                    <ImageIcon size={16} className="text-emerald-600" />
+                  </h3>
+                  <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-3">
+                    {safeImages.map((img: any, i: number) => {
+                      const url = typeof img === 'string' ? img : (img?.url || '');
+                      const isVideo = typeof img === 'string' 
+                        ? (img.startsWith('data:video/') || img.toLowerCase().endsWith('.mp4')) 
+                        : (img?.type === 'video' || (img?.url && img.url.toLowerCase().endsWith('.mp4')));
+
+                      return (
+                        <button 
+                          key={i}
+                          onClick={() => {
+                            setActiveImageIndex(i);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                          className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all duration-300 transform hover:scale-105 active:scale-95 ${i === activeImageIndex ? 'border-emerald-500 ring-4 ring-emerald-500/10 shadow-lg' : 'border-white hover:border-emerald-200'}`}
+                        >
+                          {isVideo ? (
+                            <div className="w-full h-full bg-stone-900 flex items-center justify-center">
+                              <video src={url} className="w-full h-full object-cover opacity-60" />
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <Play size={16} className="text-white fill-white" />
+                              </div>
+                            </div>
+                          ) : (
+                            <img src={url} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
+                          )}
+                          {i === activeImageIndex && <div className="absolute inset-0 bg-emerald-500/10 backdrop-blur-[1px]" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Contact Info */}
+              <div className="flex flex-col gap-3 w-full border-t border-stone-100 pt-6">
                 {property.assigned_employee_phone && (
                   <div className="space-y-2">
-                    <p className="text-[10px] text-stone-400 text-right pr-2">تواصل مع المسؤول: {property.assigned_employee_name}</p>
+                    <p className="text-[10px] text-stone-400">تواصل مع المسؤول: {property.assigned_employee_name}</p>
                     <div className="flex flex-col md:flex-row gap-2">
-                      <a 
-                        href={`tel:${property.assigned_employee_phone}`}
-                        className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-xl hover:bg-emerald-700 transition-all font-bold text-sm shadow-sm"
-                      >
+                      <a href={`tel:${property.assigned_employee_phone}`} className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-xl hover:bg-emerald-700 transition-all font-bold text-sm shadow-sm">
                         <span>{property.assigned_employee_phone}</span>
                         <Phone size={16} />
                       </a>
-                      <a 
-                        href={employeeWhatsappUrl || '#'}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 flex items-center justify-center gap-2 bg-green-500 text-white px-6 py-3 rounded-xl hover:bg-green-600 transition-all font-bold text-sm shadow-sm"
-                      >
+                      <a href={employeeWhatsappUrl || '#'} target="_blank" rel="noopener noreferrer" className="flex-1 flex items-center justify-center gap-2 bg-green-500 text-white px-6 py-3 rounded-xl hover:bg-green-600 transition-all font-bold text-sm shadow-sm">
                         <MessageCircle size={16} />
                         واتساب المسؤول
                       </a>
                     </div>
                   </div>
                 )}
-
-                {/* Property Contact */}
-                {property.phone && (
-                  <div className="space-y-2 mt-2">
-                    <p className="text-[10px] text-stone-400 text-right pr-2">هاتف العقار المسجل</p>
-                    <div className="flex flex-col md:flex-row gap-2">
-                      <a 
-                        href={`tel:${property.phone}`}
-                        className="flex-1 flex items-center justify-center gap-2 bg-stone-100 text-stone-800 px-6 py-3 rounded-xl hover:bg-stone-200 transition-all font-bold text-sm shadow-sm"
-                      >
-                        <span>{property.phone}</span>
-                        <Phone size={16} />
-                      </a>
-                      {property.phone_2 && (
-                        <a 
-                          href={`tel:${property.phone_2}`}
-                          className="flex-1 flex items-center justify-center gap-2 bg-stone-50 text-stone-600 px-6 py-3 rounded-xl hover:bg-stone-100 transition-all font-bold text-sm shadow-sm border border-stone-100"
-                        >
-                          <span>{property.phone_2}</span>
-                          <Phone size={16} />
-                        </a>
-                      )}
-                      <a 
-                        href={propertyWhatsappUrl || '#'}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 flex items-center justify-center gap-2 bg-white text-green-600 border border-green-200 px-6 py-3 rounded-xl hover:bg-green-50 transition-all font-bold text-sm shadow-sm"
-                      >
-                        <MessageCircle size={16} />
-                        واتساب العقار
-                      </a>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {safeImages.length > 1 && (
-              <div className="mt-8 pt-6 border-t border-stone-100">
-                <h3 className="text-sm font-bold text-stone-900 mb-4 flex items-center gap-2 justify-center">
-                  <ImageIcon size={16} className="text-emerald-600" />
-                  معرض الصور ({safeImages.length})
-                </h3>
-                <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                  {safeImages.map((img: any, i: number) => {
-                    const url = typeof img === 'string' ? img : (img?.url || '');
-                    const isVideo = typeof img === 'string' 
-                      ? (img.startsWith('data:video/') || img.toLowerCase().endsWith('.mp4')) 
-                      : (img?.type === 'video' || (img?.url && img.url.toLowerCase().endsWith('.mp4')));
-                    
-                    return (
-                      <button 
-                        key={i} 
                         onClick={() => {
                           const imageList = safeImages.map((item: any) => typeof item === 'string' ? item : (item?.url || ''));
                           setViewerImages(imageList);
