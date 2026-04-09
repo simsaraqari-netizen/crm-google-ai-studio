@@ -715,6 +715,7 @@ export default function App() {
   const [tempSpreadsheetId, setTempSpreadsheetId] = useState('');
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeSearchQuery, setActiveSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   
   useEffect(() => {
@@ -1582,11 +1583,17 @@ export default function App() {
       if (view === 'user-listings' && selectedMarketerId && p.assigned_employee_id !== selectedMarketerId) return false;
       if (view === 'pending-properties' && p.status !== 'pending') return false;
       
-      const query = debouncedSearchQuery;
+      const query = activeSearchQuery;
       const matchesSearch = 
         searchMatch(p.name, query) || 
         searchMatch(p.phone, query) || 
+        searchMatch(p.phone_2 || '', query) ||
         searchMatch(p.area, query) || 
+        searchMatch(p.sector || '', query) ||
+        searchMatch(p.block || '', query) ||
+        searchMatch(p.plot_number || '', query) ||
+        searchMatch(p.house_number || '', query) ||
+        searchMatch(p.id, query) ||
         searchMatch(p.assigned_employee_name || '', query);
       
       const matchesGov = !filters.governorate || p.governorate === filters.governorate;
@@ -2211,8 +2218,11 @@ export default function App() {
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                              if (searchSuggestions.length > 0) {
+                              if (searchSuggestions.length > 0 && !searchSuggestions.includes(searchQuery)) {
                                 setSearchQuery(searchSuggestions[0]);
+                                setActiveSearchQuery(searchSuggestions[0]);
+                              } else {
+                                setActiveSearchQuery(searchQuery);
                               }
                               setIsSearchFocused(false);
                             }
@@ -2223,6 +2233,7 @@ export default function App() {
                             onClick={(e) => {
                               e.stopPropagation();
                               setSearchQuery('');
+                              setActiveSearchQuery('');
                             }}
                             className="absolute right-0 text-stone-400 hover:text-stone-600 p-1"
                           >
@@ -2230,6 +2241,13 @@ export default function App() {
                           </button>
                         )}
                       </div>
+                      <button
+                        onClick={() => setActiveSearchQuery(searchQuery)}
+                        className="bg-emerald-500 text-white p-2.5 rounded-xl hover:bg-emerald-600 transition-all shadow-sm flex items-center justify-center min-w-[44px]"
+                        title="بحث"
+                      >
+                        <Search size={20} />
+                      </button>
                     </div>
                     
                     <AnimatePresence>
