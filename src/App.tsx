@@ -690,6 +690,7 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
   const [editUserName, setEditUserName] = useState('');
   const [editUserPhone, setEditUserPhone] = useState('');
@@ -2142,9 +2143,10 @@ export default function App() {
               className="space-y-6 px-4 py-8"
             >
               {/* Search & Filters */}
-              <div className="bg-white/40 backdrop-blur-xl border border-white/40 p-4 rounded-xl shadow-xl shadow-stone-200/50 w-full">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                  <div className="relative w-full bg-white/70 backdrop-blur-md border border-stone-200 rounded-lg focus-within:border-emerald-500 focus-within:ring-4 focus-within:ring-emerald-500/10 transition-all flex items-center p-2 px-4 min-h-[46px] shadow-sm hover:border-stone-300">
+              <div className="bg-white/40 backdrop-blur-xl border border-white/40 p-5 rounded-2xl shadow-xl shadow-stone-200/50 w-full space-y-4">
+                {/* Quick Search & Toggle */}
+                <div className="flex flex-col md:flex-row gap-3">
+                  <div className="flex-1 relative bg-white/70 backdrop-blur-md border border-stone-200 rounded-xl focus-within:border-emerald-500 focus-within:ring-4 focus-within:ring-emerald-500/10 transition-all flex items-center p-2 px-4 min-h-[52px] shadow-sm hover:border-stone-300">
                     <div 
                       className="flex flex-1 items-center gap-2 cursor-text"
                       onClick={() => {
@@ -2157,10 +2159,10 @@ export default function App() {
                         }
                       }}
                     >
-                      <Search className="text-stone-500 ml-1" size={16} />
+                      <Search className="text-stone-500 ml-1" size={18} />
                       
-                      {Object.entries(filters).filter(([_, val]) => val !== '').map(([key, value]) => (
-                        <span key={key} className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold whitespace-nowrap">
+                      {Object.entries(filters).filter(([_, val]) => val !== '').slice(0, 2).map(([key, value]) => (
+                        <span key={key} className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-lg text-[10px] font-bold whitespace-nowrap shadow-sm">
                           {value}
                           <button
                             onClick={(e) => {
@@ -2178,33 +2180,37 @@ export default function App() {
                         </span>
                       ))}
 
+                      {Object.entries(filters).filter(([_, val]) => val !== '').length > 2 && (
+                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg">
+                          +{Object.entries(filters).filter(([_, val]) => val !== '').length - 2}
+                        </span>
+                      )}
+
                       {searchQuery && !isSearchFocused && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-500 text-white rounded-lg text-[10px] font-bold whitespace-nowrap shadow-sm">
                           {searchQuery}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               setSearchQuery('');
                             }}
-                            className="hover:bg-emerald-200 rounded-full p-0.5 transition-colors"
+                            className="hover:bg-emerald-600 rounded-full p-0.5 transition-colors"
                           >
                             <X size={10} />
                           </button>
                         </span>
                       )}
 
-                      <div className={`flex-1 flex items-center relative min-w-[80px] ${searchQuery && !isSearchFocused ? 'hidden' : ''}`}>
-                        <Search className="absolute left-2 text-stone-400" size={14} />
+                      <div className={`flex-1 flex items-center relative min-w-[120px] ${searchQuery && !isSearchFocused ? 'hidden' : ''}`}>
                         <input 
                           id="main-search-input"
                           type="text"
-                          placeholder="الاسم، رقم الهاتف، أو المنطقة..."
-                          className="w-full bg-transparent border-none outline-none text-xs py-1 pl-8 pr-8"
+                          placeholder="ابحث بالاسم، الرقم، أو المنطقة..."
+                          className="w-full bg-transparent border-none outline-none text-sm py-1"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(normalizeDigits(e.target.value))}
                           onFocus={() => setIsSearchFocused(true)}
                           onBlur={() => {
-                            // Delay blur to allow clicking suggestions or the clear button
                             setTimeout(() => setIsSearchFocused(false), 200);
                           }}
                           onKeyDown={(e) => {
@@ -2219,33 +2225,38 @@ export default function App() {
                         />
                         {searchQuery && (
                           <button
-                            onClick={() => setSearchQuery('')}
-                            className="absolute right-2 text-stone-500 hover:text-stone-600 p-1 rounded-full hover:bg-stone-200 transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSearchQuery('');
+                            }}
+                            className="absolute right-0 text-stone-400 hover:text-stone-600 p-1"
                           >
-                            <X size={14} />
+                            <X size={16} />
                           </button>
                         )}
                       </div>
                     </div>
+                    
                     <AnimatePresence>
                       {isSearchFocused && searchSuggestions.length > 0 && (
                         <>
                           <div className="fixed inset-0 z-[80]" onClick={() => setIsSearchFocused(false)} />
                           <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 10 }}
-                            className="absolute top-full right-0 left-0 mt-2 bg-white/90 backdrop-blur-xl border border-stone-100 rounded-lg shadow-xl z-[90] overflow-hidden"
+                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                            className="absolute top-full right-0 left-0 mt-2 bg-white/95 backdrop-blur-2xl border border-stone-100 rounded-xl shadow-2xl z-[90] overflow-hidden"
                           >
-                            <div className="max-h-60 overflow-y-auto p-1">
-                              {searchSuggestions.map(opt => (
+                            <div className="max-h-60 overflow-y-auto p-2 space-y-1">
+                              {searchSuggestions.map((opt, idx) => (
                                 <button
-                                  key={opt}
+                                  key={idx}
                                   type="button"
                                   onClick={() => { setSearchQuery(opt); setIsSearchFocused(false); }}
-                                  className="w-full text-right p-3 text-sm rounded-lg hover:bg-white/50 text-stone-600 transition-colors"
+                                  className="w-full text-right p-3 text-sm rounded-lg hover:bg-emerald-50 text-stone-700 transition-colors flex items-center justify-between"
                                 >
-                                  {opt}
+                                  <span>{opt}</span>
+                                  <Search size={14} className="text-stone-300" />
                                 </button>
                               ))}
                             </div>
@@ -2255,86 +2266,110 @@ export default function App() {
                     </AnimatePresence>
                   </div>
 
-                  <SearchableFilter 
-                    placeholder="المحافظة..."
-                    options={availableFilterOptions.governorates}
-                    value={filters.governorate}
-                    onChange={(val) => setFilters({...filters, governorate: val, area: ''})}
-                  />
-
-                  <SearchableFilter 
-                    placeholder="المنطقة..."
-                    options={availableFilterOptions.areas}
-                    value={filters.area}
-                    onChange={(val) => setFilters({...filters, area: val})}
-                  />
-
-                  <SearchableFilter 
-                    placeholder="نوع العقار..."
-                    options={availableFilterOptions.types}
-                    value={filters.type}
-                    onChange={(val) => setFilters({...filters, type: val})}
-                  />
-
-                  <SearchableFilter 
-                    placeholder="الغرض..."
-                    options={availableFilterOptions.purposes}
-                    value={filters.purpose}
-                    onChange={(val) => setFilters({...filters, purpose: val})}
-                  />
-
-                  {availableFilterOptions.locations.length > 0 && (
-                    <SearchableFilter
-                      placeholder="الموقع..."
-                      options={availableFilterOptions.locations}
-                      value={filters.location}
-                      onChange={(val) => setFilters({...filters, location: val})}
-                    />
-                  )}
-
-                  <SearchableFilter 
-                    placeholder="ابحث بالمستخدم..."
-                    options={availableFilterOptions.marketers}
-                    value={filters.marketer}
-                    onChange={(val) => setFilters({...filters, marketer: val})}
-                  />
-
-                  <div className="bg-white/70 backdrop-blur-md border border-stone-200 rounded-lg p-2 h-[46px] flex flex-col justify-center focus-within:border-emerald-500 focus-within:ring-4 focus-within:ring-emerald-500/10 transition-all shadow-sm hover:border-stone-300">
-                    <div className="relative flex items-center">
-                      <select 
-                        className="w-full bg-transparent border-none p-0 text-sm text-right outline-none focus:ring-0 appearance-none"
-                        value={filters.status}
-                        onChange={(e) => setFilters({...filters, status: e.target.value})}
-                      >
-                        <option value="">ابحث بالحالة (الكل)</option>
-                        <option value="available">متاح</option>
-                        <option value="sold">مباع</option>
-                      </select>
-                      <ChevronDown size={14} className="mr-2 text-stone-300 pointer-events-none shrink-0" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-2 pt-4 border-t border-stone-100">
-                  <button 
-                    className="w-full py-3.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 hover:shadow-emerald-200/50 transition-all font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-100 active:scale-[0.98]"
+                  <button
+                    onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}
+                    className={`flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold transition-all shadow-sm whitespace-nowrap min-h-[52px] ${showAdvancedSearch ? 'bg-emerald-600 text-white shadow-emerald-200' : 'bg-white text-emerald-600 border border-emerald-100 hover:bg-emerald-50'}`}
                   >
-                    <Search size={18} />
-                    بحث
+                    <Filter size={18} />
+                    البحث الدقيق
+                    {showAdvancedSearch ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                   </button>
-                  {(searchQuery || filters.governorate || filters.area || filters.type || filters.purpose || filters.location || filters.marketer || filters.status !== '') && (
-                    <button 
-                      onClick={() => {
-                        setSearchQuery('');
-                        setFilters({ governorate: '', area: '', type: '', purpose: '', location: '', marketer: '', status: '' });
-                      }}
-                      className="w-full py-3 bg-stone-100 text-stone-600 rounded-lg hover:bg-stone-200 transition-all font-bold flex items-center justify-center gap-2"
-                    >
-                      <X size={16} />
-                      مسح كافة الفلاتر والبحث
-                    </button>
-                  )}
                 </div>
+
+                {/* Advanced Search Section */}
+                <AnimatePresence>
+                  {showAdvancedSearch && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="pt-4 border-t border-stone-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <SearchableFilter 
+                          placeholder="المحافظة..."
+                          options={availableFilterOptions.governorates}
+                          value={filters.governorate}
+                          onChange={(val) => setFilters({...filters, governorate: val, area: ''})}
+                        />
+
+                        <SearchableFilter 
+                          placeholder="المنطقة..."
+                          options={availableFilterOptions.areas}
+                          value={filters.area}
+                          onChange={(val) => setFilters({...filters, area: val})}
+                        />
+
+                        <SearchableFilter 
+                          placeholder="نوع العقار..."
+                          options={availableFilterOptions.types}
+                          value={filters.type}
+                          onChange={(val) => setFilters({...filters, type: val})}
+                        />
+
+                        <SearchableFilter 
+                          placeholder="الغرض..."
+                          options={availableFilterOptions.purposes}
+                          value={filters.purpose}
+                          onChange={(val) => setFilters({...filters, purpose: val})}
+                        />
+
+                        {availableFilterOptions.locations.length > 0 && (
+                          <SearchableFilter
+                            placeholder="الموقع..."
+                            options={availableFilterOptions.locations}
+                            value={filters.location}
+                            onChange={(val) => setFilters({...filters, location: val})}
+                          />
+                        )}
+
+                        <SearchableFilter 
+                          placeholder="ابحث بالمستخدم..."
+                          options={availableFilterOptions.marketers}
+                          value={filters.marketer}
+                          onChange={(val) => setFilters({...filters, marketer: val})}
+                        />
+
+                        <div className="bg-white/70 backdrop-blur-md border border-stone-200 rounded-lg p-2 h-[46px] flex flex-col justify-center focus-within:border-emerald-500 focus-within:ring-4 focus-within:ring-emerald-500/10 transition-all shadow-sm hover:border-stone-300">
+                          <div className="relative flex items-center">
+                            <select 
+                              className="w-full bg-transparent border-none p-0 text-sm text-right outline-none focus:ring-0 appearance-none"
+                              value={filters.status}
+                              onChange={(e) => setFilters({...filters, status: e.target.value})}
+                            >
+                              <option value="">ابحث بالحالة (الكل)</option>
+                              <option value="available">متاح</option>
+                              <option value="sold">مباع</option>
+                            </select>
+                            <ChevronDown size={14} className="mr-2 text-stone-300 pointer-events-none shrink-0" />
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-4 flex flex-col sm:flex-row gap-2">
+                        <button 
+                          onClick={() => setShowAdvancedSearch(false)}
+                          className="flex-1 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-100"
+                        >
+                          <Search size={18} />
+                          تطبيق فلاتر البحث
+                        </button>
+                        {(searchQuery || filters.governorate || filters.area || filters.type || filters.purpose || filters.location || filters.marketer || filters.status !== '') && (
+                          <button 
+                            onClick={() => {
+                              setSearchQuery('');
+                              setFilters({ governorate: '', area: '', type: '', purpose: '', location: '', marketer: '', status: '' });
+                            }}
+                            className="px-6 py-3 bg-stone-100 text-stone-600 rounded-xl hover:bg-stone-200 transition-all font-bold flex items-center justify-center gap-2"
+                          >
+                            <X size={16} />
+                            مسح الكل
+                          </button>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               {/* Actions & Results Header */}
