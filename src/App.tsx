@@ -3865,21 +3865,24 @@ interface SupabaseErrorInfo {
   }
 }
 
-function handleSupabaseError(error: unknown, operationType: OperationType, path: string | null) {
+async function handleSupabaseError(error: unknown, operationType: OperationType, path: string | null) {
+  console.error('[DIAGNOSTIC] Raw Supabase Error:', error);
+  const { data: { session } } = await supabase.auth.getSession();
+  
   const errInfo: SupabaseErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: error instanceof Error ? error.message : (typeof error === 'object' && error !== null ? JSON.stringify(error) : String(error)),
     authInfo: {
-      userId: undefined,
-      email: null,
-      emailVerified: undefined,
-      isAnonymous: undefined,
+      userId: session?.user?.id,
+      email: session?.user?.email || null,
+      emailVerified: !!session?.user?.email_confirmed_at,
+      isAnonymous: session?.user?.is_anonymous,
       tenantId: null,
-      providerInfo: []
+      providerInfo: session?.user?.app_metadata?.provider || []
     },
     operationType,
     path
   }
-  console.error('Supabase Error: ', JSON.stringify(errInfo));
+  console.error('Supabase Error Info: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
 
@@ -4177,9 +4180,22 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
       console.error("Error saving property:", error);
       let message = error.message;
       try {
+        // Try to extract the inner error message if it's our JSON format
         const parsed = JSON.parse(error.message);
-        message = parsed.error;
+        if (parsed.error) {
+           try {
+             const innerParsed = JSON.parse(parsed.error);
+             message = innerParsed.message || innerParsed.error || parsed.error;
+           } catch (e) {
+             message = parsed.error;
+           }
+        }
       } catch (e) {}
+      
+      if (message === '[object Object]') {
+        message = 'حدث خطأ في الاتصال بقاعدة البيانات. يرجى التحقق من اتصال الإنترنت أو تسجيل الخروج والعودة.';
+      }
+
       toast.error(`حدث خطأ أثناء حفظ البيانات: ${message}`);
     } finally {
       setIsSaving(false);

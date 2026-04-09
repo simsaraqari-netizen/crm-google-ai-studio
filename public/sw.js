@@ -16,8 +16,18 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('fetch', (event) => {
   event.respondWith(
-    fetch(event.request).catch(() => {
-      return caches.match(event.request);
+    fetch(event.request).catch(async (error) => {
+      const cache = await caches.open(CACHE_NAME);
+      const cachedResponse = await cache.match(event.request);
+      if (cachedResponse) return cachedResponse;
+      
+      // If the request isn't in cache and network fails, return a synthetic error response
+      // to prevent "Failed to convert value to 'Response'" error
+      return new Response(JSON.stringify({ error: 'Network error', message: error.message }), {
+        status: 503,
+        statusText: 'Service Unavailable',
+        headers: { 'Content-Type': 'application/json' }
+      });
     })
   );
 });
