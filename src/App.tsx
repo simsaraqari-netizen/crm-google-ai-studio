@@ -832,6 +832,62 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
         </div>
 
         <div className="space-y-6">
+          <div className="flex items-center gap-2 text-emerald-600 border-b border-emerald-100 pb-2">
+            <ImageIcon size={20} />
+            <h3 className="font-bold text-lg text-center">الصور والملفات</h3>
+          </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {(formData.images || []).map((img: any, idx: number) => (
+              <div key={idx} className="relative group aspect-square rounded-xl overflow-hidden bg-stone-100 border border-stone-200 shadow-sm">
+                {img.type === 'video' ? (
+                  <video src={img.url} className="w-full h-full object-cover" />
+                ) : (
+                  <img src={img.url} alt="" className="w-full h-full object-cover" />
+                )}
+                <button 
+                  type="button"
+                  onClick={() => removeImage(idx)}
+                  className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-lg hover:bg-red-600"
+                >
+                  <X size={14} />
+                </button>
+                {img.type === 'video' && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                    <div className="w-8 h-8 bg-white/30 backdrop-blur-md rounded-full flex items-center justify-center text-white">
+                      <Play size={16} fill="currentColor" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+            
+            <label className="aspect-square rounded-xl border-2 border-dashed border-emerald-200 bg-emerald-50/50 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-emerald-50 hover:border-emerald-300 transition-all group shadow-inner">
+              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-emerald-600 shadow-sm group-hover:scale-110 transition-transform">
+                <Upload size={24} />
+              </div>
+              <span className="text-xs font-bold text-emerald-700">إضافة صور/فيديو</span>
+              <input 
+                type="file" 
+                multiple 
+                accept="image/*,video/*" 
+                className="hidden" 
+                onChange={handleImageUpload}
+                disabled={isUploading}
+              />
+            </label>
+          </div>
+          
+          {isUploading && (
+            <div className="flex items-center gap-3 text-emerald-600 bg-emerald-50 p-4 rounded-xl border border-emerald-100 animate-pulse">
+              <RefreshCw className="animate-spin" size={20} />
+              <span className="text-sm font-bold">جاري رفع الملفات ومعالجتها...</span>
+            </div>
+          )}
+          <p className="text-[10px] text-stone-400">يمكنك رفع حتى 20 صورة أو فيديو للعقار الواحد.</p>
+        </div>
+
+        <div className="space-y-6">
           {isSuperAdmin ? (
             <SearchableFilter
               label="الشركة"
