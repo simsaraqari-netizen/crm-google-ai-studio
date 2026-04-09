@@ -2591,11 +2591,13 @@ export default function App() {
                           className="w-full bg-transparent border-none outline-none text-sm py-1"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(normalizeDigits(e.target.value))}
+                          onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
                               setAppliedFilters({ ...filters, query: searchQuery });
                               setHasSearched(true);
                             }
+                          }}
                         />
                         {searchQuery && (
                           <button
