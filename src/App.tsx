@@ -3316,33 +3316,36 @@ export default function App() {
                         </span>
                       )}
 
-                      <div className="flex-1 flex items-center relative min-w-[120px]">
-                        <input 
-                          id="main-search-input"
-                          type="text"
-                          placeholder="ابحث بالاسم، الرقم، أو المنطقة..."
-                          className="w-full bg-transparent border-none outline-none text-sm py-1"
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(normalizeDigits(e.target.value))}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              setAppliedFilters({ ...filters, query: searchQuery });
-                              setHasSearched(true);
-                            }
-                          }}
-                        />
-                        {searchQuery && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSearchQuery('');
+                      <div className="flex-1 flex items-center relative min-w-[150px]">
+                        <div className={`flex items-center w-full transition-all duration-300 ${searchQuery ? 'bg-emerald-50 rounded-lg border border-emerald-100 px-2' : ''}`}>
+                          <input 
+                            id="main-search-input"
+                            type="text"
+                            placeholder={!searchQuery ? "ابحث بالاسم، الرقم، أو المنطقة..." : ""}
+                            className={`w-full bg-transparent border-none outline-none text-sm py-1.5 transition-all ${searchQuery ? 'font-bold text-emerald-700' : 'text-stone-600'}`}
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(normalizeDigits(e.target.value))}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                setAppliedFilters({ ...filters, query: searchQuery });
+                                setHasSearched(true);
+                              }
                             }}
-                            className="absolute right-0 text-stone-400 hover:text-stone-600 p-1"
-                          >
-                            <X size={16} />
-                          </button>
-                        )}
+                          />
+                          {searchQuery && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSearchQuery('');
+                              }}
+                              className="ml-1 text-emerald-400 hover:text-emerald-600 p-1 flex-shrink-0"
+                              title="مسح البحث"
+                            >
+                              <X size={14} />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
