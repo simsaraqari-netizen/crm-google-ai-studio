@@ -399,7 +399,708 @@ const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavori
   );
 });
 
+const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selectedCompanyId, companies, onCancel, onSave }: any) {
+  const isSuperAdmin = useMemo(() =>
+    user?.role === 'super_admin' || (user?.email && SUPER_ADMIN_EMAILS.includes(user.email)),
+    [user?.role, user?.email]
+  );
+  const [formData, setFormData] = useState({
+    name: property?.name || '',
+    governorate: property?.governorate || '',
+    area: property?.area || '',
+    type: property?.type || '',
+    purpose: property?.purpose || '',
+    assigned_employee_id: property?.assigned_employee_id || '',
+    assigned_employee_name: property?.assigned_employee_name || '',
+    assigned_employee_phone: property?.assigned_employee_phone || '',
+    images: (property?.images || []).map((img: any) => typeof img === 'string' ? { url: img, type: img.startsWith('data:video/') ? 'video' : 'image' } : img),
+    location_link: property?.location_link || '',
+    is_sold: property?.is_sold || false,
+    sector: property?.sector || '',
+    block: property?.block || '',
+    street: property?.street || '',
+    avenue: property?.avenue || '',
+    plot_number: property?.plot_number || '',
+    house_number: property?.house_number || '',
+    location: property?.location || '',
+    price: property?.price || '',
+    details: property?.details || '',
+    status_label: property?.status_label || '',
+    company_id: property?.company_id || ''
+  });
 
+  const [employees, setEmployees] = useState<UserProfile[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+
+    (async () => {
+      try {
+        let query = supabase.from('profiles').select('*').eq('role', 'employee');
+
+        if (isSuperAdmin) {
+          const targetCompanyId = property?.company_id || selectedCompanyId;
+          if (targetCompanyId) {
+            query = query.eq('company_id', targetCompanyId);
+          }
+        } else {
+          query = query.eq('company_id', user?.company_id);
+        }
+
+        const { data: employeesData, error } = await query;
+
+        if (error) throw error;
+
+        setEmployees((employeesData || []).map(doc => ({ uid: doc.id, ...doc })) as UserProfile[]);
+
+        // Subscribe to changes
+        const channel = supabase.channel('employees-changes');
+        channel.on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'profiles' },
+          () => {
+            // Re-fetch on any change
+            query.then(({ data: updated }) => {
+              setEmployees((updated || []).map(doc => ({ uid: doc.id, ...doc })) as UserProfile[]);
+            });
+          }
+        ).subscribe();
+
+        return () => { channel.unsubscribe(); };
+      } catch (error) {
+        console.error("PropertyForm employees listener error:", error);
+      }
+    })();
+  }, [isSuperAdmin, selectedCompanyId, user?.companyId, property?.companyId]);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []) as File[];
+    if (!files.length) return;
+
+    // التحقق من الحد قبل البدء بالرفع
+    if ((formData.images || []).length + files.length > 20) {
+      toast.error('لا يمكن رفع أكثر من 20 ملفاً');
+      if (e.target) e.target.value = '';
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const newImages = [...(formData.images || [])];
+      for (const file of files) {
+        let fileToUpload: Blob;
+        if (file.type.startsWith('image/')) {
+          fileToUpload = await compressImage(file);
+        } else {
+          fileToUpload = file;
+        }
+
+        const ext = file.type.startsWith('image/') ? 'jpg' : (file.name.split('.').pop() || 'mp4');
+        const safeFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${ext}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('properties_media')
+          .upload(`properties/${safeFileName}`, fileToUpload, { contentType: file.type.startsWith('image/') ? 'image/jpeg' : (file.type || 'video/mp4') });
+
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrl } = supabase.storage
+          .from('properties_media')
+          .getPublicUrl(`properties/${safeFileName}`);
+
+        newImages.push({ url: publicUrl.publicUrl, type: file.type.startsWith('video/') ? 'video' : 'image' });
+      }
+      setFormData(prevData => ({ ...prevData, images: newImages }));
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.error("حدث خطأ أثناء رفع الملفات");
+    } finally {
+      setIsUploading(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const removeImage = (index: number) => {
+    const newImages = formData.images.filter((_: any, i: number) => i !== index);
+    setFormData({ ...formData, images: newImages });
+  };
+
+  const [isSaving, setIsSaving] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [missingFieldsList, setMissingFieldsList] = useState<string[]>([]);
+
+  const handleSubmit = async (e: React.FormEvent, force: boolean = false) => {
+    if (e) e.preventDefault();
+    
+    if (!force) {
+      const missing: string[] = [];
+      if (!formData.name) missing.push('اسم العميل');
+      if (!formData.governorate) missing.push('المحافظة');
+      if (!formData.area) missing.push('المنطقة');
+      if (!formData.type) missing.push('نوع العقار');
+      if (!formData.purpose) missing.push('الغرض');
+      if (!formData.location) missing.push('الموقع');
+      
+      if (missing.length > 0) {
+        setMissingFieldsList(missing);
+        setShowConfirm(true);
+        return;
+      }
+    }
+
+    setIsSaving(true);
+    setShowConfirm(false);
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      let empId = formData.assigned_employee_id;
+      let empName = formData.assigned_employee_name;
+
+      if (empName && !empId) {
+        try {
+          const { data: existingEmp } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('name', empName)
+            .maybeSingle();
+
+          if (existingEmp) {
+            empId = existingEmp.id;
+          } else {
+            const { data: newEmp, error: insertError } = await supabase
+              .from('profiles')
+              .insert({
+                name: empName,
+                role: 'employee',
+                company_id: isSuperAdmin ? selectedCompanyId : user?.company_id,
+                created_at: new Date().toISOString()
+              })
+              .select('id')
+              .single();
+
+            if (!insertError && newEmp) {
+              empId = newEmp.id;
+            }
+          }
+        } catch (error) {
+          console.error("Error in marketer lookup/creation:", error);
+        }
+      }
+
+      const formattedImages = (formData.images || []).map((img: any) => 
+        typeof img === 'string' ? img : (img?.url || '')
+      ).filter(Boolean);
+
+      const data = {
+        ...formData,
+        images: formattedImages,
+        company_id: isSuperAdmin ? selectedCompanyId : user?.companyId,
+        assigned_employee_id: empId,
+        assigned_employee_name: empName,
+        updated_at: new Date().toISOString(),
+        created_at: property ? property.created_at : new Date().toISOString(),
+        created_by: property ? property.created_by : userId,
+        status: isAdmin ? (property?.status || 'approved') : 'pending'
+      };
+
+      try {
+        if (property) {
+          const { data: updatedObj, error: updateError } = await supabase.from('properties').update(data).eq('id', property.id).select().single();
+          if (updateError) throw updateError;
+          
+          const finalData = { ...updatedObj };
+
+          const priceChanged = property.price !== data.price;
+          const statusChanged = property.is_sold !== data.is_sold || property.status_label !== data.status_label;
+
+          if (priceChanged || statusChanged) {
+            const { data: favs, error: favsError } = await supabase
+              .from('favorites')
+              .select('user_id')
+              .eq('property_id', property.id);
+
+            if (favsError) throw favsError;
+
+            const interestedUserIds = (favs || []).map(f => f.user_id);
+
+            for (const recipientId of interestedUserIds) {
+              if (recipientId === userId) continue;
+
+              let title = 'تحديث في عقار يهمك';
+              let message = `تم تحديث بيانات العقار: ${generatePropertyTitle(property)}`;
+              let type: 'price-change' | 'status-change' = 'status-change';
+
+              if (priceChanged && statusChanged) {
+                message = `تم تغيير السعر والحالة للعقار: ${generatePropertyTitle(property)}`;
+              } else if (priceChanged) {
+                type = 'price-change';
+                message = `تغير السعر إلى ${data.price} للعقار: ${generatePropertyTitle(property)}`;
+              } else if (statusChanged) {
+                type = 'status-change';
+                message = `تغيرت حالة العقار: ${generatePropertyTitle(property)}`;
+              }
+
+              await supabase.from('notifications').insert({
+                type,
+                title,
+                message,
+                recipient_id: recipientId,
+                user_id: userId,
+                property_id: property.id,
+                read: false,
+                created_at: new Date().toISOString()
+              });
+            }
+          }
+        } else {
+          const { data: insertedObj, error: insertError } = await supabase.from('properties').insert(data).select().single();
+          if (insertError) throw insertError;
+          
+          const finalData = { ...insertedObj };
+          
+          toast.success('تمت إضافة العقار بنجاح');
+          onSave(finalData);
+          return;
+        }
+      } catch (error) {
+        handleSupabaseError(error, property ? OperationType.UPDATE : OperationType.CREATE, 'properties');
+      }
+      toast.success('تم تحديث العقار بنجاح');
+      onSave(property);
+    } catch (error: any) {
+      console.error("Error saving property:", error);
+      let message = error.message;
+      toast.error(`حدث خطأ أثناء حفظ البيانات: ${message}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="w-full ios-card overflow-hidden"
+    >
+      <div className="bg-emerald-500 p-8 text-white">
+        <h2 className="text-2xl font-bold flex items-center gap-3 justify-center">
+          {property ? <Edit size={24} /> : <Plus size={24} />}
+          {property ? 'تعديل بيانات العقار' : 'إضافة عقار جديد للنظام'}
+        </h2>
+        <p className="text-emerald-50 mt-2 opacity-80 text-center text-sm">يرجى ملء البيانات بدقة لضمان أفضل تجربة للمستخدمين</p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="p-8 space-y-10">
+        {isSuperAdmin && companies && companies.length > 0 && (
+          <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100 mb-6">
+            <p className="text-sm text-emerald-800 font-medium flex items-center gap-2">
+              <Building2 size={16} />
+              الشركة: {(companies || []).find(c => c.id === (property?.company_id || selectedCompanyId))?.name || 'غير محدد'}
+            </p>
+          </div>
+        )}
+        <div className="space-y-6">
+          <div className="flex items-center gap-2 text-emerald-600 border-b border-emerald-100 pb-2">
+            <UserIcon size={20} />
+            <h3 className="font-bold text-lg text-center">بيانات العميل</h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="relative">
+              <UserIcon className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
+              <input 
+                type="text"
+                autoComplete="off"
+                placeholder="اسم العميل"
+                className="w-full pr-10 pl-4 py-3 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all outline-none text-sm"
+                value={formData.name}
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+              />
+            </div>
+            <SearchableFilter 
+              label="نوع العقار"
+              placeholder="ابحث عن نوع العقار..."
+              options={PROPERTY_TYPES}
+              value={formData.type}
+              onChange={(val) => setFormData({...formData, type: val})}
+            />
+            <SearchableFilter 
+              label="الغرض من العملية"
+              placeholder="ابحث عن الغرض..."
+              options={PURPOSES}
+              value={formData.purpose}
+              onChange={(val) => setFormData({...formData, purpose: val})}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <SearchableFilter 
+              label="المحافظة"
+              placeholder="ابحث عن محافظة..."
+              options={GOVERNORATES}
+              value={formData.governorate}
+              onChange={(val) => setFormData({...formData, governorate: val, area: ''})}
+            />
+            <SearchableFilter 
+              label="المنطقة"
+              placeholder="ابحث عن منطقة..."
+              options={formData.governorate ? AREAS[formData.governorate] : Array.from(new Set(Object.values(AREAS).flat())).sort()}
+              value={formData.area}
+              onChange={(val) => setFormData({...formData, area: val})}
+            />
+            <SearchableFilter 
+              label="الموقع"
+              placeholder="ابحث عن موقع..."
+              options={LOCATIONS}
+              value={formData.location}
+              onChange={(val) => setFormData({...formData, location: val})}
+            />
+            <div className="relative">
+              <Tag className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
+              <input 
+                placeholder="السعر (مثال: 250,000 د.ك)"
+                className="w-full pr-10 pl-4 py-3 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all outline-none text-sm"
+                value={formData.price}
+                onChange={(e) => setFormData({...formData, price: e.target.value})}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input 
+              type="url"
+              placeholder="رابط العنوان (مثال: رابط خرائط جوجل)"
+              className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
+              value={formData.location_link}
+              onChange={(e) => setFormData({...formData, location_link: e.target.value})}
+              dir="ltr"
+            />
+            {isAdmin && property && (
+              <div className="flex flex-col md:flex-row gap-4 w-full">
+                <label className="flex-1 flex items-center gap-3 p-3 bg-stone-50 border border-stone-100 rounded-xl cursor-pointer hover:bg-stone-100 transition-colors">
+                  <input 
+                    type="checkbox"
+                    className="w-5 h-5 text-emerald-600 rounded focus:ring-emerald-500 border-stone-300"
+                    checked={formData.is_sold}
+                    onChange={(e) => setFormData({...formData, is_sold: e.target.checked})}
+                  />
+                  <span className="text-sm font-bold text-stone-700">تم بيع العقار (مباع)</span>
+                </label>
+                <div className="flex-1">
+                  <SearchableFilter 
+                    label="ملصق الحالة (يظهر على الصورة)"
+                    placeholder="اختر ملصقاً..."
+                    options={['هام', 'جاد', 'مستعجل']}
+                    value={formData.status_label}
+                    onChange={(val) => setFormData({...formData, status_label: val})}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+            {[
+              { id: 'sector', label: 'القطاع' },
+              { id: 'block', label: 'القطعة' },
+              { id: 'street', label: 'الشارع' },
+              { id: 'avenue', label: 'الجادة' },
+              { id: 'plot_number', label: 'القسيمة' },
+              { id: 'house_number', label: 'المنزل' }
+            ].map((field) => (
+              <input 
+                key={field.id}
+                placeholder={field.label}
+                className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-sm text-center"
+                value={(formData as any)[field.id]}
+                onChange={(e) => setFormData({...formData, [field.id]: e.target.value})}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <textarea 
+            rows={4}
+            placeholder="وصف إضافي وتفاصيل العقار..."
+            className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-sm resize-none"
+            value={formData.details}
+            onChange={(e) => setFormData({...formData, details: e.target.value})}
+          />
+        </div>
+
+        <div className="space-y-6">
+          {isSuperAdmin ? (
+            <SearchableFilter
+              label="الشركة"
+              placeholder="اختر الشركة..."
+              options={companies.map(c => c.name)}
+              value={companies.find(c => c.id === (formData as any).company_id)?.name || ''}
+              onChange={(val) => {
+                const company = companies.find(c => c.name === val);
+                setFormData({
+                  ...formData,
+                  company_id: company ? company.id : ''
+                });
+              }}
+            />
+          ) : (
+            <div className="p-4 bg-stone-50 rounded-xl border border-stone-100">
+              <label className="text-xs font-bold text-stone-500 mb-1 block">الشركة</label>
+              <p className="text-sm font-bold text-stone-900">
+                {companies.find(c => c.id === (user?.company_id))?.name || 'غير محدد'}
+              </p>
+            </div>
+          )}
+
+          <SearchableFilter 
+            label="المستخدم / الموظف المسؤول"
+            placeholder="ابحث عن مستخدم أو اكتب اسماً جديداً..."
+            options={employees.map(emp => emp.name)}
+            value={formData.assigned_employee_name}
+            creatable={true}
+            onChange={(val) => {
+              const emp = employees.find(e => e.name === val);
+              setFormData({
+                ...formData,
+                assigned_employee_id: emp ? emp.uid : '',
+                assigned_employee_name: val
+              });
+            }}
+          />
+          
+          <button
+            type="button"
+            onClick={() => {
+              setFormData({
+                ...formData,
+                assigned_employee_id: user?.uid || '',
+                assigned_employee_name: user?.name || ''
+              });
+            }}
+            className="text-xs text-emerald-600 hover:underline mt-1"
+          >
+            تعيين نفسي كمسؤول عن الإدخال
+          </button>
+
+          <input 
+            type="tel"
+            placeholder="رقم هاتف المسؤول..."
+            className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-sm mt-2"
+            value={formData.assigned_employee_phone || ''}
+            onChange={(e) => setFormData({...formData, assigned_employee_phone: e.target.value})}
+          />
+        </div>
+
+        <div className="flex gap-4 pt-8 border-t border-stone-100">
+          <button
+            type="submit"
+            disabled={isSaving || isUploading}
+            className="flex-1 bg-emerald-600 text-white py-4 rounded-2xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 disabled:opacity-50 disabled:bg-stone-300 flex items-center justify-center gap-2"
+          >
+            {isSaving ? (
+              <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+            ) : (
+              <Plus size={20} />
+            )}
+            {property ? 'حفظ التعديلات' : 'إضافة العقار للنظام'}
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 bg-stone-100 text-stone-600 py-4 rounded-2xl font-bold hover:bg-stone-200 transition-all"
+          >
+            إلغاء
+          </button>
+        </div>
+      </form>
+
+      <ConfirmModal 
+        isOpen={showConfirm}
+        title="تنبيه: بيانات ناقصة"
+        message={`هناك بيانات أساسية ناقصة: (${missingFieldsList.join(', ')}). هل تريد الاستمرار وحفظ العقار رغم ذلك؟`}
+        onConfirm={() => handleSubmit(null as any, true)}
+        onCancel={() => setShowConfirm(false)}
+        confirmText="نعم، احفظ على أي حال"
+        confirmColor="bg-amber-600 hover:bg-amber-700"
+      />
+    </motion.div>
+  );
+});
+
+const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, isAdmin, isFavorite, onFavorite, onEdit, onDelete, onRestore, onPermanentDelete, onDeleteComment, onUserClick, onFilter }: any) {
+  const [comments, setComments] = useState<PropertyComment[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [commentImages, setCommentImages] = useState<Array<{ url: string, type: 'image' | 'video' }>>([]);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [showViewer, setShowViewer] = useState(false);
+  const [viewerImages, setViewerImages] = useState<string[]>([]);
+  const [viewerIndex, setViewerIndex] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+
+  useEffect(() => {
+    if (!property.id) return;
+    (async () => {
+      try {
+        const { data: commentsData } = await supabase.from('comments').select('*').eq('property_id', property.id).order('created_at', { ascending: false });
+        setComments((commentsData || []) as PropertyComment[]);
+        const channel = supabase.channel(`comments-${property.id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'comments', filter: `property_id=eq.${property.id}` }, () => {
+          supabase.from('comments').select('*').eq('property_id', property.id).order('created_at', { ascending: false }).then(({ data: updated }) => {
+            setComments((updated || []) as PropertyComment[]);
+          });
+        }).subscribe();
+        return () => { channel.unsubscribe(); };
+      } catch (error) { console.error("Comments listener error:", error); }
+    })();
+  }, [property.id]);
+
+  const handleAddComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newComment.trim() && commentImages.length === 0) return;
+    setIsUploading(true);
+    try {
+      await supabase.from('comments').insert({
+        property_id: property.id,
+        user_id: user.uid,
+        user_name: user.name,
+        user_phone: user.phone || '',
+        text: newComment,
+        images: commentImages,
+        created_at: new Date().toISOString()
+      });
+      await supabase.from('properties').update({ last_comment: newComment || (commentImages.length > 0 ? 'تم إضافة صور' : '') }).eq('id', property.id);
+      setNewComment('');
+      setCommentImages([]);
+      toast.success('تم إضافة التعليق بنجاح');
+    } catch (error) { toast.error("حدث خطأ أثناء إضافة التعليق"); } finally { setIsUploading(false); }
+  };
+
+  const handleCommentImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []) as File[];
+    setIsUploading(true);
+    try {
+      const newImages = [...commentImages];
+      for (const file of files) {
+        const fileToUpload = file.type.startsWith('image/') ? await compressImage(file) : file;
+        const ext = file.type.startsWith('image/') ? 'jpg' : (file.name.split('.').pop() || 'mp4');
+        const safeName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${ext}`;
+        await supabase.storage.from('comment-images').upload(`comments/${safeName}`, fileToUpload);
+        const { data: publicUrl } = supabase.storage.from('comment-images').getPublicUrl(`comments/${safeName}`);
+        newImages.push({ url: publicUrl.publicUrl, type: file.type.startsWith('video/') ? 'video' : 'image' });
+      }
+      setCommentImages(newImages);
+    } catch (error) { toast.error("حدث خطأ أثناء رفع الملفات"); } finally { setIsUploading(false); }
+  };
+
+  const handleShare = async () => {
+    const shareData = { title: property.name || 'عقار', text: property.details, url: window.location.href };
+    try {
+      if (navigator.share) await navigator.share(shareData);
+      else { await navigator.clipboard.writeText(window.location.href); toast.success('تم نسخ الرابط'); }
+    } catch (err) { console.error('Error sharing:', err); }
+  };
+
+  const safeImages = Array.isArray(property.images) ? property.images : [];
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {showViewer && <ImageViewer images={viewerImages} initialIndex={viewerIndex} onClose={() => setShowViewer(false)} isSold={property.is_sold} />}
+      <div className="lg:col-span-2 space-y-4">
+        <div className="flex items-center justify-between">
+          <button onClick={onBack} className="flex items-center gap-2 text-stone-500 hover:text-stone-900 font-bold p-2"><ChevronRight size={18} />العودة للقائمة</button>
+          <div className="flex items-center gap-1">
+            {isAdmin && (
+              <div className="flex gap-1">
+                <button onClick={onEdit} className="p-2.5 text-blue-500 hover:bg-blue-50 rounded-full transition-all"><Edit size={18} /></button>
+                <button onClick={onDelete} className="p-2.5 text-red-500 hover:bg-red-50 rounded-full transition-all"><Trash2 size={18} /></button>
+              </div>
+            )}
+            <button onClick={handleShare} className="p-2.5 text-stone-600 hover:bg-stone-50 rounded-full transition-all"><Share2 size={18} /></button>
+            <button onClick={onFavorite} className={`p-2.5 rounded-full transition-all ${isFavorite ? 'text-red-500 bg-red-50' : 'text-stone-600'}`}><Heart size={18} fill={isFavorite ? 'currentColor' : 'none'} /></button>
+          </div>
+        </div>
+        <div className="ios-card overflow-hidden">
+          <div className="relative aspect-square bg-stone-50 group">
+            {safeImages[activeImageIndex] ? (
+              <div className="w-full h-full relative cursor-zoom-in" onClick={() => { setViewerImages(safeImages.map((i:any)=>typeof i==='string'?i:(i?.url||''))); setViewerIndex(activeImageIndex); setShowViewer(true); }}>
+                {(() => {
+                  const img = safeImages[activeImageIndex];
+                  const url = typeof img === 'string' ? img : (img?.url || '');
+                  const isVideo = typeof img === 'string' ? img.toLowerCase().endsWith('.mp4') : (img?.type === 'video');
+                  return isVideo ? <video src={url} controls className="w-full h-full object-contain bg-black" /> : <img src={url} alt="" className="w-full h-full object-contain" referrerPolicy="no-referrer" />;
+                })()}
+                {property.is_sold && <div className="absolute inset-0 flex items-center justify-center bg-stone-900/60 backdrop-blur-sm pointer-events-none z-10"><span className="text-white font-black text-4xl transform -rotate-12 border-4 border-white px-6 py-2 rounded-xl shadow-2xl">مباع</span></div>}
+              </div>
+            ) : <div className="w-full h-full flex items-center justify-center text-stone-300"><ImageIcon size={48} /></div>}
+            {safeImages.length > 1 && (
+              <div className="absolute inset-0 flex items-center justify-between p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button onClick={(e)=>{e.stopPropagation(); setActiveImageIndex(prev => (prev === 0 ? safeImages.length - 1 : prev - 1))}} className="p-2 bg-white/80 rounded-full shadow-md"><ChevronRight size={20} /></button>
+                <button onClick={(e)=>{e.stopPropagation(); setActiveImageIndex(prev => (prev === safeImages.length - 1 ? 0 : prev + 1))}} className="p-2 bg-white/80 rounded-full shadow-md"><ChevronLeft size={20} /></button>
+              </div>
+            )}
+          </div>
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h1 className="text-2xl font-bold text-stone-900">{property.name || 'عقار بدون اسم'}</h1>
+              <span className="text-emerald-600 font-black text-xl">{property.price}</span>
+            </div>
+            <div className="bg-stone-50 p-4 rounded-xl border border-stone-100 italic text-stone-700 leading-relaxed whitespace-pre-wrap mb-6">{property.details}</div>
+            {safeImages.length > 1 && (
+              <div className="grid grid-cols-5 sm:grid-cols-6 gap-2">
+                {safeImages.map((img:any, i:number) => (
+                  <button key={i} onClick={() => setActiveImageIndex(i)} className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${i === activeImageIndex ? 'border-emerald-500 ring-2 ring-emerald-100' : 'border-transparent hover:border-emerald-200'}`}>
+                    <img src={typeof img === 'string' ? img : img.url} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="space-y-4">
+          <div className="p-4 border-b border-stone-100 flex items-center justify-between bg-stone-50/50">
+            <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2">
+              <MessageSquare size={16} className="text-emerald-600" />
+              التعليقات والملاحظات ({comments.length})
+            </h3>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
+            {comments.map((comment) => (
+              <div key={comment.id} className="bg-stone-50 p-3 rounded-xl">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-xs font-bold text-emerald-700" onClick={() => comment.user_id && onUserClick(comment.user_id)}>{comment.user_name}</span>
+                  <span className="text-[10px] text-stone-400">{formatRelativeDate(comment.created_at || comment.createdAt)}</span>
+                </div>
+                <p className="text-sm text-stone-800">{comment.text}</p>
+                {comment.images && comment.images.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {comment.images.map((img: any, idx: number) => (
+                      <div key={idx} className="w-12 h-12 rounded border cursor-pointer" onClick={() => { setViewerImages(comment.images.map((i:any)=>i.url)); setViewerIndex(idx); setShowViewer(true); }}>
+                        <img src={img.url} className="w-full h-full object-cover" alt="" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <form onSubmit={handleAddComment} className="p-4 border-t border-stone-100">
+            <textarea placeholder="أضف تعليقاً..." className="ios-input w-full text-sm h-20 resize-none mb-2" value={newComment} onChange={e => setNewComment(e.target.value)} />
+            <div className="flex gap-2">
+              <label className="flex-1 flex items-center justify-center gap-2 p-2 bg-stone-100 rounded-lg cursor-pointer text-xs font-bold text-stone-600">
+                <ImageIcon size={14} /> إضافة صور
+                <input type="file" multiple className="hidden" onChange={handleCommentImageUpload} accept="image/*,video/*" />
+              </label>
+              <button disabled={isUploading || (!newComment.trim() && commentImages.length === 0)} className="btn-primary flex-1">إرسال</button>
+            </div>
+            {commentImages.length > 0 && <div className="text-[10px] text-emerald-600 mt-1">تم اختيار {commentImages.length} ملفات</div>}
+          </form>
+      </div>
+    </motion.div>
+  );
+});
 
 // --- Components ---
 
@@ -3742,464 +4443,115 @@ export default function App() {
     if (window.confirm('هل أنت متأكد من حذف هذا العقار نهائياً؟ لا يمكن التراجع عن هذا الإجراء.')) {
       try {
         const { data: propertyData } = await supabase.from('properties').select('*').eq('id', id).single();
-const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavorite, onClick, onImageClick, isAdmin, onFilter, onUserClick, onApprove, onReject, onEdit, onDelete, onRestore, onPermanentDelete, view }: any) {
-  return (
-    <motion.div 
-      layout
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={`ios-card overflow-hidden hover:shadow-xl transition-all group relative flex flex-col cursor-pointer bg-white border border-stone-100 ${view === 'pending-properties' ? 'border-amber-300 ring-2 ring-amber-100' : 'hover:border-emerald-200'}`}
-      onClick={onClick}
-    >
-      <div 
-        className="relative aspect-[16/10] bg-stone-100 overflow-hidden group/img cursor-zoom-in" 
-        onClick={(e) => {
-          e.stopPropagation();
-          if ((property.images || []).length > 0) {
-            const imageList = property.images.map((img: any) => typeof img === 'string' ? img : (img?.url || ''));
-            onImageClick(imageList, 0);
-          }
-        }}
-      >
-        {property.images?.[0] ? (
-          <div className="w-full h-full relative">
-            {(() => {
-              const img = property.images[0];
-              const url = typeof img === 'string' ? img : (img?.url || '');
-              const isVideo = typeof img === 'string' 
-                ? (img.startsWith('data:video/') || img.toLowerCase().endsWith('.mp4')) 
-                : (img?.type === 'video' || (img?.url && img.url.toLowerCase().endsWith('.mp4')));
-              
-              return isVideo ? (
-                <video 
-                  src={url} 
-                  autoPlay muted loop playsInline
-                  className={`w-full h-full object-cover transition-transform duration-700 group-hover/img:scale-110 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
-                />
-              ) : (
-                <img 
-                  loading="lazy"
-                  src={url} 
-                  alt={generatePropertyTitle(property)} 
-                  className={`w-full h-full object-cover transition-transform duration-700 group-hover/img:scale-110 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
-                  referrerPolicy="no-referrer"
-                />
-              );
-            })()}
-            
-            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-2">
-              <div className="bg-white/30 backdrop-blur-md p-3 rounded-full border border-white/40 shadow-2xl transform scale-75 group-hover/img:scale-100 transition-transform duration-500">
-                <Maximize text-white size={24} />
-              </div>
-              <span className="text-white text-[10px] font-bold tracking-widest uppercase bg-black/40 backdrop-blur-sm px-3 py-1 rounded-full border border-white/10 transform translate-y-2 group-hover/img:translate-y-0 transition-transform duration-500">
-                انقر للتكبير
-              </span>
-            </div>
-
-            {property.is_sold && (
-              <div className="absolute inset-0 flex items-center justify-center bg-stone-900/60 backdrop-blur-[2px] z-20">
-                <span className="text-white font-black text-xl tracking-wider transform -rotate-12 border-4 border-white px-4 py-1 rounded-lg shadow-2xl">مباع</span>
-              </div>
-            )}
-            
-            {property.status_label && (
-              <div className="absolute top-3 right-3 z-10">
-                <span className="bg-amber-500 text-white px-2.5 py-1 text-[10px] font-black rounded-lg shadow-lg border border-amber-400/50">
-                  {property.status_label}
-                </span>
-              </div>
-            )}
-
-            {property.images && property.images.length > 1 && (
-              <div className="absolute bottom-3 left-3 bg-black/50 backdrop-blur-md text-white text-[10px] px-2 py-1 rounded-lg font-bold flex items-center gap-1 border border-white/10">
-                <ImageIcon size={12} />
-                <span>{property.images.length}</span>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center bg-stone-50 gap-2 border-b border-stone-100">
-            <div className="p-3 bg-white rounded-2xl shadow-sm">
-              <ImageIcon className="text-stone-300" size={32} />
-            </div>
-            <span className="text-[11px] font-bold text-stone-400">لا توجد صور</span>
-          </div>
-        )}
         
-        {property.purpose && (
-          <div className="absolute bottom-3 right-3 z-10">
-            <span className="bg-white/90 backdrop-blur-md text-emerald-800 px-2 py-1 text-[10px] font-black rounded-lg shadow-sm border border-stone-100">
-              {property.purpose}
-            </span>
-          </div>
-        )}
-      </div>
+        if (propertyData?.images && propertyData.images.length > 0) {
+          const filesToDelete = propertyData.images
+            .map((img: any) => {
+              const url = typeof img === 'string' ? img : img.url;
+              if (url && url.includes('properties/')) {
+                return `properties/${url.split('properties/')[1]}`;
+              }
+              return null;
+            })
+            .filter(Boolean);
 
-      <div className="p-4 pt-4 flex flex-col flex-1 min-w-0">
-        <div className="flex justify-between items-start gap-2 mb-2">
-          <h3 className="text-sm font-extrabold text-stone-900 line-clamp-1 flex-1 text-right group-hover:text-emerald-700 transition-colors">
-            {property.name || 'عقار بدون اسم'}
-          </h3>
-          {property.price && (
-            <span className="text-emerald-600 font-black text-sm whitespace-nowrap">
-              {property.price}
-            </span>
-          )}
-        </div>
+          if (filesToDelete.length > 0) {
+            await supabase.storage.from('properties_media').remove(filesToDelete);
+          }
+        }
 
-        {property.details && (
-          <p className="text-[11px] text-stone-500 leading-relaxed line-clamp-2 text-right mb-4 min-h-[32px]">
-            {property.details}
-          </p>
-        )}
+        await supabase.from('properties').delete().eq('id', id);
+        toast.success('تم حذف العقار نهائياً');
+      } catch (error) {
+        console.error("Error permanently deleting property:", error);
+        toast.error("حدث خطأ أثناء محاولة حذف العقار نهائياً");
+      }
+    }
+  }
 
-        {property.last_comment && (
-          <div className="mb-4 p-2 bg-emerald-50/50 rounded-lg border-r-2 border-emerald-400 overflow-hidden">
-            <div className="flex items-center gap-1 justify-end mb-1">
-              <span className="text-[9px] font-bold text-emerald-700 uppercase tracking-tighter">آخر تحديث</span>
-              <MessageSquare size={10} className="text-emerald-500" />
-            </div>
-            <p className="text-[10px] text-stone-700 font-medium line-clamp-1 text-right italic">
-              "{property.last_comment}"
-            </p>
-          </div>
-        )}
+  async function confirmDelete() {
+    if (!deleteConfirm.propertyId) return;
+    try {
+      await supabase.from('properties').update({
+        status: 'trash',
+        deleted_at: new Date().toISOString()
+      }).eq('id', deleteConfirm.propertyId);
+      toast.success('تم نقل العقار إلى سلة المهملات');
+      setDeleteConfirm({ isOpen: false, propertyId: null });
+    } catch (error) {
+      console.error("Error deleting property:", error);
+      toast.error("حدث خطأ أثناء محاولة حذف العقار");
+    }
+  }
 
-        <div className="mt-auto pt-3 border-t border-stone-100">
-          <div className="flex items-center flex-wrap gap-y-2 gap-x-1.5 text-[10px] font-bold text-stone-700">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onFilter && property.area) onFilter('area', property.area);
-              }}
-              className="px-2 py-0.5 bg-stone-100 rounded text-stone-600 hover:bg-stone-200 transition-colors truncate max-w-[120px]"
-            >
-              {cleanAreaName(property.area) || '-'}
-            </button>
-            <span className="text-stone-300">/</span>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onFilter && property.type) onFilter('type', property.type);
-              }}
-              className="px-2 py-0.5 bg-emerald-50 rounded text-emerald-700 hover:bg-emerald-100 transition-colors truncate"
-            >
-              {property.type || 'غير محدد'}
-            </button>
-            
-            <div className="flex-1"></div>
+  async function confirmUserAction() {
+    if (!userActionConfirm.userId || !userActionConfirm.action) return;
+    try {
+      if (userActionConfirm.action === 'approve') {
+        const { error } = await supabase.from('profiles').update({ role: 'employee' }).eq('id', userActionConfirm.userId);
+        if (error) throw error;
+        toast.success('تمت الموافقة على المستخدم بنجاح');
+      } else if (userActionConfirm.action === 'reject') {
+        const { error } = await supabase.from('profiles').delete().eq('id', userActionConfirm.userId);
+        if (error) throw error;
+        toast.success('تم رفض وحذف طلب الانضمام');
+      } else if (userActionConfirm.action === 'change-role') {
+        const { error } = await supabase.from('profiles').update({ role: userActionConfirm.extraData.newRole }).eq('id', userActionConfirm.userId);
+        if (error) throw error;
+        toast.success('تم تغيير الصلاحية بنجاح');
+      } else if (userActionConfirm.action === 'delete') {
+        const { error } = await supabase.from('profiles').delete().eq('id', userActionConfirm.userId);
+        if (error) throw error;
+        toast.success('تم حذف المستخدم بنجاح');
+      }
+    } catch (error) {
+      console.error("Error in user action:", error);
+      toast.error("حدث خطأ أثناء تنفيذ الإجراء");
+    } finally {
+      setUserActionConfirm({ isOpen: false, userId: null, action: null });
+    }
+  }
 
-            <div className="flex items-center gap-1">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const shareUrl = `${window.location.origin}?propertyId=${property.id}`;
-                  if (navigator.share) {
-                    navigator.share({
-                      title: property.name || 'عقار',
-                      text: property.details,
-                      url: shareUrl,
-                    }).catch(console.error);
-                  } else {
-                    navigator.clipboard.writeText(shareUrl);
-                    toast.success('تم نسخ رابط العقار');
-                  }
-                }}
-                className="p-1.5 text-stone-500 hover:bg-stone-100 rounded-lg transition-all"
-                title="مشاركة"
-              >
-                <Share2 size={14} />
-              </button>
+  async function confirmAccountDelete() {
+    if (!user) return;
+    try {
+      await supabase.from('profiles').delete().eq('id', user.uid);
+      await supabase.auth.signOut();
+      toast.success('تم حذف الحساب بنجاح');
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      toast.error("حدث خطأ أثناء حذف الحساب");
+    } finally {
+      setAccountDeleteConfirm(false);
+    }
+  }
 
-              {view === 'pending-properties' && isAdmin ? (
-                <div className="flex gap-1.5">
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); onApprove(property.id); }}
-                    className="bg-emerald-600 text-white px-2.5 py-1 rounded-md text-[9px] font-bold shadow-sm shadow-emerald-200"
-                  >
-                    قبول
-                  </button>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); onReject(property.id); }}
-                    className="bg-red-600 text-white px-2.5 py-1 rounded-md text-[9px] font-bold shadow-sm shadow-red-200"
-                  >
-                    رفض
-                  </button>
-                </div>
-              ) : view === 'trash' && isAdmin ? (
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); if (onRestore) onRestore(property.id); }}
-                    className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
-                    title="استعادة"
-                  >
-                    <RefreshCw size={14} />
-                  </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); if (onPermanentDelete) onPermanentDelete(property.id); }}
-                    className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                    title="حذف نهائي"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1">
-                  {isAdmin && (
-                    <>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); if (onEdit) onEdit(property); }}
-                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                        title="تعديل"
-                      >
-                        <Edit size={14} />
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); if (onDelete) onDelete(property.id); }}
-                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                        title="حذف"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </>
-                  )}
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onFavorite(); }}
-                    className={`p-1.5 rounded-lg transition-all ${isFavorite ? 'text-red-500 bg-red-50' : 'text-stone-400 hover:bg-stone-50'}`}
-                  >
-                    <Heart size={14} fill={isFavorite ? 'currentColor' : 'none'} />
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-          {property.created_at && (
-            <div className="mt-2 text-[9px] text-stone-400 font-normal text-right flex items-center justify-end gap-1">
-              <span>{formatRelativeDate(property.created_at)}</span>
-              <Clock size={8} />
-            </div>
-          )}
-        </div>
-      </div>
-    </motion.div>
-  );
-});
+  async function confirmCommentDelete() {
+    if (!commentDeleteConfirm.commentId) return;
+    try {
+      await supabase.from('comments').delete().eq('id', commentDeleteConfirm.commentId);
+      toast.success('تم حذف التعليق بنجاح');
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      toast.error("حدث خطأ أثناء حذف التعليق");
+    } finally {
+      setCommentDeleteConfirm({ isOpen: false, commentId: null, propertyId: null });
+    }
+  }
 
-const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selectedCompanyId, companies, onCancel, onSave }: any) {
-  // ... (PropertyForm implementation)
-});
+  // Helper function for property titles
+  function generatePropertyTitle(p: any) {
+    if (!p) return 'عقار';
+    return `${p.type || ''} - ${p.area || ''} ${p.block ? `ق${p.block}` : ''}`.trim();
+  }
 
-const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, isAdmin, isFavorite, onFavorite, onEdit, onDelete, onRestore, onPermanentDelete, onDeleteComment, onUserClick, onFilter }: any) {
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
-              ))
-            )}
-          </div>
+  // Helper for area names
+  function cleanAreaName(name: string) {
+    if (!name) return '';
+    return name.replace('منطقة ', '').trim();
+  }
 
-          <div className="p-4 border-t border-stone-100 bg-white">
-            <form onSubmit={handleAddComment} className="space-y-3">
-              <div className="relative group">
-                <textarea 
-                  id="comment-textarea"
-                  placeholder="أضف تعليقاً..."
-                  rows={2}
-                  className="w-full p-4 bg-stone-50 border border-stone-200 rounded-2xl text-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-all resize-none pr-12"
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                />
-                <button 
-                  type="submit"
-                  disabled={isUploading || (!newComment.trim() && commentImages.length === 0)}
-                  className="absolute left-3 bottom-3 p-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:bg-stone-300"
-                >
-                  <Send size={18} />
-                </button>
-                <label htmlFor="comment-image-upload" className="absolute right-3 top-3 p-2 text-stone-400 hover:text-emerald-600 cursor-pointer transition-colors">
-                  <ImageIcon size={20} />
-                  <input id="comment-image-upload" type="file" onChange={handleCommentImageUpload} multiple accept="image/*,video/*" className="hidden" />
-                </label>
-              </div>
+  return null; // This is a safety catch, the main return is inside the component
+}
 
-              {commentImages.length > 0 && (
-                <div className="flex flex-wrap gap-2 p-2 bg-stone-50 rounded-xl border border-stone-100">
-                  {commentImages.map((img, idx) => (
-                    <div key={idx} className="relative w-12 h-12 rounded-lg overflow-hidden border border-stone-200 group">
-                      {img.type === 'video' ? (
-                        <div className="w-full h-full bg-black flex items-center justify-center"><Play size={12} className="text-white" /></div>
-                      ) : (
-                        <img src={img.url} alt="" className="w-full h-full object-cover" />
-                      )}
-                      <button type="button" onClick={() => removeCommentImage(idx)} className="absolute -top-1 -right-1 bg-red-500 text-white p-0.5 rounded-full shadow-sm"><X size={10} /></button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </form>
-          </div>
-        </div>
-
-        {/* Info Cards */}
-        <div className="space-y-3">
-          <div className="ios-card p-4 flex items-center gap-4 bg-stone-50/50">
-            <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 flex-shrink-0">
-              <User size={24} />
-            </div>
-            <div className="flex-1 min-w-0 text-right">
-              <p className="text-[10px] text-stone-400">المسؤول عن العقار</p>
-              <h4 className="font-bold text-stone-900 truncate">{property.assigned_employee_name || 'غير محدد'}</h4>
-            </div>
-          </div>
-
-          <div className="ios-card p-5 space-y-4">
-            <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2 justify-end border-b border-stone-100 pb-3">
-              المواصفات والعنوان
-              <MapPin size={18} className="text-emerald-600" />
-            </h3>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { label: 'المحافظة', value: property.governorate, key: 'governorate' },
-                { label: 'المنطقة', value: cleanAreaName(property.area), key: 'area' },
-                { label: 'النوع', value: property.type, key: 'type' },
-                { label: 'الغرض', value: property.purpose, key: 'purpose' },
-                { label: 'القطعة', value: property.block, key: 'block' },
-                { label: 'القسيمة', value: property.plot_number, key: 'plotNumber' },
-                { label: 'الموقع', value: property.street, key: 'street' },
-                { label: 'الجادة', value: property.avenue, key: 'avenue' },
-                { label: 'المنزل', value: property.house_number, key: 'houseNumber' }
-              ].filter(attr => attr.value).map((attr, idx) => (
-                <button 
-                  key={idx}
-                  onClick={() => onFilter(attr.key, attr.value)}
-                  className="flex flex-col items-end p-3 bg-stone-50 rounded-xl border border-transparent hover:border-emerald-200 hover:bg-emerald-50 transition-all text-right group"
-                >
-                  <span className="text-[10px] text-stone-400 group-hover:text-emerald-500 transition-colors">{attr.label}</span>
-                  <span className="text-xs font-bold text-stone-800">{attr.value}</span>
-                </button>
-              ))}
-              {property.location && (
-                <div className="col-span-2 p-3 bg-stone-50 rounded-xl text-right">
-                  <span className="text-[10px] text-stone-400 block">الموقع العام</span>
-                  <span className="text-xs font-bold text-stone-800">{property.location}</span>
-                </div>
-              )}
-              {property.location_link && (
-                <a 
-                  href={property.location_link} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="col-span-2 p-3 bg-emerald-50 text-emerald-700 rounded-xl text-center text-xs font-bold hover:bg-emerald-100 transition-colors flex items-center justify-center gap-2"
-                >
-                  <ExternalLink size={14} />
-                  عرض الموقع على الخريطة
-                </a>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  );
-});loyee_name || 'غير محدد'}
-              </button>
-              <p className="text-[10px] text-stone-500 mt-0.5">مستخدم معتمد</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Property Attributes Box */}
-        <div className="ios-card p-5">
-          <h3 className="text-sm font-bold mb-4 flex items-center gap-2 text-stone-900 justify-center">
-            <MapPin size={16} className="text-emerald-600" /> 
-            تفاصيل الموقع والمواصفات
-          </h3>
-          <div className="grid grid-cols-2 gap-2">
-            {/* Governorate */}
-            <button onClick={() => onFilter('governorate', property.governorate)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
-              <span className="text-[10px] text-stone-500 mb-1">المحافظة</span>
-              <span className="text-xs font-bold text-stone-800">{property.governorate}</span>
-            </button>
-            {/* Area */}
-            <button onClick={() => onFilter('area', property.area)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
-              <span className="text-[10px] text-stone-500 mb-1">المنطقة</span>
-              <span className="text-xs font-bold text-stone-800">{cleanAreaName(property.area)}</span>
-            </button>
-            {/* Type */}
-            <button onClick={() => onFilter('type', property.type)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
-              <span className="text-[10px] text-stone-500 mb-1">النوع</span>
-              <span className="text-xs font-bold text-stone-800">{property.type}</span>
-            </button>
-            {/* Purpose */}
-            {property.purpose !== 'بيع' && (
-              <button onClick={() => onFilter('purpose', property.purpose)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
-                <span className="text-[10px] text-stone-500 mb-1">الغرض</span>
-                <span className="text-xs font-bold text-stone-800">{property.purpose}</span>
-              </button>
-            )}
-            {/* Sector */}
-            {property.sector && (
-              <div className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 text-right">
-                <span className="text-[10px] text-stone-500 mb-1">القطاع</span>
-                <span className="text-xs font-bold text-stone-800">{property.sector}</span>
-              </div>
-            )}
-            {/* Block */}
-            {property.block && (
-              <button onClick={() => onFilter('block', property.block)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
-                <span className="text-[10px] text-stone-500 mb-1">القطعة</span>
-                <span className="text-xs font-bold text-stone-800">{property.block}</span>
-              </button>
-            )}
-            {/* Plot Number */}
-            {property.plot_number && (
-              <button onClick={() => onFilter('plotNumber', property.plot_number)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
-                <span className="text-[10px] text-stone-500 mb-1">القسيمة</span>
-                <span className="text-xs font-bold text-stone-800">{property.plot_number}</span>
-              </button>
-            )}
-            {/* Street */}
-            {property.street && (
-              <button onClick={() => onFilter('street', property.street)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
-                <span className="text-[10px] text-stone-500 mb-1">الموقع</span>
-                <span className="text-xs font-bold text-stone-800">{property.street}</span>
-              </button>
-            )}
-            {/* Avenue */}
-            {property.avenue && (
-              <button onClick={() => onFilter('avenue', property.avenue)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
-                <span className="text-[10px] text-stone-500 mb-1">الجادة</span>
-                <span className="text-xs font-bold text-stone-800">{property.avenue}</span>
-              </button>
-            )}
-            {/* House Number */}
-            {property.house_number && (
-              <button onClick={() => onFilter('houseNumber', property.house_number)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
-                <span className="text-[10px] text-stone-500 mb-1">المنزل</span>
-                <span className="text-xs font-bold text-stone-800">{property.house_number}</span>
-              </button>
-            )}
-            {/* Location */}
-            {property.location && (
-              <button onClick={() => onFilter('location', property.location)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right col-span-2">
-                <span className="text-[10px] text-stone-500 mb-1">الموقع العام</span>
-                <span className="text-xs font-bold text-stone-800">{property.location}</span>
-              </button>
-            )}
-            {/* Location Link */}
-            {property.location_link && (
-              <div className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 text-right col-span-2">
-                <span className="text-[10px] text-stone-500 mb-1">رابط العنوان</span>
-                <a href={property.location_link} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-blue-600 hover:underline truncate w-full" dir="ltr">
-                  عرض على الخريطة
-                </a>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  );
-});
+export default App;
