@@ -63,31 +63,31 @@ interface Property {
   purpose: string;
   phone: string;
   phone_2?: string;
-  companyId: string;
+  company_id: string;
   assigned_employee_id?: string;
-  assignedEmployeeName?: string;
+  assigned_employee_name?: string;
   images: any[];
   location_link?: string;
-  isSold?: boolean;
+  is_sold?: boolean;
   sector?: string;
   distribution?: string;
   block?: string;
   street?: string;
   avenue?: string;
-  plotNumber?: string;
-  houseNumber?: string;
+  plot_number?: string;
+  house_number?: string;
   location: string;
   price?: string;
   details?: string;
   last_comment?: string;
   comments_2?: string;
   comments_3?: string;
-  statusLabel?: string;
+  status_label?: string;
   status: 'pending' | 'approved' | 'rejected' | 'deleted';
-  isDeleted?: boolean;
-  deletedAt?: any;
-  createdBy: string;
-  createdAt: any;
+  is_deleted?: boolean;
+  deleted_at?: any;
+  created_by: string;
+  created_at: any;
 }
 
 interface Company {
@@ -681,6 +681,14 @@ export default function App() {
   const [tempSpreadsheetId, setTempSpreadsheetId] = useState('');
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
   const [editUserName, setEditUserName] = useState('');
@@ -1207,9 +1215,52 @@ export default function App() {
       channel.on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'properties' },
-        () => {
-          // Re-fetch on any change
-          fetchAllProperties();
+        (payload: any) => {
+          if (payload.eventType === 'INSERT') {
+            const newProp = {
+              id: payload.new.id,
+              ...payload.new,
+              location: payload.new.location === 'شارع واحد | سد' ? 'شارع واحد' : payload.new.location
+            } as Property;
+
+            // Check if it belongs to current filter (company)
+            const matchesCompany = isSuperAdmin ? (!selectedCompanyId || newProp.company_id === selectedCompanyId) : (newProp.company_id === user.company_id);
+            
+            if (matchesCompany) {
+              if (newProp.status === 'deleted') {
+                setDeletedProperties(prev => [newProp, ...prev]);
+              } else {
+                setProperties(prev => [newProp, ...prev]);
+              }
+            }
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedProp = {
+              id: payload.new.id,
+              ...payload.new,
+              location: payload.new.location === 'شارع واحد | سد' ? 'شارع واحد' : payload.new.location
+            } as Property;
+
+            // Update in properties or deletedProperties
+            if (updatedProp.status === 'deleted') {
+              setProperties(prev => prev.filter(p => p.id !== updatedProp.id));
+              setDeletedProperties(prev => {
+                const exists = prev.find(p => p.id === updatedProp.id);
+                if (exists) return prev.map(p => p.id === updatedProp.id ? updatedProp : p);
+                return [updatedProp, ...prev];
+              });
+            } else {
+              setDeletedProperties(prev => prev.filter(p => p.id !== updatedProp.id));
+              setProperties(prev => {
+                const exists = prev.find(p => p.id === updatedProp.id);
+                if (exists) return prev.map(p => p.id === updatedProp.id ? updatedProp : p);
+                return [updatedProp, ...prev];
+              });
+            }
+          } else if (payload.eventType === 'DELETE') {
+            const deletedId = payload.old.id;
+            setProperties(prev => prev.filter(p => p.id !== deletedId));
+            setDeletedProperties(prev => prev.filter(p => p.id !== deletedId));
+          }
         }
       ).subscribe();
 
@@ -1491,29 +1542,27 @@ export default function App() {
     const sourceProperties = view === 'trash' ? deletedProperties : properties;
     return sourceProperties.filter(p => {
       // View specific filtering
-      if (view === 'my-listings' && p.createdBy !== user?.uid) return false;
+      if (view === 'my-listings' && p.created_by !== user?.uid) return false;
       if (view === 'my-favorites' && !favorites.includes(p.id)) return false;
       if (view === 'user-listings' && selectedMarketerId && p.assigned_employee_id !== selectedMarketerId) return false;
       if (view === 'pending-properties' && p.status !== 'pending') return false;
       
-      // Approval status filtering - REMOVED to allow all users to see all properties
-      // if (!isAdmin && view !== 'pending-properties' && p.status !== 'approved' && p.createdBy !== user?.uid) return false;
-
+      const query = debouncedSearchQuery;
       const matchesSearch = 
-        searchMatch(p.name, searchQuery) || 
-        searchMatch(p.phone, searchQuery) || 
-        searchMatch(p.area, searchQuery) || 
-        searchMatch(p.assignedEmployeeName || '', searchQuery);
+        searchMatch(p.name, query) || 
+        searchMatch(p.phone, query) || 
+        searchMatch(p.area, query) || 
+        searchMatch(p.assigned_employee_name || '', query);
       
       const matchesGov = !filters.governorate || p.governorate === filters.governorate;
       const matchesArea = !filters.area || p.area === filters.area;
       const matchesType = !filters.type || p.type === filters.type;
       const matchesPurpose = !filters.purpose || p.purpose === filters.purpose;
       const matchesLocation = !filters.location || p.location === filters.location;
-      const matchesMarketer = !filters.marketer || p.assignedEmployeeName === filters.marketer;
+      const matchesMarketer = !filters.marketer || p.assigned_employee_name === filters.marketer;
       const matchesStatus = !filters.status || 
-                           (filters.status === 'sold' && p.isSold) || 
-                           (filters.status === 'available' && !p.isSold);
+                           (filters.status === 'sold' && p.is_sold) || 
+                           (filters.status === 'available' && !p.is_sold);
 
       return matchesSearch && matchesGov && matchesArea && matchesType && matchesPurpose && matchesLocation && matchesMarketer && matchesStatus;
     }).sort((a, b) => {
@@ -4061,7 +4110,8 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
 
       try {
         if (property) {
-          await supabase.from('properties').update(data).eq('id', property.id);
+          const { error: updateError } = await supabase.from('properties').update(data).eq('id', property.id);
+          if (updateError) throw updateError;
 
           // Check for significant updates to notify interested users
           const priceChanged = property.price !== data.price;
@@ -4069,10 +4119,12 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
 
           if (priceChanged || statusChanged) {
             // Find all users who favorited this property
-            const { data: favs } = await supabase
+            const { data: favs, error: favsError } = await supabase
               .from('favorites')
               .select('user_id')
               .eq('property_id', property.id);
+
+            if (favsError) throw favsError;
 
             const interestedUserIds = (favs || []).map(f => f.user_id);
 
@@ -4106,7 +4158,8 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
             }
           }
         } else {
-          await supabase.from('properties').insert(data);
+          const { error: insertError } = await supabase.from('properties').insert(data);
+          if (insertError) throw insertError;
         }
       } catch (error) {
         handleFirestoreError(error, property ? OperationType.UPDATE : OperationType.CREATE, 'properties');
