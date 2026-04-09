@@ -3882,22 +3882,22 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
     type: property?.type || '',
     purpose: property?.purpose || '',
     assigned_employee_id: property?.assigned_employee_id || '',
-    assignedEmployeeName: property?.assignedEmployeeName || '',
-    assignedEmployeePhone: property?.assignedEmployeePhone || '',
+    assigned_employee_name: property?.assigned_employee_name || '',
+    assigned_employee_phone: property?.assigned_employee_phone || '',
     images: (property?.images || []).map((img: any) => typeof img === 'string' ? { url: img, type: img.startsWith('data:video/') ? 'video' : 'image' } : img),
     location_link: property?.location_link || '',
-    isSold: property?.isSold || false,
+    is_sold: property?.is_sold || false,
     sector: property?.sector || '',
     block: property?.block || '',
     street: property?.street || '',
     avenue: property?.avenue || '',
-    plotNumber: property?.plotNumber || '',
-    houseNumber: property?.houseNumber || '',
+    plot_number: property?.plot_number || '',
+    house_number: property?.house_number || '',
     location: property?.location || '',
     price: property?.price || '',
     details: property?.details || '',
-    statusLabel: property?.statusLabel || '',
-    companyId: property?.companyId || ''
+    status_label: property?.status_label || '',
+    company_id: property?.company_id || ''
   });
 
   const [employees, setEmployees] = useState<UserProfile[]>([]);
@@ -3911,12 +3911,12 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
         let query = supabase.from('profiles').select('*').eq('role', 'employee');
 
         if (isSuperAdmin) {
-          const targetCompanyId = property?.companyId || selectedCompanyId;
+          const targetCompanyId = property?.company_id || selectedCompanyId;
           if (targetCompanyId) {
             query = query.eq('company_id', targetCompanyId);
           }
         } else {
-          query = query.eq('company_id', user?.companyId);
+          query = query.eq('company_id', user?.company_id);
         }
 
         const { data: employeesData, error } = await query;
@@ -4025,7 +4025,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
       const { data: { session } } = await supabase.auth.getSession();
       const userId = session?.user?.id;
       let empId = formData.assigned_employee_id;
-      let empName = formData.assignedEmployeeName;
+      let empName = formData.assigned_employee_name;
 
       // If we have a name but no ID, it means it's a new marketer
       if (empName && !empId) {
@@ -4035,7 +4035,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
             .insert({
               name: empName,
               role: 'employee',
-              company_id: isSuperAdmin ? selectedCompanyId : user?.companyId,
+              company_id: isSuperAdmin ? selectedCompanyId : user?.company_id,
               created_at: new Date().toISOString()
             })
             .select('id')
@@ -4050,12 +4050,9 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
 
       const data = {
         ...formData,
-        company_id: isSuperAdmin ? selectedCompanyId : user?.companyId,
+        company_id: isSuperAdmin ? selectedCompanyId : user?.company_id,
         assigned_employee_id: empId,
         assigned_employee_name: empName,
-        images: formData.images,
-        location_link: formData.location_link.trim(),
-        is_sold: formData.isSold,
         updated_at: new Date().toISOString(),
         created_at: property ? property.created_at : new Date().toISOString(),
         created_by: property ? property.created_by : userId,
@@ -4068,7 +4065,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
 
           // Check for significant updates to notify interested users
           const priceChanged = property.price !== data.price;
-          const statusChanged = property.is_sold !== data.is_sold || property.status_label !== data.statusLabel;
+          const statusChanged = property.is_sold !== data.is_sold || property.status_label !== data.status_label;
 
           if (priceChanged || statusChanged) {
             // Find all users who favorited this property
@@ -4148,7 +4145,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
           <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100 mb-6">
             <p className="text-sm text-emerald-800 font-medium flex items-center gap-2">
               <Building2 size={16} />
-              الشركة: {(companies || []).find(c => c.id === (property?.companyId || selectedCompanyId))?.name || 'غير محدد'}
+              الشركة: {(companies || []).find(c => c.id === (property?.company_id || selectedCompanyId))?.name || 'غير محدد'}
             </p>
           </div>
         )}
@@ -4237,8 +4234,8 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
                   <input 
                     type="checkbox"
                     className="w-5 h-5 text-emerald-600 rounded focus:ring-emerald-500 border-stone-300"
-                    checked={formData.isSold}
-                    onChange={(e) => setFormData({...formData, isSold: e.target.checked})}
+                    checked={formData.is_sold}
+                    onChange={(e) => setFormData({...formData, is_sold: e.target.checked})}
                   />
                   <span className="text-sm font-bold text-stone-700">تم بيع العقار (مباع)</span>
                 </label>
@@ -4247,8 +4244,8 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
                     label="ملصق الحالة (يظهر على الصورة)"
                     placeholder="اختر ملصقاً..."
                     options={['هام', 'جاد', 'مستعجل']}
-                    value={formData.statusLabel}
-                    onChange={(val) => setFormData({...formData, statusLabel: val})}
+                    value={formData.status_label}
+                    onChange={(val) => setFormData({...formData, status_label: val})}
                   />
                 </div>
               </div>
@@ -4261,8 +4258,8 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
               { id: 'block', label: 'القطعة' },
               { id: 'street', label: 'الشارع' },
               { id: 'avenue', label: 'الجادة' },
-              { id: 'plotNumber', label: 'القسيمة' },
-              { id: 'houseNumber', label: 'المنزل' }
+              { id: 'plot_number', label: 'القسيمة' },
+              { id: 'house_number', label: 'المنزل' }
             ].map((field) => (
               <input 
                 key={field.id}
@@ -4293,12 +4290,12 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
               label="الشركة"
               placeholder="اختر الشركة..."
               options={companies.map(c => c.name)}
-              value={companies.find(c => c.id === (formData as any).companyId)?.name || ''}
+              value={companies.find(c => c.id === (formData as any).company_id)?.name || ''}
               onChange={(val) => {
                 const company = companies.find(c => c.name === val);
                 setFormData({
                   ...formData,
-                  companyId: company ? company.id : ''
+                  company_id: company ? company.id : ''
                 });
               }}
             />
@@ -4306,7 +4303,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
             <div className="p-4 bg-stone-50 rounded-xl border border-stone-100">
               <label className="text-xs font-bold text-stone-500 mb-1 block">الشركة</label>
               <p className="text-sm font-bold text-stone-900">
-                {companies.find(c => c.id === (user?.companyId))?.name || 'غير محدد'}
+                {companies.find(c => c.id === (user?.company_id))?.name || 'غير محدد'}
               </p>
             </div>
           )}
@@ -4315,14 +4312,14 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
             label="المستخدم / الموظف المسؤول"
             placeholder="ابحث عن مستخدم أو اكتب اسماً جديداً..."
             options={employees.map(emp => emp.name)}
-            value={formData.assignedEmployeeName}
+            value={formData.assigned_employee_name}
             creatable={true}
             onChange={(val) => {
               const emp = employees.find(e => e.name === val);
               setFormData({
                 ...formData,
                 assigned_employee_id: emp ? emp.uid : '',
-                assignedEmployeeName: val
+                assigned_employee_name: val
               });
             }}
           />
@@ -4333,7 +4330,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
               setFormData({
                 ...formData,
                 assigned_employee_id: user?.uid || '',
-                assignedEmployeeName: user?.name || ''
+                assigned_employee_name: user?.name || ''
               });
             }}
             className="text-xs text-emerald-600 hover:underline mt-1"
@@ -4345,8 +4342,8 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
             type="tel"
             placeholder="رقم هاتف المسؤول..."
             className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-sm mt-2"
-            value={formData.assignedEmployeePhone || ''}
-            onChange={(e) => setFormData({...formData, assignedEmployeePhone: e.target.value})}
+            value={formData.assigned_employee_phone || ''}
+            onChange={(e) => setFormData({...formData, assigned_employee_phone: e.target.value})}
           />
         </div>
 
