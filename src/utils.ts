@@ -111,8 +111,9 @@ export function searchMatch(source: string, query: string): boolean {
   const normalizedQuery = normalizeArabic(query.toLowerCase());
   
   // Split both source and query into tokens by common separators
-  const sourceTokens = normalizedSource.split(/[\s,./\\-؛،:()]+/).filter(Boolean);
-  const queryTokens = normalizedQuery.split(/[\s,./\\-؛،:()]+/).filter(Boolean);
+  // The hyphen is placed at the end of the character class to be treated literally
+  const sourceTokens = normalizedSource.split(/[\s,./\\؛،:() -]+/).filter(Boolean);
+  const queryTokens = normalizedQuery.split(/[\s,./\\؛،:() -]+/).filter(Boolean);
   
   if (queryTokens.length === 0) return true;
   
