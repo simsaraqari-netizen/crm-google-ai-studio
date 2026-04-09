@@ -2748,6 +2748,190 @@ export default function App() {
     }
   };
 
+  // --- Actions ---
+
+  async function toggleFavorite(propertyId: string) {
+    if (!user) return;
+    const isFav = favorites.includes(propertyId);
+    if (isFav) {
+      try {
+        const { data: favs } = await supabase
+          .from('favorites')
+          .select('id')
+          .eq('user_id', user.uid)
+          .eq('property_id', propertyId);
+
+        const deletePromises = (favs || []).map(fav =>
+          supabase.from('favorites').delete().eq('id', fav.id)
+        );
+        await Promise.all(deletePromises);
+      } catch (error) {
+        console.error("Error removing favorite:", error);
+      }
+    } else {
+      try {
+        await supabase.from('favorites').insert({
+          user_id: user.uid,
+          property_id: propertyId,
+          created_at: new Date().toISOString()
+        });
+      } catch (error) {
+        console.error("Error adding favorite:", error);
+      }
+    }
+  }
+
+  async function handleBackup() {
+    if (!isAdmin) {
+      toast.error("ليس لديك صلاحية لعمل نسخة احتياطية");
+      return;
+    }
+
+    toast.loading("جاري تجهيز النسخة الاحتياطية...", { id: 'backup' });
+    try {
+      const backupData: any = {};
+
+      const tablesToBackup = ['properties', 'profiles', 'comments', 'companies', 'notifications'];
+
+      for (const tableName of tablesToBackup) {
+        const { data: tableData } = await supabase.from(tableName).select('*');
+        backupData[tableName] = tableData || [];
+      }
+      
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
+      const downloadAnchorNode = document.createElement('a');
+      downloadAnchorNode.setAttribute("href",     dataStr);
+      downloadAnchorNode.setAttribute("download", `backup_${new Date().toISOString().split('T')[0]}.json`);
+      document.body.appendChild(downloadAnchorNode);
+      downloadAnchorNode.click();
+      downloadAnchorNode.remove();
+      
+      toast.success("تم تحميل النسخة الاحتياطية بنجاح", { id: 'backup' });
+    } catch (error) {
+      console.error("Backup error:", error);
+      toast.error("حدث خطأ أثناء عمل النسخة الاحتياطية", { id: 'backup' });
+    }
+  }
+
+  async function restoreProperty(id: string) {
+    if (!isAdmin) {
+      toast.error("ليس لديك صلاحية لاستعادة العقارات");
+      return;
+    }
+    try {
+      await supabase.from('properties').update({
+        status: 'approved',
+        deleted_at: null
+      }).eq('id', id);
+      toast.success('تم استعادة العقار بنجاح');
+    } catch (error) {
+      console.error("Error restoring property:", error);
+      toast.error("حدث خطأ أثناء محاولة استعادة العقار");
+    }
+  }
+
+  async function permanentDeleteProperty(id: string) {
+    if (!isAdmin) {
+      toast.error("ليس لديك صلاحية لحذف العقارات نهائياً");
+      return;
+    }
+    if (window.confirm('هل أنت متأكد من حذف هذا العقار نهائياً؟ لا يمكن التراجع عن هذا الإجراء.')) {
+      try {
+        const { data: propertyData } = await supabase.from('properties').select('*').eq('id', id).single();
+        
+        if (propertyData?.images && propertyData.images.length > 0) {
+          const filesToDelete = propertyData.images
+            .map((img: any) => {
+              const url = typeof img === 'string' ? img : img.url;
+              if (url && url.includes('properties/')) {
+                return `properties/${url.split('properties/')[1]}`;
+              }
+              return null;
+            })
+            .filter(Boolean);
+
+          if (filesToDelete.length > 0) {
+            await supabase.storage.from('properties_media').remove(filesToDelete);
+          }
+        }
+
+        await supabase.from('properties').delete().eq('id', id);
+        toast.success('تم حذف العقار نهائياً');
+      } catch (error) {
+        console.error("Error permanently deleting property:", error);
+        toast.error("حدث خطأ أثناء محاولة حذف العقار نهائياً");
+      }
+    }
+  }
+
+  async function confirmDelete() {
+    if (!deleteConfirm.propertyId) return;
+    try {
+      await supabase.from('properties').update({
+        status: 'trash',
+        deleted_at: new Date().toISOString()
+      }).eq('id', deleteConfirm.propertyId);
+      toast.success('تم نقل العقار إلى سلة المهملات');
+      setDeleteConfirm({ isOpen: false, propertyId: null });
+    } catch (error) {
+      console.error("Error deleting property:", error);
+      toast.error("حدث خطأ أثناء محاولة حذف العقار");
+    }
+  }
+
+  async function confirmUserAction() {
+    if (!userActionConfirm.userId || !userActionConfirm.action) return;
+    try {
+      if (userActionConfirm.action === 'approve') {
+        const { error } = await supabase.from('profiles').update({ role: 'employee' }).eq('id', userActionConfirm.userId);
+        if (error) throw error;
+        toast.success('تمت الموافقة على المستخدم بنجاح');
+      } else if (userActionConfirm.action === 'reject') {
+        const { error } = await supabase.from('profiles').delete().eq('id', userActionConfirm.userId);
+        if (error) throw error;
+        toast.success('تم رفض وحذف طلب الانضمام');
+      } else if (userActionConfirm.action === 'change-role') {
+        const { error } = await supabase.from('profiles').update({ role: userActionConfirm.extraData.newRole }).eq('id', userActionConfirm.userId);
+        if (error) throw error;
+        toast.success('تم تغيير الصلاحية بنجاح');
+      } else if (userActionConfirm.action === 'delete') {
+        const { error } = await supabase.from('profiles').delete().eq('id', userActionConfirm.userId);
+        if (error) throw error;
+        toast.success('تم حذف المستخدم بنجاح');
+      }
+    } catch (error) {
+      console.error("Error in user action:", error);
+      toast.error("حدث خطأ أثناء تنفيذ الإجراء");
+    } finally {
+      setUserActionConfirm({ isOpen: false, userId: null, action: null });
+    }
+  }
+
+  async function confirmCommentDelete() {
+    if (!commentDeleteConfirm.commentId) return;
+    try {
+      await supabase.from('comments').delete().eq('id', commentDeleteConfirm.commentId);
+      toast.success('تم حذف التعليق بنجاح');
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      toast.error("حدث خطأ أثناء حذف التعليق");
+    } finally {
+      setCommentDeleteConfirm({ isOpen: false, commentId: null, propertyId: null });
+    }
+  }
+
+  // Helper function for property titles
+  function generatePropertyTitle(p: any) {
+    if (!p) return 'عقار';
+    return `${p.type || ''} - ${p.area || ''} ${p.block ? `ق${p.block}` : ''}`.trim();
+  }
+
+  // Helper for area names
+  function cleanAreaName(name: string) {
+    if (!name) return '';
+    return name.replace('منطقة ', '').trim();
+  }
+
   return (
     <div className="min-h-screen bg-[#f5f5f0] text-stone-900 font-sans" dir="rtl">
       <SyncModal 
@@ -4352,206 +4536,5 @@ export default function App() {
       </main>
     </div>
   );
-
-  // --- Actions ---
-
-  async function toggleFavorite(propertyId: string) {
-    if (!user) return;
-    const isFav = favorites.includes(propertyId);
-    if (isFav) {
-      try {
-        const { data: favs } = await supabase
-          .from('favorites')
-          .select('id')
-          .eq('user_id', user.uid)
-          .eq('property_id', propertyId);
-
-        const deletePromises = (favs || []).map(fav =>
-          supabase.from('favorites').delete().eq('id', fav.id)
-        );
-        await Promise.all(deletePromises);
-      } catch (error) {
-        console.error("Error removing favorite:", error);
-      }
-    } else {
-      try {
-        await supabase.from('favorites').insert({
-          user_id: user.uid,
-          property_id: propertyId,
-          created_at: new Date().toISOString()
-        });
-      } catch (error) {
-        console.error("Error adding favorite:", error);
-      }
-    }
-  }
-
-  async function handleBackup() {
-    if (!isAdmin) {
-      toast.error("ليس لديك صلاحية لعمل نسخة احتياطية");
-      return;
-    }
-
-    toast.loading("جاري تجهيز النسخة الاحتياطية...", { id: 'backup' });
-    try {
-      const backupData: any = {};
-
-      const tablesToBackup = ['properties', 'profiles', 'comments', 'companies', 'notifications'];
-
-      for (const tableName of tablesToBackup) {
-        const { data: tableData } = await supabase.from(tableName).select('*');
-        backupData[tableName] = tableData || [];
-      }
-      
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
-      const downloadAnchorNode = document.createElement('a');
-      downloadAnchorNode.setAttribute("href",     dataStr);
-      downloadAnchorNode.setAttribute("download", `backup_${new Date().toISOString().split('T')[0]}.json`);
-      document.body.appendChild(downloadAnchorNode);
-      downloadAnchorNode.click();
-      downloadAnchorNode.remove();
-      
-      toast.success("تم تحميل النسخة الاحتياطية بنجاح", { id: 'backup' });
-    } catch (error) {
-      console.error("Backup error:", error);
-      toast.error("حدث خطأ أثناء عمل النسخة الاحتياطية", { id: 'backup' });
-    }
-  }
-
-  async function restoreProperty(id: string) {
-    if (!isAdmin) {
-      toast.error("ليس لديك صلاحية لاستعادة العقارات");
-      return;
-    }
-    try {
-      await supabase.from('properties').update({
-        status: 'approved',
-        deleted_at: null
-      }).eq('id', id);
-      toast.success('تم استعادة العقار بنجاح');
-    } catch (error) {
-      console.error("Error restoring property:", error);
-      toast.error("حدث خطأ أثناء محاولة استعادة العقار");
-    }
-  }
-
-  async function permanentDeleteProperty(id: string) {
-    if (!isAdmin) {
-      toast.error("ليس لديك صلاحية لحذف العقارات نهائياً");
-      return;
-    }
-    if (window.confirm('هل أنت متأكد من حذف هذا العقار نهائياً؟ لا يمكن التراجع عن هذا الإجراء.')) {
-      try {
-        const { data: propertyData } = await supabase.from('properties').select('*').eq('id', id).single();
-        
-        if (propertyData?.images && propertyData.images.length > 0) {
-          const filesToDelete = propertyData.images
-            .map((img: any) => {
-              const url = typeof img === 'string' ? img : img.url;
-              if (url && url.includes('properties/')) {
-                return `properties/${url.split('properties/')[1]}`;
-              }
-              return null;
-            })
-            .filter(Boolean);
-
-          if (filesToDelete.length > 0) {
-            await supabase.storage.from('properties_media').remove(filesToDelete);
-          }
-        }
-
-        await supabase.from('properties').delete().eq('id', id);
-        toast.success('تم حذف العقار نهائياً');
-      } catch (error) {
-        console.error("Error permanently deleting property:", error);
-        toast.error("حدث خطأ أثناء محاولة حذف العقار نهائياً");
-      }
-    }
-  }
-
-  async function confirmDelete() {
-    if (!deleteConfirm.propertyId) return;
-    try {
-      await supabase.from('properties').update({
-        status: 'trash',
-        deleted_at: new Date().toISOString()
-      }).eq('id', deleteConfirm.propertyId);
-      toast.success('تم نقل العقار إلى سلة المهملات');
-      setDeleteConfirm({ isOpen: false, propertyId: null });
-    } catch (error) {
-      console.error("Error deleting property:", error);
-      toast.error("حدث خطأ أثناء محاولة حذف العقار");
-    }
-  }
-
-  async function confirmUserAction() {
-    if (!userActionConfirm.userId || !userActionConfirm.action) return;
-    try {
-      if (userActionConfirm.action === 'approve') {
-        const { error } = await supabase.from('profiles').update({ role: 'employee' }).eq('id', userActionConfirm.userId);
-        if (error) throw error;
-        toast.success('تمت الموافقة على المستخدم بنجاح');
-      } else if (userActionConfirm.action === 'reject') {
-        const { error } = await supabase.from('profiles').delete().eq('id', userActionConfirm.userId);
-        if (error) throw error;
-        toast.success('تم رفض وحذف طلب الانضمام');
-      } else if (userActionConfirm.action === 'change-role') {
-        const { error } = await supabase.from('profiles').update({ role: userActionConfirm.extraData.newRole }).eq('id', userActionConfirm.userId);
-        if (error) throw error;
-        toast.success('تم تغيير الصلاحية بنجاح');
-      } else if (userActionConfirm.action === 'delete') {
-        const { error } = await supabase.from('profiles').delete().eq('id', userActionConfirm.userId);
-        if (error) throw error;
-        toast.success('تم حذف المستخدم بنجاح');
-      }
-    } catch (error) {
-      console.error("Error in user action:", error);
-      toast.error("حدث خطأ أثناء تنفيذ الإجراء");
-    } finally {
-      setUserActionConfirm({ isOpen: false, userId: null, action: null });
-    }
-  }
-
-  async function confirmAccountDelete() {
-    if (!user) return;
-    try {
-      await supabase.from('profiles').delete().eq('id', user.uid);
-      await supabase.auth.signOut();
-      toast.success('تم حذف الحساب بنجاح');
-    } catch (error) {
-      console.error("Error deleting account:", error);
-      toast.error("حدث خطأ أثناء حذف الحساب");
-    } finally {
-      setAccountDeleteConfirm(false);
-    }
-  }
-
-  async function confirmCommentDelete() {
-    if (!commentDeleteConfirm.commentId) return;
-    try {
-      await supabase.from('comments').delete().eq('id', commentDeleteConfirm.commentId);
-      toast.success('تم حذف التعليق بنجاح');
-    } catch (error) {
-      console.error("Error deleting comment:", error);
-      toast.error("حدث خطأ أثناء حذف التعليق");
-    } finally {
-      setCommentDeleteConfirm({ isOpen: false, commentId: null, propertyId: null });
-    }
-  }
-
-  // Helper function for property titles
-  function generatePropertyTitle(p: any) {
-    if (!p) return 'عقار';
-    return `${p.type || ''} - ${p.area || ''} ${p.block ? `ق${p.block}` : ''}`.trim();
-  }
-
-  // Helper for area names
-  function cleanAreaName(name: string) {
-    if (!name) return '';
-    return name.replace('منطقة ', '').trim();
-  }
-
-  return null; // This is a safety catch, the main return is inside the component
 }
 
-export default App;
