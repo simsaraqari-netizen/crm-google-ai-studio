@@ -102,28 +102,38 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []) as File[];
+    if (!files.length) return;
+
+    // التحقق من الحد قبل البدء بالرفع
+    if ((formData.images || []).length + files.length > 20) {
+      toast.error('لا يمكن رفع أكثر من 20 ملفاً');
+      if (e.target) e.target.value = '';
+      return;
+    }
+
     setIsUploading(true);
     try {
-      setFormData(prevData => {
-        if (prevData.images.length + files.length > 20) {
-          toast.error('لا يمكن رفع أكثر من 20 ملفاً');
-          setIsUploading(false);
-          return prevData;
-        }
-        return prevData;
-      });
-
       const newImages = [...(formData.images || [])];
       for (const file of files) {
         let fileToUpload: Blob;
+        let contentType: string;
+
         if (file.type.startsWith('image/')) {
           fileToUpload = await compressImage(file);
+          contentType = 'image/jpeg';
         } else {
           fileToUpload = file;
+          contentType = file.type || 'video/mp4';
         }
 
-        const filePath = `properties/${Date.now()}_${file.name}`;
-        const { data, error } = await supabase.storage.from('properties_media').upload(filePath, fileToUpload);
+        // استخدام اسم عشوائي آمن بدلاً من اسم الملف الأصلي (يتجنب مشاكل الأسماء العربية والرموز الخاصة)
+        const ext = file.type.startsWith('image/') ? 'jpg' : (file.name.split('.').pop() || 'mp4');
+        const safeFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${ext}`;
+        const filePath = `properties/${safeFileName}`;
+
+        const { error } = await supabase.storage
+          .from('properties_media')
+          .upload(filePath, fileToUpload, { contentType });
         if (error) throw error;
 
         const { data: { publicUrl } } = supabase.storage.from('properties_media').getPublicUrl(filePath);
@@ -522,12 +532,12 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
             
             {formData.images.length < 20 && (
               <label htmlFor="image-upload" className={`aspect-square rounded-2xl border-2 border-dashed border-stone-300 flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500 hover:bg-emerald-50 transition-all group ${isUploading ? 'opacity-50 cursor-wait' : ''}`}>
-                <input 
+                <input
                   id="image-upload"
-                  type="file" 
-                  multiple 
-                  accept="image/*,video/*" 
-                  className="block text-xs truncate w-full" 
+                  type="file"
+                  multiple
+                  accept="image/*,video/*"
+                  className="hidden"
                   onChange={handleImageUpload}
                   disabled={isUploading}
                 />

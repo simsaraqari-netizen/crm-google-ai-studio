@@ -1127,7 +1127,7 @@ export default function App() {
         return () => { channel.unsubscribe(); };
       } catch (err) {
         console.error('Companies fetch error:', err);
-        handleFirestoreError(err, OperationType.GET, 'companies');
+        handleSupabaseError(err, OperationType.GET, 'companies');
       }
     })();
   }, [isSuperAdmin]);
@@ -1317,7 +1317,7 @@ export default function App() {
         return () => { channel.unsubscribe(); };
       } catch (err) {
         console.error('Notifications fetch error:', err);
-        handleFirestoreError(err, OperationType.GET, 'notifications');
+        handleSupabaseError(err, OperationType.GET, 'notifications');
       }
     })();
   }, [user]);
@@ -3844,7 +3844,7 @@ enum OperationType {
   WRITE = 'write',
 }
 
-interface FirestoreErrorInfo {
+interface SupabaseErrorInfo {
   error: string;
   operationType: OperationType;
   path: string | null;
@@ -3863,8 +3863,8 @@ interface FirestoreErrorInfo {
   }
 }
 
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const errInfo: FirestoreErrorInfo = {
+function handleSupabaseError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: SupabaseErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
       userId: undefined,
@@ -3882,11 +3882,13 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 }
 
 const compressImage = (file: File): Promise<Blob> => {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const reader = new FileReader();
+    reader.onerror = () => reject(new Error('فشل قراءة الملف'));
     reader.readAsDataURL(file);
     reader.onload = (event) => {
       const img = new Image();
+      img.onerror = () => reject(new Error('فشل تحميل الصورة'));
       img.src = event.target?.result as string;
       img.onload = () => {
         const canvas = document.createElement('canvas');
@@ -3910,9 +3912,11 @@ const compressImage = (file: File): Promise<Blob> => {
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, width, height);
+        if (!ctx) return reject(new Error('فشل إنشاء سياق الرسم'));
+        ctx.drawImage(img, 0, 0, width, height);
         canvas.toBlob((blob) => {
-          resolve(blob as Blob);
+          if (!blob) return reject(new Error('فشل ضغط الصورة'));
+          resolve(blob);
         }, 'image/jpeg', 0.6);
       };
     };
@@ -3996,17 +4000,17 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []) as File[];
+    if (!files.length) return;
+
+    // التحقق من الحد قبل البدء بالرفع
+    if ((formData.images || []).length + files.length > 20) {
+      toast.error('لا يمكن رفع أكثر من 20 ملفاً');
+      if (e.target) e.target.value = '';
+      return;
+    }
+
     setIsUploading(true);
     try {
-      setFormData(prevData => {
-        if (prevData.images.length + files.length > 20) {
-          toast.error('لا يمكن رفع أكثر من 20 ملفاً');
-          setIsUploading(false);
-          return prevData;
-        }
-        return prevData;
-      });
-
       const newImages = [...(formData.images || [])];
       for (const file of files) {
         let fileToUpload: Blob;
@@ -4016,16 +4020,17 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
           fileToUpload = file;
         }
 
-        const fileName = `${Date.now()}_${file.name}`;
+        const ext = file.type.startsWith('image/') ? 'jpg' : (file.name.split('.').pop() || 'mp4');
+        const safeFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${ext}`;
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('properties_media')
-          .upload(`properties/${fileName}`, fileToUpload);
+          .upload(`properties/${safeFileName}`, fileToUpload, { contentType: file.type.startsWith('image/') ? 'image/jpeg' : (file.type || 'video/mp4') });
 
         if (uploadError) throw uploadError;
 
         const { data: publicUrl } = supabase.storage
           .from('properties_media')
-          .getPublicUrl(`properties/${fileName}`);
+          .getPublicUrl(`properties/${safeFileName}`);
 
         newImages.push({ url: publicUrl.publicUrl, type: file.type.startsWith('video/') ? 'video' : 'image' });
       }
@@ -4093,7 +4098,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
           if (insertError) throw insertError;
           empId = newEmp?.id;
         } catch (error) {
-          handleFirestoreError(error, OperationType.CREATE, 'users');
+          handleSupabaseError(error, OperationType.CREATE, 'users');
         }
       }
 
@@ -4162,7 +4167,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
           if (insertError) throw insertError;
         }
       } catch (error) {
-        handleFirestoreError(error, property ? OperationType.UPDATE : OperationType.CREATE, 'properties');
+        handleSupabaseError(error, property ? OperationType.UPDATE : OperationType.CREATE, 'properties');
       }
       toast.success(property ? 'تم تحديث العقار بنجاح' : 'تمت إضافة العقار بنجاح');
       onSave();
@@ -4435,12 +4440,12 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
             
             {formData.images.length < 20 && (
               <label htmlFor="image-upload" className={`aspect-square rounded-2xl border-2 border-dashed border-stone-300 flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500 hover:bg-emerald-50 transition-all group ${isUploading ? 'opacity-50 cursor-wait' : ''}`}>
-                <input 
+                <input
                   id="image-upload"
-                  type="file" 
-                  multiple 
-                  accept="image/*,video/*" 
-                  className="block text-xs truncate w-full" 
+                  type="file"
+                  multiple
+                  accept="image/*,video/*"
+                  className="hidden"
                   onChange={handleImageUpload}
                   disabled={isUploading}
                 />
@@ -4691,16 +4696,17 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
           fileToUpload = file;
         }
 
-        const fileName = `${Date.now()}_${file.name}`;
+        const extC = file.type.startsWith('image/') ? 'jpg' : (file.name.split('.').pop() || 'mp4');
+        const safeFileNameC = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${extC}`;
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('comment-images')
-          .upload(`comments/${fileName}`, fileToUpload);
+          .upload(`comments/${safeFileNameC}`, fileToUpload, { contentType: file.type.startsWith('image/') ? 'image/jpeg' : (file.type || 'video/mp4') });
 
         if (uploadError) throw uploadError;
 
         const { data: publicUrl } = supabase.storage
           .from('comment-images')
-          .getPublicUrl(`comments/${fileName}`);
+          .getPublicUrl(`comments/${safeFileNameC}`);
 
         newImages.push({ url: publicUrl.publicUrl, type: file.type.startsWith('video/') ? 'video' : 'image' });
       }

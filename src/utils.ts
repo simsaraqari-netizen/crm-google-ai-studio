@@ -184,11 +184,13 @@ export function toEnglishNumerals(str: string): string {
 }
 
 export const compressImage = (file: File): Promise<Blob> => {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const reader = new FileReader();
+    reader.onerror = () => reject(new Error('فشل قراءة الملف'));
     reader.readAsDataURL(file);
     reader.onload = (event) => {
       const img = new Image();
+      img.onerror = () => reject(new Error('فشل تحميل الصورة'));
       img.src = event.target?.result as string;
       img.onload = () => {
         const canvas = document.createElement('canvas');
@@ -212,9 +214,11 @@ export const compressImage = (file: File): Promise<Blob> => {
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, width, height);
+        if (!ctx) return reject(new Error('فشل إنشاء سياق الرسم'));
+        ctx.drawImage(img, 0, 0, width, height);
         canvas.toBlob((blob) => {
-          resolve(blob as Blob);
+          if (!blob) return reject(new Error('فشل ضغط الصورة'));
+          resolve(blob);
         }, 'image/jpeg', 0.6);
       };
     };

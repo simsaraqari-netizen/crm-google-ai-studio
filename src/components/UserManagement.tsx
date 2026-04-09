@@ -284,7 +284,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                           onClick={async () => {
                             if (!editUserName.trim()) return;
                             try {
-                              // Update Firestore data
+                              // Update Supabase data
                               await supabase.from('users').update({ 
                                 full_name: editUserName.trim(),
                                 phone: editUserPhone.trim(),

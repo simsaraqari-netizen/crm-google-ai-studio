@@ -160,8 +160,11 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
 
   const handleCommentImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []) as File[];
+    if (!files.length) return;
+
     if (commentImages.length + files.length > 10) {
       toast.error('لا يمكن اختيار أكثر من 10 ملفات');
+      if (e.target) e.target.value = '';
       return;
     }
 
@@ -170,16 +173,26 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
       const newImages = [...commentImages];
       for (const file of files) {
         let fileToUpload: Blob;
+        let contentType: string;
+
         if (file.type.startsWith('image/')) {
           fileToUpload = await compressImage(file);
+          contentType = 'image/jpeg';
         } else {
           fileToUpload = file;
+          contentType = file.type || 'video/mp4';
         }
-        
-        const filePath = `comments/${Date.now()}_${file.name}`;
-        const { data, error } = await supabase.storage.from('comments').upload(filePath, fileToUpload);
+
+        // استخدام اسم عشوائي آمن بدلاً من اسم الملف الأصلي
+        const ext = file.type.startsWith('image/') ? 'jpg' : (file.name.split('.').pop() || 'mp4');
+        const safeFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${ext}`;
+        const filePath = `comments/${safeFileName}`;
+
+        const { error } = await supabase.storage
+          .from('comments')
+          .upload(filePath, fileToUpload, { contentType });
         if (error) throw error;
-        
+
         const { data: { publicUrl } } = supabase.storage.from('comments').getPublicUrl(filePath);
         newImages.push({ url: publicUrl, type: file.type.startsWith('video/') ? 'video' : 'image' });
       }
