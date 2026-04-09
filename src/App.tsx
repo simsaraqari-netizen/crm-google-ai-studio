@@ -101,7 +101,7 @@ interface Company {
   createdAt: any;
 }
 
-interface Comment {
+interface PropertyComment {
   id: string;
   property_id?: string;
   propertyId?: string;
@@ -144,7 +144,417 @@ interface Notification {
   createdAt: any;
 }
 
+// --- Helper Functions ---
+const compressImage = async (file: File): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const max = 1200;
+        if (width > height && width > max) {
+          height *= max / width;
+          width = max;
+        } else if (height > max) {
+          width *= max / height;
+          height = max;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Canvas toBlob failed')), 'image/jpeg', 0.7);
+      };
+    };
+    reader.onerror = error => reject(error);
+  });
+};
+
+// --- Sub-Components ---
+
+const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavorite, onClick, onImageClick, isAdmin, onFilter, onUserClick, onApprove, onReject, onEdit, onDelete, onRestore, onPermanentDelete, view }: any) {
+  return (
+    <motion.div 
+      layout
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`ios-card overflow-hidden hover:shadow-xl transition-all group relative flex flex-col cursor-pointer bg-white border border-stone-100 ${view === 'pending-properties' ? 'border-amber-300 ring-2 ring-amber-100' : 'hover:border-emerald-200'}`}
+      onClick={onClick}
+    >
+      <div 
+        className="relative aspect-[16/10] bg-stone-100 overflow-hidden group/img cursor-zoom-in" 
+        onClick={(e) => {
+          e.stopPropagation();
+          if ((property.images || []).length > 0) {
+            const imageList = property.images.map((img: any) => typeof img === 'string' ? img : (img?.url || ''));
+            onImageClick(imageList, 0);
+          }
+        }}
+      >
+        {property.images?.[0] ? (
+          <div className="w-full h-full relative">
+            {(() => {
+              const img = property.images[0];
+              const url = typeof img === 'string' ? img : (img?.url || '');
+              const isVideo = typeof img === 'string' 
+                ? (img.startsWith('data:video/') || img.toLowerCase().endsWith('.mp4')) 
+                : (img?.type === 'video' || (img?.url && img.url.toLowerCase().endsWith('.mp4')));
+              
+              return isVideo ? (
+                <video 
+                  src={url} 
+                  autoPlay muted loop playsInline
+                  className={`w-full h-full object-cover transition-transform duration-700 group-hover/img:scale-110 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
+                />
+              ) : (
+                <img 
+                  loading="lazy"
+                  src={url} 
+                  alt={generatePropertyTitle(property)} 
+                  className={`w-full h-full object-cover transition-transform duration-700 group-hover/img:scale-110 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
+                  referrerPolicy="no-referrer"
+                />
+              );
+            })()}
+            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-2">
+              <div className="bg-white/30 backdrop-blur-md p-3 rounded-full border border-white/40 shadow-2xl transform scale-75 group-hover/img:scale-100 transition-transform duration-500">
+                <Maximize className="text-white" size={24} />
+              </div>
+            </div>
+            {property.is_sold && (
+              <div className="absolute inset-0 flex items-center justify-center bg-stone-900/60 backdrop-blur-[2px] z-20">
+                <span className="text-white font-black text-xl tracking-wider transform -rotate-12 border-4 border-white px-4 py-1 rounded-lg shadow-2xl">مباع</span>
+              </div>
+            )}
+            {property.status_label && (
+              <div className="absolute top-3 right-3 z-10">
+                <span className="bg-amber-500 text-white px-2.5 py-1 text-[10px] font-black rounded-lg shadow-lg border border-amber-400/50">
+                  {property.status_label}
+                </span>
+              </div>
+            )}
+            {property.images && property.images.length > 1 && (
+              <div className="absolute bottom-3 left-3 bg-black/50 backdrop-blur-md text-white text-[10px] px-2 py-1 rounded-lg font-bold flex items-center gap-1 border border-white/10">
+                <ImageIcon size={12} />
+                <span>{property.images.length}</span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center bg-stone-50 gap-2 border-b border-stone-100">
+            <ImageIcon className="text-stone-300" size={32} />
+            <span className="text-[11px] font-bold text-stone-400">لا توجد صور</span>
+          </div>
+        )}
+        {property.purpose && (
+          <div className="absolute bottom-3 right-3 z-10">
+            <span className="bg-white/90 backdrop-blur-md text-emerald-800 px-2 py-1 text-[10px] font-black rounded-lg shadow-sm border border-stone-100">
+              {property.purpose}
+            </span>
+          </div>
+        )}
+      </div>
+      <div className="p-4 pt-4 flex flex-col flex-1 min-w-0">
+        <div className="flex justify-between items-start gap-2 mb-2">
+          <h3 className="text-sm font-extrabold text-stone-900 line-clamp-1 flex-1 text-right group-hover:text-emerald-700 transition-colors">
+            {property.name || 'عقار بدون اسم'}
+          </h3>
+          {property.price && (
+            <span className="text-emerald-600 font-black text-sm whitespace-nowrap">
+              {property.price}
+            </span>
+          )}
+        </div>
+        {property.details && (
+          <p className="text-[11px] text-stone-500 leading-relaxed line-clamp-2 text-right mb-4 min-h-[32px]">
+            {property.details}
+          </p>
+        )}
+        {property.last_comment && (
+          <div className="mb-4 p-2 bg-emerald-50/50 rounded-lg border-r-2 border-emerald-400 overflow-hidden text-right">
+            <p className="text-[10px] text-stone-700 font-medium line-clamp-1 italic">
+              "{property.last_comment}"
+            </p>
+          </div>
+        )}
+        <div className="mt-auto pt-3 border-t border-stone-100">
+          <div className="flex items-center flex-wrap gap-y-2 gap-x-1.5 text-[10px] font-bold text-stone-700">
+            <button
+              onClick={(e) => { e.stopPropagation(); onFilter('area', property.area); }}
+              className="px-2 py-0.5 bg-stone-100 rounded text-stone-600 hover:bg-stone-200 transition-colors truncate max-w-[120px]"
+            >
+              {cleanAreaName(property.area) || '-'}
+            </button>
+            <span className="text-stone-300">/</span>
+            <button
+              onClick={(e) => { e.stopPropagation(); onFilter('type', property.type); }}
+              className="px-2 py-0.5 bg-emerald-50 rounded text-emerald-700 hover:bg-emerald-100 transition-colors truncate"
+            >
+              {property.type || 'غير محدد'}
+            </button>
+            <div className="flex-1"></div>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const shareUrl = `${window.location.origin}?propertyId=${property.id}`;
+                  if (navigator.share) navigator.share({ title: property.name, url: shareUrl }).catch(() => {});
+                  else { navigator.clipboard.writeText(shareUrl); toast.success('تم نسخ الرابط'); }
+                }}
+                className="p-1.5 text-stone-500 hover:bg-stone-100 rounded-lg transition-all"
+              ><Share2 size={14} /></button>
+              {isAdmin && (
+                <>
+                  <button onClick={(e) => { e.stopPropagation(); onEdit(property); }} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"><Edit size={14} /></button>
+                  <button onClick={(e) => { e.stopPropagation(); onDelete(property.id); }} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all"><Trash2 size={14} /></button>
+                </>
+              )}
+              <button
+                onClick={(e) => { e.stopPropagation(); onFavorite(); }}
+                className={`p-1.5 rounded-lg transition-all ${isFavorite ? 'text-red-500 bg-red-50' : 'text-stone-400 hover:bg-stone-50'}`}
+              ><Heart size={14} fill={isFavorite ? 'currentColor' : 'none'} /></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+});
+
+const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selectedCompanyId, companies, onCancel, onSave }: any) {
+  const isSuperAdmin = useMemo(() => user?.role === 'super_admin' || (user?.email && SUPER_ADMIN_EMAILS.includes(user.email)), [user?.role, user?.email]);
+  const [formData, setFormData] = useState({
+    name: property?.name || '',
+    governorate: property?.governorate || '',
+    area: property?.area || '',
+    type: property?.type || '',
+    purpose: property?.purpose || '',
+    assigned_employee_id: property?.assigned_employee_id || '',
+    assigned_employee_name: property?.assigned_employee_name || '',
+    assigned_employee_phone: property?.assigned_employee_phone || '',
+    images: (property?.images || []).map((img: any) => typeof img === 'string' ? { url: img, type: img.toLowerCase().endsWith('.mp4') ? 'video' : 'image' } : img),
+    location_link: property?.location_link || '',
+    is_sold: property?.is_sold || false,
+    sector: property?.sector || '',
+    block: property?.block || '',
+    street: property?.street || '',
+    avenue: property?.avenue || '',
+    plot_number: property?.plot_number || '',
+    house_number: property?.house_number || '',
+    location: property?.location || '',
+    price: property?.price || '',
+    details: property?.details || '',
+    status_label: property?.status_label || '',
+    company_id: property?.company_id || ''
+  });
+
+  const [employees, setEmployees] = useState<UserProfile[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        let query = supabase.from('profiles').select('*').eq('role', 'employee');
+        if (isSuperAdmin) {
+          const targetCompanyId = property?.company_id || selectedCompanyId;
+          if (targetCompanyId) query = query.eq('company_id', targetCompanyId);
+        } else query = query.eq('company_id', user?.company_id);
+        const { data } = await query;
+        setEmployees((data || []).map(doc => ({ uid: doc.id, ...doc })) as UserProfile[]);
+      } catch (error) { console.error("Employees load error:", error); }
+    })();
+  }, [isSuperAdmin, selectedCompanyId, user?.company_id, property?.company_id]);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []) as File[];
+    if (!files.length) return;
+    if ((formData.images || []).length + files.length > 20) { toast.error('20 ملفاً كحد أقصى'); return; }
+    setIsUploading(true);
+    try {
+      const newImages = [...(formData.images || [])];
+      for (const file of files) {
+        const fileToUpload = file.type.startsWith('image/') ? await compressImage(file) : file;
+        const ext = file.type.startsWith('image/') ? 'jpg' : (file.name.split('.').pop() || 'mp4');
+        const safeName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${ext}`;
+        await supabase.storage.from('properties_media').upload(`properties/${safeName}`, fileToUpload);
+        const { data } = supabase.storage.from('properties_media').getPublicUrl(`properties/${safeName}`);
+        newImages.push({ url: data.publicUrl, type: file.type.startsWith('video/') ? 'video' : 'image' });
+      }
+      setFormData(prev => ({ ...prev, images: newImages }));
+    } catch (error) { toast.error("خطأ في الرفع"); } finally { setIsUploading(false); }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const payload = {
+        ...formData,
+        images: formData.images.map((img: any) => typeof img === 'string' ? img : img.url),
+        company_id: isSuperAdmin ? (formData.company_id || selectedCompanyId) : user?.company_id,
+        updated_at: new Date().toISOString(),
+        created_at: property?.created_at || new Date().toISOString(),
+        created_by: property?.created_by || session?.user?.id,
+        status: isAdmin ? (property?.status || 'approved') : 'pending'
+      };
+      if (property) {
+        const { error } = await supabase.from('properties').update(payload).eq('id', property.id);
+        if (error) throw error;
+        toast.success('تم التعديل بنجاح');
+      } else {
+        const { error } = await supabase.from('properties').insert(payload);
+        if (error) throw error;
+        toast.success('تمت الإضافة بنجاح');
+      }
+      onSave();
+    } catch (error) { toast.error("حدث خطأ في الحفظ"); } finally { setIsSaving(false); }
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="ios-card overflow-hidden w-full max-w-4xl mx-auto">
+      <div className="bg-emerald-600 p-6 text-white text-center">
+        <h2 className="text-xl font-bold flex items-center justify-center gap-2">{property ? <Edit size={20} /> : <Plus size={20} />}{property ? 'تعديل العقار' : 'إضافة عقار جديد'}</h2>
+      </div>
+      <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <input placeholder="اسم العميل" className="ios-input" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
+          <select className="ios-input" value={formData.governorate} onChange={e => setFormData({...formData, governorate: e.target.value})} required>
+            <option value="">المحافظة</option>
+            {GOVERNORATES.map(g => <option key={g} value={g}>{g}</option>)}
+          </select>
+          <input placeholder="المنطقة" className="ios-input" value={formData.area} onChange={e => setFormData({...formData, area: e.target.value})} required />
+          <input placeholder="السعر" className="ios-input" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} />
+        </div>
+        <textarea placeholder="التفاصيل..." rows={3} className="ios-input resize-none" value={formData.details} onChange={e => setFormData({...formData, details: e.target.value})} />
+        <div className="space-y-2">
+          <p className="text-xs font-bold text-stone-500">الصور والملفات ({formData.images.length}/20)</p>
+          <div className="flex flex-wrap gap-2">
+            {formData.images.map((img, i) => (
+              <div key={i} className="relative w-20 h-20 rounded-lg overflow-hidden border border-stone-200 group">
+                <img src={img.url} className="w-full h-full object-cover" alt="" />
+                <button type="button" onClick={() => setFormData({...formData, images: formData.images.filter((_, idx) => idx !== i)})} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><X size={12} /></button>
+              </div>
+            ))}
+            {formData.images.length < 20 && (
+              <label className="w-20 h-20 flex flex-col items-center justify-center border-2 border-dashed border-stone-200 rounded-lg cursor-pointer hover:bg-stone-50 transition-colors">
+                <Plus size={24} className="text-stone-300" />
+                <input type="file" multiple className="hidden" onChange={handleImageUpload} accept="image/*,video/*" />
+              </label>
+            )}
+          </div>
+        </div>
+        <div className="flex gap-4">
+          <button type="submit" disabled={isSaving || isUploading} className="btn-primary flex-1">{isSaving ? 'جارِ الحفظ...' : 'حفظ'}</button>
+          <button type="button" onClick={onCancel} className="btn-secondary flex-1">إلغاء</button>
+        </div>
+      </form>
+    </motion.div>
+  );
+});
+
+const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, isAdmin, isFavorite, onFavorite, onEdit, onDelete, onRestore, onPermanentDelete, onFilter }: any) {
+  const [comments, setComments] = useState<PropertyComment[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [commentImages, setCommentImages] = useState<any[]>([]);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+
+  useEffect(() => {
+    if (!property.id) return;
+    const fetchComments = async () => {
+      const { data } = await supabase.from('comments').select('*').eq('property_id', property.id).order('created_at', { ascending: false });
+      setComments((data || []) as PropertyComment[]);
+    };
+    fetchComments();
+    const sub = supabase.channel(`comments-${property.id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'comments', filter: `property_id=eq.${property.id}` }, fetchComments).subscribe();
+    return () => { sub.unsubscribe(); };
+  }, [property.id]);
+
+  const handleAddComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newComment.trim() && commentImages.length === 0) return;
+    setIsUploading(true);
+    try {
+      await supabase.from('comments').insert({
+        property_id: property.id,
+        user_id: user.uid,
+        user_name: user.name,
+        text: newComment,
+        images: commentImages
+      });
+      setNewComment('');
+      setCommentImages([]);
+    } catch (error) { toast.error("خطأ في التعليق"); } finally { setIsUploading(false); }
+  };
+
+  const safeImages = Array.isArray(property.images) ? property.images : [];
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 max-w-6xl mx-auto">
+      <div className="flex items-center justify-between">
+        <button onClick={onBack} className="btn-secondary flex items-center gap-2"><ChevronRight size={18} /> العودة </button>
+        <div className="flex gap-2">
+          {isAdmin && (
+            <>
+              <button onClick={onEdit} className="p-2 text-blue-600 hover:bg-blue-50 rounded-full"><Edit size={20} /></button>
+              <button onClick={onDelete} className="p-2 text-red-600 hover:bg-red-50 rounded-full"><Trash2 size={20} /></button>
+            </>
+          )}
+          <button onClick={onFavorite} className={`p-2 rounded-full ${isFavorite ? 'text-red-500 bg-red-50' : 'text-stone-400'}`}><Heart size={20} fill={isFavorite ? 'currentColor' : 'none'} /></button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-6">
+          <div className="ios-card overflow-hidden">
+            <div className="relative aspect-video bg-stone-100">
+              {safeImages[activeImageIndex] ? (
+                <img src={typeof safeImages[activeImageIndex] === 'string' ? safeImages[activeImageIndex] : safeImages[activeImageIndex].url} className="w-full h-full object-contain" alt="" referrerPolicy="no-referrer" />
+              ) : <div className="w-full h-full flex items-center justify-center text-stone-300"><ImageIcon size={48} /></div>}
+              {property.is_sold && <div className="absolute inset-0 bg-black/40 flex items-center justify-center"><span className="text-white text-4xl font-black border-4 border-white px-6 py-2 -rotate-12">مباع</span></div>}
+            </div>
+            <div className="p-6">
+              <h1 className="text-2xl font-bold mb-2">{property.name}</h1>
+              <p className="text-emerald-600 text-xl font-black mb-4">{property.price}</p>
+              <div className="whitespace-pre-wrap text-stone-700 bg-stone-50 p-4 rounded-xl">{property.details}</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+           <div className="ios-card flex flex-col h-[600px]">
+             <div className="p-4 border-b border-stone-100 font-bold">التعليقات والتحديثات</div>
+             <div className="flex-1 overflow-y-auto p-4 space-y-4">
+               {comments.map((c) => (
+                 <div key={c.id} className="bg-stone-50 p-3 rounded-xl">
+                   <div className="flex justify-between items-center mb-1">
+                     <span className="text-xs font-bold text-emerald-700">{c.user_name}</span>
+                     <span className="text-[10px] text-stone-400">{formatRelativeDate(c.created_at)}</span>
+                   </div>
+                   <p className="text-sm text-stone-800">{c.text}</p>
+                 </div>
+               ))}
+             </div>
+             <form onSubmit={handleAddComment} className="p-4 border-t border-stone-100">
+               <textarea placeholder="أضف تعليقاً..." className="ios-input w-full text-sm h-20 resize-none" value={newComment} onChange={e => setNewComment(e.target.value)} />
+               <button disabled={isUploading || !newComment.trim()} className="btn-primary w-full mt-2">إرسال</button>
+             </form>
+           </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+});
+
 // --- Components ---
+
 
 function SyncModal({ isOpen, onClose, onSyncFrom, onSyncTo }: any) {
   const [spreadsheetId, setSpreadsheetId] = useState('');
@@ -3448,140 +3858,6 @@ export default function App() {
     if (window.confirm('هل أنت متأكد من حذف هذا العقار نهائياً؟ لا يمكن التراجع عن هذا الإجراء.')) {
       try {
         const { data: propertyData } = await supabase.from('properties').select('*').eq('id', id).single();
-        if (propertyData) {
-          if (propertyData.images && Array.isArray(propertyData.images)) {
-            await Promise.all(propertyData.images.map(async (img: any) => {
-              try {
-                const url = typeof img === 'string' ? img : img.url;
-                // Extract storage path from URL and delete from Supabase storage
-                const pathMatch = url.match(/\/storage\/v1\/object\/public\/[^\/]+\/(.+)$/);
-                if (pathMatch) {
-                  await supabase.storage.from('properties_media').remove([pathMatch[1]]);
-                }
-              } catch (e) {
-                console.error("Error deleting file:", e);
-              }
-            }));
-          }
-        }
-        await supabase.from('properties').delete().eq('id', id);
-        toast.success('تم حذف العقار نهائياً');
-        if (view === 'details') setView('list');
-      } catch (error) {
-        console.error("Error permanently deleting property:", error);
-        toast.error("حدث خطأ أثناء محاولة حذف العقار نهائياً");
-      }
-    }
-  }
-
-  async function deleteProperty(id: string) {
-    setDeleteConfirm({ isOpen: true, propertyId: id });
-  }
-
-  async function confirmDelete() {
-    if (!isAdmin) {
-      toast.error("ليس لديك صلاحية لحذف العقارات");
-      setDeleteConfirm({ isOpen: false, propertyId: null });
-      return;
-    }
-    if (deleteConfirm.propertyId) {
-      try {
-        await supabase.from('properties').update({
-          status: 'deleted',
-          deleted_at: new Date().toISOString()
-        }).eq('id', deleteConfirm.propertyId);
-        setDeleteConfirm({ isOpen: false, propertyId: null });
-        if (view === 'details') setView('list');
-        toast.success('تم نقل العقار إلى سلة المحذوفات');
-      } catch (error) {
-        console.error("Error deleting property:", error);
-        toast.error("حدث خطأ أثناء محاولة حذف العقار");
-      }
-    }
-  }
-
-  async function confirmCommentDelete() {
-    if (!isAdmin) {
-      toast.error("ليس لديك صلاحية لحذف التعليقات");
-      setCommentDeleteConfirm({ isOpen: false, commentId: null, propertyId: null });
-      return;
-    }
-    if (commentDeleteConfirm.commentId && commentDeleteConfirm.propertyId) {
-      try {
-        const { data: commentData } = await supabase.from('comments').select('*').eq('id', commentDeleteConfirm.commentId).single();
-        if (commentData) {
-          if (commentData.images && Array.isArray(commentData.images)) {
-            await Promise.all(commentData.images.map(async (img: any) => {
-              try {
-                const url = typeof img === 'string' ? img : img.url;
-                // Extract storage path from URL and delete from Supabase storage
-                const pathMatch = url.match(/\/storage\/v1\/object\/public\/[^\/]+\/(.+)$/);
-                if (pathMatch) {
-                  await supabase.storage.from('comment-images').remove([pathMatch[1]]);
-                }
-              } catch (e) {
-                console.error("Error deleting file:", e);
-              }
-            }));
-          }
-        }
-        await supabase.from('comments').delete().eq('id', commentDeleteConfirm.commentId);
-
-        // Update last comment on property card
-        const { data: comments } = await supabase
-          .from('comments')
-          .select('text')
-          .eq('property_id', commentDeleteConfirm.propertyId)
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        const newLastComment = comments && comments.length > 0 ? comments[0].text : '';
-
-        await supabase.from('properties').update({
-          last_comment: newLastComment
-        }).eq('id', commentDeleteConfirm.propertyId);
-
-        setCommentDeleteConfirm({ isOpen: false, commentId: null, propertyId: null });
-        toast.success("تم حذف التعليق بنجاح");
-      } catch (error) {
-        console.error("Error deleting comment:", error);
-        toast.error("حدث خطأ أثناء حذف التعليق");
-      }
-    }
-  }
-
-  async function confirmUserAction() {
-    if (!isAdmin) {
-      toast.error("ليس لديك صلاحية لإدارة المستخدمين");
-      setUserActionConfirm({ isOpen: false, userId: null, action: null, extraData: null });
-      return;
-    }
-    try {
-      if (userActionConfirm.action === 'bulk-delete') {
-        const deletePromises = employees.map(emp =>
-          supabase.from('profiles').delete().eq('id', emp.uid)
-        );
-        await Promise.all(deletePromises);
-      } else if (userActionConfirm.userId) {
-        if (userActionConfirm.action === 'delete') {
-          await supabase.from('profiles').delete().eq('id', userActionConfirm.userId);
-        } else if (userActionConfirm.action === 'approve') {
-          await supabase.from('profiles').update({ role: 'employee' }).eq('id', userActionConfirm.userId);
-        } else if (userActionConfirm.action === 'reject') {
-          await supabase.from('profiles').update({ role: 'rejected' }).eq('id', userActionConfirm.userId);
-        } else if (userActionConfirm.action === 'change-role') {
-          await supabase.from('profiles').update({ role: userActionConfirm.extraData.newRole }).eq('id', userActionConfirm.userId);
-        }
-      }
-      setUserActionConfirm({ isOpen: false, userId: null, action: null });
-    } catch (err: any) {
-      console.error("Error performing user action:", err);
-    }
-  }
-}
-
-// --- Sub-Components ---
-
 const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavorite, onClick, onImageClick, isAdmin, onFilter, onUserClick, onApprove, onReject, onEdit, onDelete, onRestore, onPermanentDelete, view }: any) {
   return (
     <motion.div 
@@ -3591,7 +3867,6 @@ const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavori
       className={`ios-card overflow-hidden hover:shadow-xl transition-all group relative flex flex-col cursor-pointer bg-white border border-stone-100 ${view === 'pending-properties' ? 'border-amber-300 ring-2 ring-amber-100' : 'hover:border-emerald-200'}`}
       onClick={onClick}
     >
-      {/* Image Section - Prominent at the top */}
       <div 
         className="relative aspect-[16/10] bg-stone-100 overflow-hidden group/img cursor-zoom-in" 
         onClick={(e) => {
@@ -3628,7 +3903,6 @@ const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavori
               );
             })()}
             
-            {/* Visual feedback for click-to-enlarge */}
             <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-2">
               <div className="bg-white/30 backdrop-blur-md p-3 rounded-full border border-white/40 shadow-2xl transform scale-75 group-hover/img:scale-100 transition-transform duration-500">
                 <Maximize text-white size={24} />
@@ -3644,7 +3918,6 @@ const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavori
               </div>
             )}
             
-            {/* Status Label Badge */}
             {property.status_label && (
               <div className="absolute top-3 right-3 z-10">
                 <span className="bg-amber-500 text-white px-2.5 py-1 text-[10px] font-black rounded-lg shadow-lg border border-amber-400/50">
@@ -3653,7 +3926,6 @@ const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavori
               </div>
             )}
 
-            {/* Image Count Badge */}
             {property.images && property.images.length > 1 && (
               <div className="absolute bottom-3 left-3 bg-black/50 backdrop-blur-md text-white text-[10px] px-2 py-1 rounded-lg font-bold flex items-center gap-1 border border-white/10">
                 <ImageIcon size={12} />
@@ -3670,7 +3942,6 @@ const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavori
           </div>
         )}
         
-        {/* Purpose Badge Overlay */}
         {property.purpose && (
           <div className="absolute bottom-3 right-3 z-10">
             <span className="bg-white/90 backdrop-blur-md text-emerald-800 px-2 py-1 text-[10px] font-black rounded-lg shadow-sm border border-stone-100">
@@ -3680,7 +3951,6 @@ const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavori
         )}
       </div>
 
-      {/* Content Section */}
       <div className="p-4 pt-4 flex flex-col flex-1 min-w-0">
         <div className="flex justify-between items-start gap-2 mb-2">
           <h3 className="text-sm font-extrabold text-stone-900 line-clamp-1 flex-1 text-right group-hover:text-emerald-700 transition-colors">
@@ -3711,7 +3981,6 @@ const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavori
           </div>
         )}
 
-        {/* Footer: Meta Info */}
         <div className="mt-auto pt-3 border-t border-stone-100">
           <div className="flex items-center flex-wrap gap-y-2 gap-x-1.5 text-[10px] font-bold text-stone-700">
             <button
@@ -4498,7 +4767,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
 });
 
 const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, isAdmin, isFavorite, onFavorite, onEdit, onDelete, onRestore, onPermanentDelete, onDeleteComment, onUserClick, onFilter }: any) {
-  const [comments, setComments] = useState<Comment[]>([]);
+  const [comments, setComments] = useState<PropertyComment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [commentImages, setCommentImages] = useState<Array<{ url: string, type: 'image' | 'video' }>>([]);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -4514,7 +4783,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
     (async () => {
       try {
         const { data: commentsData } = await supabase.from('comments').select('*').eq('property_id', property.id).order('created_at', { ascending: false });
-        setComments((commentsData || []) as Comment[]);
+        setComments((commentsData || []) as PropertyComment[]);
         const channel = supabase.channel(`comments-${property.id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'comments', filter: `property_id=eq.${property.id}` }, () => {
           supabase.from('comments').select('*').eq('property_id', property.id).order('created_at', { ascending: false }).then(({ data: updated }) => {
             setComments((updated || []) as Comment[]);
