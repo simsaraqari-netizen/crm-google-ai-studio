@@ -144,34 +144,103 @@ interface Notification {
   createdAt: any;
 }
 
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface SupabaseErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    tenantId: string | null | undefined;
+    providerInfo: {
+      providerId: string;
+      name: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  }
+}
+
+async function handleSupabaseError(error: unknown, operationType: OperationType, path: string | null) {
+  console.error(`[DIAGNOSTIC] Supabase Error (${operationType} on ${path}):`, error);
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  let errorMessage = 'An unknown error occurred';
+  if (error instanceof Error) {
+    errorMessage = error.message;
+  } else if (typeof error === 'object' && error !== null) {
+    // Handle Supabase/Postgres error objects
+    const anyErr = error as any;
+    errorMessage = anyErr.message || anyErr.error || anyErr.details || JSON.stringify(error);
+  } else {
+    errorMessage = String(error);
+  }
+
+  const errInfo: SupabaseErrorInfo = {
+    error: errorMessage,
+    authInfo: {
+      userId: session?.user?.id,
+      email: session?.user?.email || null,
+      emailVerified: !!session?.user?.email_confirmed_at,
+      isAnonymous: session?.user?.is_anonymous,
+      tenantId: null,
+      providerInfo: session?.user?.app_metadata?.provider || []
+    },
+    operationType,
+    path
+  }
+  
 // --- Helper Functions ---
-const compressImage = async (file: File): Promise<Blob> => {
+const compressImage = (file: File): Promise<Blob> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
+    reader.onerror = () => reject(new Error('فشل قراءة الملف'));
     reader.readAsDataURL(file);
     reader.onload = (event) => {
       const img = new Image();
+      img.onerror = () => reject(new Error('فشل تحميل الصورة'));
       img.src = event.target?.result as string;
       img.onload = () => {
         const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1200;
+        const MAX_HEIGHT = 1200;
         let width = img.width;
         let height = img.height;
-        const max = 1200;
-        if (width > height && width > max) {
-          height *= max / width;
-          width = max;
-        } else if (height > max) {
-          width *= max / height;
-          height = max;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
         }
+
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, width, height);
-        canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Canvas toBlob failed')), 'image/jpeg', 0.7);
+        if (!ctx) return reject(new Error('فشل إنشاء سياق الرسم'));
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob((blob) => {
+          if (!blob) return reject(new Error('فشل ضغط الصورة'));
+          resolve(blob);
+        }, 'image/jpeg', 0.6);
       };
     };
-    reader.onerror = error => reject(error);
   });
 };
 
@@ -2753,7 +2822,10 @@ export default function App() {
               {/* Actions & Results Header */}
               <div className="flex justify-center items-center">
                 <h2 className="text-2xl font-bold serif text-center">
-                  {view === 'pending-properties' ? `عقارات قيد المراجعة (${filteredProperties.length})` : view === 'trash' ? `سلة المحذوفات (${filteredProperties.length})` : (appliedFilters.query || appliedFilters.governorate || appliedFilters.area || appliedFilters.type || appliedFilters.purpose || appliedFilters.location || appliedFilters.marketer || appliedFilters.status
+                  {view === 'pending-properties' ? `عقارات قيد المراجعة (${filteredProperties.length})` : 
+                   view === 'trash' ? `سلة المحذوفات (${filteredProperties.length})` : 
+                   !hasSearched ? 'ابحث عن عقار...' :
+                   (appliedFilters.query || appliedFilters.governorate || appliedFilters.area || appliedFilters.type || appliedFilters.purpose || appliedFilters.location || appliedFilters.marketer || appliedFilters.status
                     ? `نتائج البحث (${filteredProperties.length})` 
                     : `${view === 'list' ? 'كل العقارات' : view === 'my-listings' ? 'إعلاناتي' : view === 'my-favorites' ? 'إعلاناتي المفضلة' : `عقارات ${employees.find(emp => emp.uid === selectedMarketerId)?.name || 'المستخدم'}`} (${filteredProperties.length})`)}
                 </h2>
@@ -2824,14 +2896,36 @@ export default function App() {
                   )}
                 </>
               ) : (
-                <div className="bg-white p-16 rounded-2xl border border-stone-200 text-center space-y-4">
-                  <div className="w-16 h-16 bg-stone-50 rounded-full flex items-center justify-center mx-auto text-stone-300">
-                    <Search size={32} />
+                <div className="bg-white/60 backdrop-blur-md p-16 rounded-2xl border border-white/40 text-center space-y-6 shadow-xl shadow-stone-200/50">
+                  <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mx-auto text-emerald-600 shadow-inner">
+                    <Search size={40} />
                   </div>
-                  <div className="space-y-1">
-                    <h3 className="font-bold text-stone-900 text-lg text-center">لا توجد نتائج</h3>
-                    <p className="text-stone-500">لم نجد أي عقارات تطابق معايير البحث الحالية.</p>
+                  <div className="space-y-2 max-w-sm mx-auto">
+                    {!hasSearched ? (
+                      <>
+                        <h3 className="font-bold text-stone-900 text-xl text-center">ابدأ البحث الآن</h3>
+                        <p className="text-stone-500 leading-relaxed">أدخل الاسم، الرقم، أو استخدم البحث الدقيق للعثور على العقارات المطلوبة.</p>
+                      </>
+                    ) : (
+                      <>
+                        <h3 className="font-bold text-stone-900 text-xl text-center">لا توجد نتائج</h3>
+                        <p className="text-stone-500 leading-relaxed">لم نجد أي عقارات تطابق معايير البحث الحالية. جرب تغيير كلمات البحث أو الفلاتر.</p>
+                      </>
+                    )}
                   </div>
+                  {!hasSearched && (
+                    <div className="pt-4">
+                       <button 
+                        onClick={() => {
+                          setAppliedFilters({ ...filters, query: searchQuery });
+                          setHasSearched(true);
+                        }}
+                        className="bg-emerald-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200"
+                       >
+                         عرض كل العقارات
+                       </button>
+                    </div>
+                  )}
                 </div>
               )}
             </motion.div>
@@ -4111,109 +4205,6 @@ const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavori
     </motion.div>
   );
 });
-
-enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
-
-interface SupabaseErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: {
-    userId: string | undefined;
-    email: string | null | undefined;
-    emailVerified: boolean | undefined;
-    isAnonymous: boolean | undefined;
-    tenantId: string | null | undefined;
-    providerInfo: {
-      providerId: string;
-      name: string | null;
-      email: string | null;
-      photoUrl: string | null;
-    }[];
-  }
-}
-
-async function handleSupabaseError(error: unknown, operationType: OperationType, path: string | null) {
-  console.error(`[DIAGNOSTIC] Supabase Error (${operationType} on ${path}):`, error);
-  const { data: { session } } = await supabase.auth.getSession();
-  
-  let errorMessage = 'An unknown error occurred';
-  if (error instanceof Error) {
-    errorMessage = error.message;
-  } else if (typeof error === 'object' && error !== null) {
-    // Handle Supabase/Postgres error objects
-    const anyErr = error as any;
-    errorMessage = anyErr.message || anyErr.error || anyErr.details || JSON.stringify(error);
-  } else {
-    errorMessage = String(error);
-  }
-
-  const errInfo: SupabaseErrorInfo = {
-    error: errorMessage,
-    authInfo: {
-      userId: session?.user?.id,
-      email: session?.user?.email || null,
-      emailVerified: !!session?.user?.email_confirmed_at,
-      isAnonymous: session?.user?.is_anonymous,
-      tenantId: null,
-      providerInfo: session?.user?.app_metadata?.provider || []
-    },
-    operationType,
-    path
-  }
-  
-  console.error('Unified Error Info:', errInfo);
-  throw new Error(JSON.stringify(errInfo));
-}
-
-const compressImage = (file: File): Promise<Blob> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('فشل قراءة الملف'));
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onerror = () => reject(new Error('فشل تحميل الصورة'));
-      img.src = event.target?.result as string;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 1200;
-        const MAX_HEIGHT = 1200;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width;
-            width = MAX_WIDTH;
-          }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height;
-            height = MAX_HEIGHT;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return reject(new Error('فشل إنشاء سياق الرسم'));
-        ctx.drawImage(img, 0, 0, width, height);
-        canvas.toBlob((blob) => {
-          if (!blob) return reject(new Error('فشل ضغط الصورة'));
-          resolve(blob);
-        }, 'image/jpeg', 0.6);
-      };
-    };
-  });
-};
 
 const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selectedCompanyId, companies, onCancel, onSave }: any) {
   const isSuperAdmin = useMemo(() =>
