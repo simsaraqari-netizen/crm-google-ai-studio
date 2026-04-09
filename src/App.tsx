@@ -1260,7 +1260,7 @@ export default function App() {
             } as Property;
 
             // Check if it belongs to current filter (company)
-            const matchesCompany = isSuperAdmin ? (!selectedCompanyId || newProp.company_id === selectedCompanyId) : (newProp.company_id === user.company_id);
+            const matchesCompany = isSuperAdmin ? (!selectedCompanyId || newProp.company_id === selectedCompanyId) : (newProp.company_id === user.companyId);
             
             if (matchesCompany) {
               if (newProp.status === 'deleted') {
