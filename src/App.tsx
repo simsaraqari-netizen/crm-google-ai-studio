@@ -2283,12 +2283,14 @@ export default function App() {
                     onChange={(val) => setFilters({...filters, purpose: val})}
                   />
 
-                  <SearchableFilter 
-                    placeholder="الموقع..."
-                    options={availableFilterOptions.locations}
-                    value={filters.location}
-                    onChange={(val) => setFilters({...filters, location: val})}
-                  />
+                  {availableFilterOptions.locations.length > 0 && (
+                    <SearchableFilter
+                      placeholder="الموقع..."
+                      options={availableFilterOptions.locations}
+                      value={filters.location}
+                      onChange={(val) => setFilters({...filters, location: val})}
+                    />
+                  )}
 
                   <SearchableFilter 
                     placeholder="ابحث بالمستخدم..."

@@ -67,10 +67,11 @@ export function inferGovernorate(areaValue?: string, fallbackGovernorate?: strin
 export function inferPurpose(value?: string): string {
   const v = normalizeArabic(String(value || '').toLowerCase());
   if (!v) return '';
+  // بدل أولاً لأنه قد يحتوي على كلمة بيع
   if (v.includes('بدل')) return 'بدل';
-  if (v.includes('ايجار') || v.includes('اجار') || v.includes('للايجار')) return 'ايجار';
-  if (v.includes('شراء') || v.includes('شراي')) return 'شراء';
+  if (v.includes('ايجار') || v.includes('اجار') || v.includes('للايجار') || v.includes('استيجار')) return 'ايجار';
   if (v.includes('مستاجر')) return 'مستأجر';
+  if (v.includes('شراء') || v.includes('شراي') || v.includes('شري') || v.includes('سراء') || v.includes('شراي')) return 'شراء';
   if (v.includes('بيع') || v.includes('للبيع')) return 'بيع';
   return '';
 }
@@ -78,16 +79,15 @@ export function inferPurpose(value?: string): string {
 export function inferType(value?: string): string {
   const v = normalizeArabic(String(value || '').toLowerCase());
   if (!v) return '';
-  if (v.includes('ارض')) return 'أرض';
+  // ترتيب مهم: المركّب قبل البسيط
+  if (v.includes('بيت') && v.includes('حكومي')) return 'بيت حكومي';
+  if ((v.includes('قسيمه') || v.includes('قسيمة')) && (v.includes('مبني') || v.includes('مبنيه') || v.includes('مبنية'))) return 'قسيمة مبنية';
+  if (v.includes('ارض') || v.includes('أرض')) return 'ارض';
   if (v.includes('بيت')) return 'بيت';
-  if (v.includes('قسيمه') && v.includes('مبني')) return 'قسيمة مبنية';
-  if (v.includes('شقه') || v.includes('دور')) return 'شقة | دور';
-  if (v.includes('عماره')) return 'عمارة';
-  if (v.includes('شاليه')) return 'شالية';
-  if (v.includes('مزرعه')) return 'مزرعة';
+  if (v.includes('عماره') || v.includes('عمارة')) return 'عمارة';
+  if (v.includes('شاليه') || v.includes('شالية')) return 'شالية';
+  if (v.includes('مزرعه') || v.includes('مزرعة')) return 'مزرعة';
   if (v.includes('استثماري')) return 'استثماري';
-  if (v.includes('صناعي')) return 'صناعي';
-  if (v.includes('مخزن')) return 'مخازن';
   if (v.includes('تجاري')) return 'تجاري';
   if (v.includes('طلب')) return 'طلب';
   return '';
