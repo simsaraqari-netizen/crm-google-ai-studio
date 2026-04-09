@@ -2481,7 +2481,18 @@ export default function App() {
                 selectedCompanyId={selectedCompanyId}
                 companies={companies}
                 onCancel={() => window.history.back()}
-                onSave={() => setView('list')}
+                onSave={(savedData: any) => {
+                  if (savedData && savedData.id) {
+                    setProperties((prev: Property[]) => {
+                      const exists = prev.find(p => p.id === savedData.id);
+                      if (exists) {
+                        return prev.map(p => p.id === savedData.id ? { ...p, ...savedData } : p);
+                      }
+                      return [{ ...savedData, location: savedData.location === 'شارع واحد | سد' ? 'شارع واحد' : savedData.location } as Property, ...prev];
+                    });
+                  }
+                  setView('list');
+                }}
               />
             </div>
           )}
@@ -4179,7 +4190,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
       const data = {
         ...formData,
         images: formattedImages,
-        company_id: isSuperAdmin ? selectedCompanyId : user?.company_id,
+        company_id: isSuperAdmin ? selectedCompanyId : user?.companyId,
         assigned_employee_id: empId,
         assigned_employee_name: empName,
         updated_at: new Date().toISOString(),
@@ -4245,7 +4256,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
         handleSupabaseError(error, property ? OperationType.UPDATE : OperationType.CREATE, 'properties');
       }
       toast.success(property ? 'تم تحديث العقار بنجاح' : 'تمت إضافة العقار بنجاح');
-      onSave();
+      onSave(property ? { ...data, id: property.id } : data);
     } catch (error: any) {
       console.error("Error saving property:", error);
       let message = error.message;
