@@ -740,6 +740,16 @@ export default function App() {
     marketer: '',
     status: '' // '', 'available', 'sold'
   });
+  const [appliedFilters, setAppliedFilters] = useState({
+    query: '',
+    governorate: '',
+    area: '',
+    type: '',
+    purpose: '',
+    location: '',
+    marketer: '',
+    status: ''
+  });
 
   const searchSuggestions = useMemo(() => {
     if (!searchQuery.trim()) return [];
@@ -1583,7 +1593,8 @@ export default function App() {
       if (view === 'user-listings' && selectedMarketerId && p.assigned_employee_id !== selectedMarketerId) return false;
       if (view === 'pending-properties' && p.status !== 'pending') return false;
       
-      const query = activeSearchQuery;
+      const { query, governorate, area, type, purpose, location, marketer, status } = appliedFilters;
+      
       const matchesSearch = 
         searchMatch(p.name, query) || 
         searchMatch(p.phone, query) || 
@@ -1596,15 +1607,15 @@ export default function App() {
         searchMatch(p.id, query) ||
         searchMatch(p.assigned_employee_name || '', query);
       
-      const matchesGov = !filters.governorate || p.governorate === filters.governorate;
-      const matchesArea = !filters.area || p.area === filters.area;
-      const matchesType = !filters.type || p.type === filters.type;
-      const matchesPurpose = !filters.purpose || p.purpose === filters.purpose;
-      const matchesLocation = !filters.location || p.location === filters.location;
-      const matchesMarketer = !filters.marketer || p.assigned_employee_name === filters.marketer;
-      const matchesStatus = !filters.status || 
-                           (filters.status === 'sold' && p.is_sold) || 
-                           (filters.status === 'available' && !p.is_sold);
+      const matchesGov = !governorate || p.governorate === governorate;
+      const matchesArea = !area || p.area === area;
+      const matchesType = !type || p.type === type;
+      const matchesPurpose = !purpose || p.purpose === purpose;
+      const matchesLocation = !location || p.location === location;
+      const matchesMarketer = !marketer || p.assigned_employee_name === marketer;
+      const matchesStatus = !status || 
+                           (status === 'sold' && p.is_sold) || 
+                           (status === 'available' && !p.is_sold);
 
       return matchesSearch && matchesGov && matchesArea && matchesType && matchesPurpose && matchesLocation && matchesMarketer && matchesStatus;
     }).sort((a, b) => {
@@ -1612,7 +1623,7 @@ export default function App() {
       const dateB = b.createdAt?.seconds || 0;
       return dateB - dateA;
     });
-  }, [properties, deletedProperties, searchQuery, filters, view, favorites, user]);
+  }, [properties, deletedProperties, appliedFilters, favorites, user, view, selectedMarketerId]);
 
   if (loading) {
     return (
@@ -2203,51 +2214,86 @@ export default function App() {
                         </span>
                       )}
 
-                      <div className={`flex-1 flex items-center relative min-w-[120px] ${searchQuery && !isSearchFocused ? 'hidden' : ''}`}>
-                        <input 
-                          id="main-search-input"
-                          type="text"
-                          placeholder="ابحث بالاسم، الرقم، أو المنطقة..."
-                          className="w-full bg-transparent border-none outline-none text-sm py-1"
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(normalizeDigits(e.target.value))}
-                          onFocus={() => setIsSearchFocused(true)}
-                          onBlur={() => {
-                            setTimeout(() => setIsSearchFocused(false), 200);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              if (searchSuggestions.length > 0 && !searchSuggestions.includes(searchQuery)) {
-                                setSearchQuery(searchSuggestions[0]);
-                                setActiveSearchQuery(searchSuggestions[0]);
-                              } else {
-                                setActiveSearchQuery(searchQuery);
-                              }
-                              setIsSearchFocused(false);
-                            }
-                          }}
-                        />
-                        {searchQuery && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSearchQuery('');
-                              setActiveSearchQuery('');
+                      {/* Search Input and Button Container */}
+                      <div className="flex-1 flex gap-2 items-center">
+                        <div className={`flex-[2] flex items-center relative ${searchQuery && !isSearchFocused ? 'hidden' : ''}`}>
+                          <input 
+                            id="main-search-input"
+                            type="text"
+                            placeholder="ابحث بالاسم، الرقم، أو المنطقة..."
+                            className="w-full bg-transparent border-none outline-none text-sm py-1"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(normalizeDigits(e.target.value))}
+                            onFocus={() => setIsSearchFocused(true)}
+                            onBlur={() => {
+                              setTimeout(() => setIsSearchFocused(false), 200);
                             }}
-                            className="absolute right-0 text-stone-400 hover:text-stone-600 p-1"
-                          >
-                            <X size={16} />
-                          </button>
-                        )}
-                      </div>
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                // Mastering the trigger: Apply all filters on Enter
+                                setAppliedFilters({ ...filters, query: searchQuery });
+                                setIsSearchFocused(false);
+                              }
+                            }}
+                          />
+                          {searchQuery && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSearchQuery('');
+                              }}
+                              className="absolute right-0 text-stone-400 hover:text-stone-600 p-1"
+                            >
+                              <X size={16} />
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-3">
                       <button
-                        onClick={() => setActiveSearchQuery(searchQuery)}
-                        className="bg-emerald-500 text-white p-2.5 rounded-xl hover:bg-emerald-600 transition-all shadow-sm flex items-center justify-center min-w-[44px]"
-                        title="بحث"
+                        onClick={() => {
+                          setFilters({
+                            governorate: '',
+                            area: '',
+                            type: '',
+                            purpose: '',
+                            location: '',
+                            marketer: '',
+                            status: ''
+                          });
+                          setSearchQuery('');
+                          setAppliedFilters({
+                            query: '',
+                            governorate: '',
+                            area: '',
+                            type: '',
+                            purpose: '',
+                            location: '',
+                            marketer: '',
+                            status: ''
+                          });
+                        }}
+                        className="px-4 py-2 text-xs font-bold text-stone-500 hover:text-stone-900 transition-colors uppercase tracking-widest flex items-center gap-2 whitespace-nowrap"
                       >
-                        <Search size={20} />
+                        <RefreshCcw size={14} className="animate-hover" />
+                        مسح الكل
                       </button>
+                    </div>
+                  </div>
+                </div>
+                        <button
+                          onClick={() => {
+                            setAppliedFilters({ ...filters, query: searchQuery });
+                            setIsSearchFocused(false);
+                          }}
+                          className="flex-1 bg-emerald-500 text-white py-2 rounded-xl hover:bg-emerald-600 transition-all shadow-sm flex items-center justify-center gap-2 min-w-[80px]"
+                          title="بحث"
+                        >
+                          <Search size={18} />
+                          <span className="text-xs font-bold">بحث</span>
+                        </button>
+                      </div>
                     </div>
                     
                     <AnimatePresence>
