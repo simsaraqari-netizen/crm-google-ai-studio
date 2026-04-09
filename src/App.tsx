@@ -38,7 +38,8 @@ import {
   Bell,
   Building2,
   AlertTriangle,
-  Download
+  Download,
+  Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
@@ -398,66 +399,99 @@ function ImageViewer({ images, initialIndex, onClose, isSold }: any) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
 
   return (
-    <div className="fixed inset-0 z-[110] bg-black/95 flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
-      <button 
+    <AnimatePresence>
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[110] bg-black/95 flex items-center justify-center p-4" 
         onClick={(e) => {
           e.stopPropagation();
           onClose();
         }}
-        className="absolute top-6 right-6 text-white/70 hover:text-white p-3 bg-white/20 hover:bg-white/30 rounded-full transition-all z-[120]"
       >
-        <X size={32} />
-      </button>
-
-      {images.length > 1 && (
-        <>
+        <div className="absolute top-6 right-6 flex gap-4 z-[120]">
           <button 
-            onClick={() => setCurrentIndex((prev: number) => (prev === 0 ? images.length - 1 : prev - 1))}
-            className="absolute left-6 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-3 bg-white/10 rounded-full transition-all"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
+            className="text-white/70 hover:text-white p-3 bg-white/20 hover:bg-white/30 rounded-full transition-all"
           >
-            <ChevronLeft size={32} />
+            <X size={32} />
           </button>
-          <button 
-            onClick={() => setCurrentIndex((prev: number) => (prev === images.length - 1 ? 0 : prev + 1))}
-            className="absolute right-6 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-3 bg-white/10 rounded-full transition-all"
-          >
-            <ChevronRight size={32} />
-          </button>
-        </>
-      )}
+        </div>
 
-        <div className="max-w-5xl w-full h-full flex items-center justify-center relative">
-        {(() => {
-          const img = images[currentIndex];
-          const isVideo = typeof img === 'string' && (img.startsWith('data:video/') || img.toLowerCase().endsWith('.mp4') || img.includes('/video/'));
-          
-          return isVideo ? (
-            <video 
-              src={img} 
-              controls 
-              autoPlay
-              className={`max-w-full max-h-full object-contain rounded-lg shadow-2xl ${isSold ? 'grayscale opacity-60' : ''}`}
-            />
-          ) : (
-            <img 
-              src={img} 
-              className={`max-w-full max-h-full object-contain rounded-lg shadow-2xl ${isSold ? 'grayscale opacity-60' : ''}`} 
-              referrerPolicy="no-referrer"
-              alt=""
-            />
-          );
-        })()}
-        {isSold && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-            <span className="text-white font-black text-6xl tracking-wider transform -rotate-12 border-4 border-white px-8 py-3 rounded-2xl shadow-2xl bg-stone-700/80 backdrop-blur-sm">مباع</span>
-          </div>
+        {images.length > 1 && (
+          <>
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                setCurrentIndex((prev: number) => (prev === 0 ? images.length - 1 : prev - 1));
+              }}
+              className="absolute left-6 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-3 bg-white/10 hover:bg-white/20 rounded-full transition-all z-[120]"
+            >
+              <ChevronLeft size={32} />
+            </button>
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                setCurrentIndex((prev: number) => (prev === images.length - 1 ? 0 : prev + 1));
+              }}
+              className="absolute right-6 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-3 bg-white/10 hover:bg-white/20 rounded-full transition-all z-[120]"
+            >
+              <ChevronRight size={32} />
+            </button>
+          </>
         )}
-      </div>
 
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/50 text-sm font-bold">
-        {currentIndex + 1} / {images.length}
-      </div>
-    </div>
+        <div className="max-w-5xl w-full h-full flex items-center justify-center relative p-4" onClick={(e) => e.stopPropagation()}>
+          <motion.div
+            key={currentIndex}
+            initial={{ opacity: 0, scale: 0.9, x: 20 }}
+            animate={{ opacity: 1, scale: 1, x: 0 }}
+            exit={{ opacity: 0, scale: 1.1, x: -20 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="w-full h-full flex items-center justify-center"
+          >
+            {(() => {
+              const img = images[currentIndex];
+              if (!img) return null;
+              
+              const imgUrl = typeof img === 'string' ? img : (img?.url || '');
+              const isVideo = typeof img === 'string' 
+                ? (img.startsWith('data:video/') || img.toLowerCase().endsWith('.mp4') || img.includes('/video/'))
+                : (img?.type === 'video' || (img?.url && (img.url.startsWith('data:video/') || img.url.toLowerCase().endsWith('.mp4'))));
+              
+              return isVideo ? (
+                <video 
+                  src={imgUrl} 
+                  controls 
+                  autoPlay
+                  className={`max-w-full max-h-full object-contain rounded-lg shadow-2xl ${isSold ? 'grayscale opacity-60' : ''}`}
+                />
+              ) : (
+                <img 
+                  src={imgUrl} 
+                  className={`max-w-full max-h-full object-contain rounded-lg shadow-2xl ${isSold ? 'grayscale opacity-60' : ''}`} 
+                  referrerPolicy="no-referrer"
+                  alt=""
+                />
+              );
+            })()}
+            {isSold && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                <span className="text-white font-black text-6xl tracking-wider transform -rotate-12 border-4 border-white px-8 py-3 rounded-2xl shadow-2xl bg-stone-700/80 backdrop-blur-sm">مباع</span>
+              </div>
+            )}
+          </motion.div>
+        </div>
+
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/50 text-sm font-bold bg-white/10 px-4 py-2 rounded-full backdrop-blur-sm">
+          {currentIndex + 1} / {images.length}
+        </div>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 
@@ -1762,52 +1796,13 @@ export default function App() {
       />
       {/* Drawer Overlay */}
       {/* Image Preview Modal */}
-      <AnimatePresence>
-        {previewImages.length > 0 && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 md:p-10"
-            onClick={() => setPreviewImages([])}
-          >
-            <motion.button
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              className="absolute top-6 right-6 text-white bg-white/10 hover:bg-white/20 p-3 rounded-full backdrop-blur-md transition-all z-10"
-              onClick={() => setPreviewImages([])}
-            >
-              <X size={24} />
-            </motion.button>
-            
-            <motion.img 
-              key={previewIndex}
-              initial={{ x: 300, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: -300, opacity: 0 }}
-              src={previewImages[previewIndex]}
-              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-              drag="x"
-              dragConstraints={{ left: 0, right: 0 }}
-              onDragEnd={(e, { offset, velocity }) => {
-                const swipe = offset.x;
-                if (swipe < -100) {
-                  setPreviewIndex(prev => Math.min(prev + 1, previewImages.length - 1));
-                } else if (swipe > 100) {
-                  setPreviewIndex(prev => Math.max(prev - 1, 0));
-                }
-              }}
-            />
-            
-            {previewImages.length > 1 && (
-              <div className="absolute bottom-6 text-white text-sm font-bold bg-black/50 px-4 py-2 rounded-full">
-                {previewIndex + 1} / {previewImages.length}
-              </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {previewImages.length > 0 && (
+        <ImageViewer 
+          images={previewImages} 
+          initialIndex={previewIndex} 
+          onClose={() => setPreviewImages([])} 
+        />
+      )}
 
       <AnimatePresence>
         {isDrawerOpen && (
@@ -3620,253 +3615,242 @@ const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavori
       layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`ios-card overflow-hidden hover:shadow-lg transition-all group relative flex flex-col p-4 pb-3 min-h-[140px] cursor-pointer ${view === 'pending-properties' ? 'border-amber-300' : ''}`}
+      className={`ios-card overflow-hidden hover:shadow-xl transition-all group relative flex flex-col cursor-pointer bg-white border border-stone-100 ${view === 'pending-properties' ? 'border-amber-300 ring-2 ring-amber-100' : 'hover:border-emerald-200'}`}
       onClick={onClick}
     >
-      {/* Title - Full Width */}
-      <h3 className="text-sm font-bold text-stone-900 mb-2 line-clamp-2 leading-tight w-full text-right">
-        {property.name || 'عقار بدون اسم'}
-      </h3>
-
-      <div className="flex gap-3 flex-1 items-end mb-3">
-        {/* Image on the right (first child in RTL) - Smaller and at bottom */}
-        <div 
-          className="w-16 h-16 bg-stone-100 relative shrink-0 rounded-lg overflow-hidden shadow-inner group/img" 
-          onClick={(e) => {
-            e.stopPropagation();
-            if ((property.images || []).length > 0) {
-              const imageList = property.images.map((img: any) => typeof img === 'string' ? img : (img?.url || ''));
-              onImageClick(imageList, 0);
-            }
-          }}
-        >
-          {property.images?.[0] ? (
-            <div className="w-full h-full relative">
-              {(() => {
-                const img = property.images[0];
-                const url = typeof img === 'string' ? img : (img?.url || '');
-                const isVideo = typeof img === 'string' 
-                  ? (img.startsWith('data:video/') || img.toLowerCase().endsWith('.mp4')) 
-                  : (img?.type === 'video' || (img?.url && img.url.toLowerCase().endsWith('.mp4')));
-                
-                return isVideo ? (
-                  <video 
-                    src={url} 
-                    className={`w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
-                  />
-                ) : (
-                  <img 
-                    loading="lazy"
-                    src={url} 
-                    alt={generatePropertyTitle(property)} 
-                    className={`w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
-                    referrerPolicy="no-referrer"
-                  />
-                );
-              })()}
-              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
-                <ImageIcon className="text-white" size={14} />
+      {/* Image Section - Prominent at the top */}
+      <div 
+        className="relative aspect-[16/10] bg-stone-100 overflow-hidden group/img cursor-zoom-in" 
+        onClick={(e) => {
+          e.stopPropagation();
+          if ((property.images || []).length > 0) {
+            const imageList = property.images.map((img: any) => typeof img === 'string' ? img : (img?.url || ''));
+            onImageClick(imageList, 0);
+          }
+        }}
+      >
+        {property.images?.[0] ? (
+          <div className="w-full h-full relative">
+            {(() => {
+              const img = property.images[0];
+              const url = typeof img === 'string' ? img : (img?.url || '');
+              const isVideo = typeof img === 'string' 
+                ? (img.startsWith('data:video/') || img.toLowerCase().endsWith('.mp4')) 
+                : (img?.type === 'video' || (img?.url && img.url.toLowerCase().endsWith('.mp4')));
+              
+              return isVideo ? (
+                <video 
+                  src={url} 
+                  autoPlay muted loop playsInline
+                  className={`w-full h-full object-cover transition-transform duration-700 group-hover/img:scale-110 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
+                />
+              ) : (
+                <img 
+                  loading="lazy"
+                  src={url} 
+                  alt={generatePropertyTitle(property)} 
+                  className={`w-full h-full object-cover transition-transform duration-700 group-hover/img:scale-110 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
+                  referrerPolicy="no-referrer"
+                />
+              );
+            })()}
+            
+            {/* Visual feedback for click-to-enlarge */}
+            <div className="absolute inset-0 bg-black/10 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+              <div className="bg-white/20 backdrop-blur-md p-2 rounded-full border border-white/30 shadow-xl">
+                <Search className="text-white" size={20} />
               </div>
-              {property.is_sold && (
-                <div className="absolute inset-0 flex items-center justify-center bg-stone-700/80 backdrop-blur-sm z-20">
-                  <span className="text-white font-black text-[10px] tracking-wider transform -rotate-12 border-2 border-white px-1 py-0.5 rounded shadow-lg">مباع</span>
-                </div>
-              )}
             </div>
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-stone-50 relative overflow-hidden">
-              <div className="absolute inset-0 flex items-center justify-center opacity-50">
-                <svg viewBox="0 0 100 100" className="w-16 h-16">
-                  <path d="M10,65 L30,45 L50,65 L50,85 L10,85 Z" fill="#e0e7ff" />
-                  <path d="M30,65 L50,35 L70,65 L70,85 L30,85 Z" fill="#c7d2fe" />
-                  <path d="M50,65 L70,45 L90,65 L90,85 L50,85 Z" fill="#e0e7ff" />
-                  <path d="M25,40 C15,25 35,20 45,35 C35,45 25,45 25,40 Z" fill="#bbf7d0" />
-                  <path d="M45,35 C55,20 75,25 65,45 C55,45 45,45 45,35 Z" fill="#86efac" />
-                  <rect x="25" y="70" width="10" height="10" fill="#ffffff" rx="2" />
-                  <rect x="45" y="70" width="10" height="10" fill="#ffffff" rx="2" />
-                  <rect x="65" y="70" width="10" height="10" fill="#ffffff" rx="2" />
-                </svg>
-              </div>
-              <span className="text-[9px] font-bold text-emerald-800 text-center z-10 leading-tight drop-shadow-sm px-1 bg-white/70 rounded py-0.5 max-w-[90%] truncate">
-                {cleanAreaName(property.area)}
-              </span>
-              {property.is_sold && (
-                <div className="absolute inset-0 flex items-center justify-center bg-stone-700/80 backdrop-blur-sm z-20">
-                  <span className="text-white font-black text-[10px] tracking-wider transform -rotate-12 border-2 border-white px-1 py-0.5 rounded shadow-lg">مباع</span>
-                </div>
-              )}
-            </div>
-          )}
-          
-          {/* Badge on Image */}
-          {property.status_label && (
-            <div className="absolute top-0 right-0 left-0 z-10">
-              <span className="bg-amber-500/90 text-white px-1 py-0.5 text-[8px] font-black uppercase block text-center tracking-widest shadow-sm">
-                {property.status_label}
-              </span>
-            </div>
-          )}
 
-          {property.images && property.images.length > 1 && (
-            <div className="absolute bottom-0.5 right-0.5 bg-black/60 text-white text-[7px] px-1 rounded font-bold">
-              +{property.images.length - 1}
-            </div>
-          )}
-        </div>
-
-        {/* Text/Content on the left */}
-        <div className="flex-1 flex flex-col justify-between h-full min-w-0">
-          <div className="space-y-1">
-            {property.details && (
-              <p className="text-xs text-stone-600 leading-relaxed font-medium line-clamp-2 text-right">
-                {property.details}
-              </p>
-            )}
-            {property.last_comment && (
-              <div className="mt-2 p-2 rounded-lg border-r-2 border-emerald-500">
-                <p className="text-xs text-stone-700 line-clamp-1">
-                  {property.last_comment}
-                </p>
+            {property.is_sold && (
+              <div className="absolute inset-0 flex items-center justify-center bg-stone-900/60 backdrop-blur-[2px] z-20">
+                <span className="text-white font-black text-xl tracking-wider transform -rotate-12 border-4 border-white px-4 py-1 rounded-lg shadow-2xl">مباع</span>
               </div>
             )}
-          </div>
-        </div>
-      </div>
+            
+            {/* Status Label Badge */}
+            {property.status_label && (
+              <div className="absolute top-3 right-3 z-10">
+                <span className="bg-amber-500 text-white px-2.5 py-1 text-[10px] font-black rounded-lg shadow-lg border border-amber-400/50">
+                  {property.status_label}
+                </span>
+              </div>
+            )}
 
-      {/* Footer: Marketer Name + Purpose + Area + Phone + WhatsApp */}
-      <div className="flex items-center gap-1.5 mt-auto pt-3 border-t border-stone-100 text-[9px] font-bold text-stone-700">
-        {/* Area */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            if (onFilter && property.area) onFilter('area', property.area);
-          }}
-          className="text-stone-500 hover:underline truncate max-w-[35%]"
-        >
-          {cleanAreaName(property.area) || '-'}
-        </button>
-        <span>|</span>
-        {/* Purpose */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            if (onFilter && property.purpose) onFilter('purpose', property.purpose);
-          }}
-          className="text-emerald-600 hover:underline truncate max-w-[15%]"
-        >
-          {property.purpose || '-'}
-        </button>
-        <span>|</span>
-        {/* Property Type (Instead of Marketer Name) */}
-        <button 
-          onClick={(e) => {
-            e.stopPropagation();
-            if (onFilter && property.type) {
-              onFilter('type', property.type);
-            }
-          }}
-          className="hover:text-emerald-600 hover:underline truncate max-w-[25%]"
-        >
-          {property.type || 'غير محدد'}
-        </button>
-        {property.created_at && (
-          <span className="text-[9px] text-stone-400 font-normal">
-            {formatRelativeDate(property.created_at)}
-          </span>
-        )}
-        <span className="flex-1"></span>
-        {view === 'pending-properties' && isAdmin ? (
-          <div className="flex gap-2">
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                onApprove(property.id);
-              }}
-              className="bg-emerald-600 text-white px-2 py-1 rounded text-[10px]"
-            >
-              قبول
-            </button>
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                onReject(property.id);
-              }}
-              className="bg-red-600 text-white px-2 py-1 rounded text-[10px]"
-            >
-              رفض
-            </button>
-          </div>
-        ) : view === 'trash' && isAdmin ? (
-          <div className="flex items-center gap-1">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onRestore) onRestore(property.id);
-              }}
-              className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
-              title="استعادة"
-            >
-              <RefreshCw size={16} />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onPermanentDelete) onPermanentDelete(property.id);
-              }}
-              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all"
-              title="حذف نهائي"
-            >
-              <Trash2 size={16} />
-            </button>
+            {/* Image Count Badge */}
+            {property.images && property.images.length > 1 && (
+              <div className="absolute bottom-3 left-3 bg-black/50 backdrop-blur-md text-white text-[10px] px-2 py-1 rounded-lg font-bold flex items-center gap-1 border border-white/10">
+                <ImageIcon size={12} />
+                <span>{property.images.length}</span>
+              </div>
+            )}
           </div>
         ) : (
-          <div className="flex items-center gap-1">
-            {isAdmin && (
-              <>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (onEdit) onEdit(property);
-                  }}
-                  className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                  title="تعديل"
-                >
-                  <Edit size={16} />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (onDelete) onDelete(property.id);
-                  }}
-                  className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                  title="حذف"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </>
-            )}
+          <div className="w-full h-full flex flex-col items-center justify-center bg-stone-50 gap-2 border-b border-stone-100">
+            <div className="p-3 bg-white rounded-2xl shadow-sm">
+              <ImageIcon className="text-stone-300" size={32} />
+            </div>
+            <span className="text-[11px] font-bold text-stone-400">لا توجد صور</span>
+          </div>
+        )}
+        
+        {/* Purpose Badge Overlay */}
+        {property.purpose && (
+          <div className="absolute bottom-3 right-3 z-10">
+            <span className="bg-white/90 backdrop-blur-md text-emerald-800 px-2 py-1 text-[10px] font-black rounded-lg shadow-sm border border-stone-100">
+              {property.purpose}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Content Section */}
+      <div className="p-4 pt-4 flex flex-col flex-1 min-w-0">
+        <div className="flex justify-between items-start gap-2 mb-2">
+          <h3 className="text-sm font-extrabold text-stone-900 line-clamp-1 flex-1 text-right group-hover:text-emerald-700 transition-colors">
+            {property.name || 'عقار بدون اسم'}
+          </h3>
+          {property.price && (
+            <span className="text-emerald-600 font-black text-sm whitespace-nowrap">
+              {property.price}
+            </span>
+          )}
+        </div>
+
+        {property.details && (
+          <p className="text-[11px] text-stone-500 leading-relaxed line-clamp-2 text-right mb-4 min-h-[32px]">
+            {property.details}
+          </p>
+        )}
+
+        {property.last_comment && (
+          <div className="mb-4 p-2 bg-emerald-50/50 rounded-lg border-r-2 border-emerald-400 overflow-hidden">
+            <div className="flex items-center gap-1 justify-end mb-1">
+              <span className="text-[9px] font-bold text-emerald-700 uppercase tracking-tighter">آخر تحديث</span>
+              <MessageSquare size={10} className="text-emerald-500" />
+            </div>
+            <p className="text-[10px] text-stone-700 font-medium line-clamp-1 text-right italic">
+              "{property.last_comment}"
+            </p>
+          </div>
+        )}
+
+        {/* Footer: Meta Info */}
+        <div className="mt-auto pt-3 border-t border-stone-100">
+          <div className="flex items-center flex-wrap gap-y-2 gap-x-1.5 text-[10px] font-bold text-stone-700">
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                const shareUrl = `${window.location.origin}?propertyId=${property.id}`;
-                if (navigator.share) {
-                  navigator.share({
-                    title: property.title || 'عقار',
-                    text: property.details,
-                    url: shareUrl,
-                  }).catch(console.error);
-                } else {
-                  navigator.clipboard.writeText(shareUrl);
-                  toast.success('تم نسخ رابط العقار');
-                }
+                if (onFilter && property.area) onFilter('area', property.area);
               }}
-              className="p-1.5 text-stone-500 hover:bg-stone-100 rounded-lg transition-all"
-              title="مشاركة"
+              className="px-2 py-0.5 bg-stone-100 rounded text-stone-600 hover:bg-stone-200 transition-colors truncate max-w-[120px]"
             >
-              <Share2 size={16} />
+              {cleanAreaName(property.area) || '-'}
             </button>
+            <span className="text-stone-300">/</span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onFilter && property.type) onFilter('type', property.type);
+              }}
+              className="px-2 py-0.5 bg-emerald-50 rounded text-emerald-700 hover:bg-emerald-100 transition-colors truncate"
+            >
+              {property.type || 'غير محدد'}
+            </button>
+            
+            <div className="flex-1"></div>
+
+            <div className="flex items-center gap-1">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const shareUrl = `${window.location.origin}?propertyId=${property.id}`;
+                  if (navigator.share) {
+                    navigator.share({
+                      title: property.name || 'عقار',
+                      text: property.details,
+                      url: shareUrl,
+                    }).catch(console.error);
+                  } else {
+                    navigator.clipboard.writeText(shareUrl);
+                    toast.success('تم نسخ رابط العقار');
+                  }
+                }}
+                className="p-1.5 text-stone-500 hover:bg-stone-100 rounded-lg transition-all"
+                title="مشاركة"
+              >
+                <Share2 size={14} />
+              </button>
+
+              {view === 'pending-properties' && isAdmin ? (
+                <div className="flex gap-1.5">
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); onApprove(property.id); }}
+                    className="bg-emerald-600 text-white px-2.5 py-1 rounded-md text-[9px] font-bold shadow-sm shadow-emerald-200"
+                  >
+                    قبول
+                  </button>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); onReject(property.id); }}
+                    className="bg-red-600 text-white px-2.5 py-1 rounded-md text-[9px] font-bold shadow-sm shadow-red-200"
+                  >
+                    رفض
+                  </button>
+                </div>
+              ) : view === 'trash' && isAdmin ? (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); if (onRestore) onRestore(property.id); }}
+                    className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                    title="استعادة"
+                  >
+                    <RefreshCw size={14} />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); if (onPermanentDelete) onPermanentDelete(property.id); }}
+                    className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                    title="حذف نهائي"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1">
+                  {isAdmin && (
+                    <>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); if (onEdit) onEdit(property); }}
+                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                        title="تعديل"
+                      >
+                        <Edit size={14} />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); if (onDelete) onDelete(property.id); }}
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                        title="حذف"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </>
+                  )}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onFavorite(); }}
+                    className={`p-1.5 rounded-lg transition-all ${isFavorite ? 'text-red-500 bg-red-50' : 'text-stone-400 hover:bg-stone-50'}`}
+                  >
+                    <Heart size={14} fill={isFavorite ? 'currentColor' : 'none'} />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-        )}
+          {property.created_at && (
+            <div className="mt-2 text-[9px] text-stone-400 font-normal text-right flex items-center justify-end gap-1">
+              <span>{formatRelativeDate(property.created_at)}</span>
+              <Clock size={8} />
+            </div>
+          )}
+        </div>
       </div>
     </motion.div>
   );
@@ -3901,11 +3885,22 @@ interface SupabaseErrorInfo {
 }
 
 async function handleSupabaseError(error: unknown, operationType: OperationType, path: string | null) {
-  console.error('[DIAGNOSTIC] Raw Supabase Error:', error);
+  console.error(`[DIAGNOSTIC] Supabase Error (${operationType} on ${path}):`, error);
   const { data: { session } } = await supabase.auth.getSession();
   
+  let errorMessage = 'An unknown error occurred';
+  if (error instanceof Error) {
+    errorMessage = error.message;
+  } else if (typeof error === 'object' && error !== null) {
+    // Handle Supabase/Postgres error objects
+    const anyErr = error as any;
+    errorMessage = anyErr.message || anyErr.error || anyErr.details || JSON.stringify(error);
+  } else {
+    errorMessage = String(error);
+  }
+
   const errInfo: SupabaseErrorInfo = {
-    error: error instanceof Error ? error.message : (typeof error === 'object' && error !== null ? JSON.stringify(error) : String(error)),
+    error: errorMessage,
     authInfo: {
       userId: session?.user?.id,
       email: session?.user?.email || null,
@@ -3917,7 +3912,8 @@ async function handleSupabaseError(error: unknown, operationType: OperationType,
     operationType,
     path
   }
-  console.error('Supabase Error Info: ', JSON.stringify(errInfo));
+  
+  console.error('Unified Error Info:', errInfo);
   throw new Error(JSON.stringify(errInfo));
 }
 
@@ -4157,8 +4153,14 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
         }
       }
 
+      // Format images for Supabase (if the column is text[], it only accepts strings)
+      const formattedImages = (formData.images || []).map((img: any) => 
+        typeof img === 'string' ? img : (img?.url || '')
+      ).filter(Boolean);
+
       const data = {
         ...formData,
+        images: formattedImages,
         company_id: isSuperAdmin ? selectedCompanyId : user?.company_id,
         assigned_employee_id: empId,
         assigned_employee_name: empName,
@@ -4974,7 +4976,12 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
             <div className="flex flex-col gap-6">
               <div className="space-y-4">
                 <div className="flex flex-col gap-1">
-                  <h1 className="text-xl font-bold serif text-stone-900 text-right">{property.name || 'عقار بدون اسم'}</h1>
+                  <div className="flex justify-between items-center w-full">
+                    {property.price && (
+                      <span className="text-emerald-600 font-black text-xl">{property.price}</span>
+                    )}
+                    <h1 className="text-xl font-bold serif text-stone-900 text-right">{property.name || 'عقار بدون اسم'}</h1>
+                  </div>
                   {property.created_at && (
                     <p className="text-[10px] text-stone-400 text-right">
                       تم الإضافة {formatRelativeDate(property.created_at)}
