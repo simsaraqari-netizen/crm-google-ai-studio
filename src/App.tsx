@@ -4466,141 +4466,10 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
             className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-sm mt-2"
             value={formData.assigned_employee_phone || ''}
             onChange={(e) => setFormData({...formData, assigned_employee_phone: e.target.value})}
-        {/* Section 5: Media */}
+          />
+        </div>
         <div className="space-y-6">
-          <div className="flex items-center gap-2 text-emerald-600 border-b border-emerald-100 pb-2">
-            <ImageIcon size={20} />
-            <h3 className="font-bold text-lg text-center">إضافة صور أو فيديو</h3>
-          </div>
-          
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-            {formData.images.map((img: { url: string, type: 'image' | 'video' }, index: number) => (
-              <motion.div 
-                key={index} 
-                layout
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="relative aspect-square rounded-2xl overflow-hidden border border-stone-200 group shadow-sm"
-              >
-                {img.type === 'video' ? (
-                  <video src={img.url} className="w-full h-full object-cover" />
-                ) : (
-                  <img src={img.url} alt="" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
-                )}
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <button 
-                    type="button"
-                    onClick={() => removeImage(index)}
-                    className="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transform hover:scale-110 transition-all"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-              </motion.div>
-            ))}
-            
-            {formData.images.length < 20 && (
-              <label htmlFor="image-upload" className={`aspect-square rounded-2xl border-2 border-dashed border-stone-300 flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500 hover:bg-emerald-50 transition-all group ${isUploading ? 'opacity-50 cursor-wait' : ''}`}>
-                <input
-                  id="image-upload"
-                  type="file"
-                  multiple
-                  accept="image/*,video/*"
-                  className="hidden"
-                  onChange={handleImageUpload}
-                  disabled={isUploading}
-                />
-                <div className="bg-stone-100 p-3 rounded-full group-hover:bg-emerald-100 transition-colors">
-                  <Upload className="text-stone-400 group-hover:text-emerald-600" size={24} />
-                </div>
-                <span className="text-xs font-bold text-stone-500 mt-2">{isUploading ? 'جاري الرفع...' : 'إضافة صور أو فيديو'}</span>
-                <span className="text-[10px] text-stone-400 mt-1">{formData.images.length}/20</span>
-              </label>
-            )}
-          </div>
-        </div>
-
-        {/* Footer Actions */}
-        <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-stone-100">
-          <button 
-            type="submit"
-            disabled={isSaving || isUploading}
-            className={`flex-[2] bg-emerald-600 text-white py-4 rounded-lg font-bold hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 shadow-xl shadow-emerald-100 transform active:scale-95 ${(isSaving || isUploading) ? 'opacity-70 cursor-not-allowed' : ''}`}
-          >
-            {isSaving ? (
-              <>
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                جاري الحفظ...
-              </>
-            ) : isUploading ? (
-              <>
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                جاري رفع الملفات...
-              </>
-            ) : (
-              <>
-                <Tag size={20} />
-                {property ? 'تحديث البيانات' : 'حفظ العقار الجديد'}
-              </>
-            )}
-          </button>
-          <button 
-            type="button"
-            onClick={onCancel}
-            disabled={isSaving}
-            className="flex-1 bg-stone-100 text-stone-600 py-4 rounded-lg font-bold hover:bg-stone-200 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            <X size={20} />
-            إلغاء
-          </button>
-        </div>
-      </form>
-
-      <AnimatePresence>
-        {showConfirm && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-2xl p-6 max-w-2xl w-full shadow-2xl space-y-4"
-            >
-              <div className="flex items-center gap-3 text-amber-600">
-                <Info size={24} />
-                <h3 className="text-lg font-bold text-center">تنبيه: حقول ناقصة</h3>
-              </div>
-              <p className="text-stone-600 text-sm leading-relaxed">
-                الحقول التالية لم يتم ملؤها:
-                <br />
-                <span className="font-bold text-stone-900">{missingFieldsList.join('، ')}</span>
-                <br />
-                هل أنت متأكد من رغبتك في حفظ العقار بدون هذه البيانات؟
-              </p>
-              <div className="flex gap-3 pt-2">
-                <button 
-                  type="button"
-                  onClick={() => handleSubmit(null as any, true)}
-                  className="flex-1 bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition-all"
-                >
-                  نعم، احفظ الآن
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => setShowConfirm(false)}
-                  className="flex-1 bg-stone-100 text-stone-600 py-3 rounded-xl font-bold hover:bg-stone-200 transition-all"
-                >
-                  تراجع للإكمال
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-    </motion.div>
-  );
-});
-
-const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, isAdmin, isFavorite, onFavorite, onEdit, onDelete, onRestore, onPermanentDelete, onDeleteComment, onUserClick, onFilter }: any) {
+          <div className="flex items-center gap-2 text-emerald-600 border-b border-emerald-100 pb-2"const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, isAdmin, isFavorite, onFavorite, onEdit, onDelete, onRestore, onPermanentDelete, onDeleteComment, onUserClick, onFilter }: any) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [commentImages, setCommentImages] = useState<Array<{ url: string, type: 'image' | 'video' }>>([]);
@@ -4749,6 +4618,10 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
     }
   };
 
+  const removeCommentImage = (index: number) => {
+    setCommentImages(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleShare = async () => {
     const shareData = {
       title: property.name || 'عقار',
@@ -4788,7 +4661,6 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
 
   const safeImages = Array.isArray(property.images) ? property.images : [];
   const employeeWhatsappUrl = property.assigned_employee_phone ? `https://wa.me/${String(property.assigned_employee_phone).replace(/\+/g, '').replace(/\s/g, '')}` : null;
-  const propertyWhatsappUrl = property.phone ? `https://wa.me/${String(property.phone).replace(/\+/g, '').replace(/\s/g, '')}` : null;
 
   return (
     <motion.div 
@@ -4841,7 +4713,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
               <Share2 size={18} />
             </button>
             <button onClick={onFavorite} className={`p-2.5 rounded-full transition-all active:scale-90 ${isFavorite ? 'text-red-500' : 'text-stone-600 hover:text-red-500'}`} title="المفضلة">
-              <Heart size={18} fill={isFavorite ? 'currentColor' : 'none'} />
+              <Heart size={18} fill={isFavorite ? 'currentColor' : 'none'} fillOpacity={isFavorite ? 1 : 0} />
             </button>
           </div>
         </div>
@@ -4986,353 +4858,215 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                     </div>
                   </div>
                 )}
-                        onClick={() => {
-                          const imageList = safeImages.map((item: any) => typeof item === 'string' ? item : (item?.url || ''));
-                          setViewerImages(imageList);
-                          setViewerIndex(i);
-                          setShowViewer(true);
-                        }}
-                        className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${i === activeImageIndex ? 'border-emerald-500 scale-95' : 'border-transparent hover:border-stone-300'}`}
-                      >
-                        {isVideo ? (
-                          <div className="w-full h-full bg-black flex items-center justify-center">
-                            <video src={url} className="w-full h-full object-cover" />
-                          </div>
-                        ) : (
-                          <img src={url} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Right: Comments & Info */}
+      {/* Right Column: Comments & Info */}
       <div className="space-y-4">
-        {/* Comments List Box */}
-        <div className="ios-card p-5 h-[500px] flex flex-col">
-          <div className="flex justify-between items-center mb-5">
-            <h3 className="text-sm font-bold flex items-center gap-2 text-stone-900 justify-center">
-              <MessageSquare size={16} className="text-emerald-600" /> 
+        {/* Comments Box */}
+        <div className="ios-card flex flex-col h-[500px]">
+          <div className="p-4 border-b border-stone-100 flex items-center justify-between bg-stone-50/50">
+            <h3 className="font-bold text-stone-900 flex items-center gap-2">
+              <MessageSquare size={18} className="text-emerald-600" />
               الملاحظات والتعليقات
             </h3>
+            <span className="bg-stone-200 text-stone-600 text-[10px] px-2 py-0.5 rounded-full font-bold">{comments.length}</span>
           </div>
-          
-          <div className="flex-1 overflow-y-auto space-y-4 pr-1 scrollbar-hide">
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide">
             {comments.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-stone-400 space-y-2 opacity-50">
-                <MessageSquare size={32} />
-                <p className="text-sm">لا توجد تعليقات بعد</p>
+              <div className="h-full flex flex-col items-center justify-center text-stone-400 space-y-3 opacity-60">
+                <div className="p-4 bg-stone-100 rounded-full">
+                  <MessageSquare size={32} />
+                </div>
+                <p className="text-sm font-medium">لا توجد تعليقات بعد</p>
               </div>
             ) : (
               comments.map((c) => (
-                <div key={c.id} className="flex flex-col items-start w-full">
-                  <div className={`w-full p-4 rounded-xl shadow-sm ${c.user_id === user.uid ? 'bg-emerald-50 border border-emerald-100' : 'bg-stone-50 border border-stone-100'}`}>
+                <motion.div 
+                  key={c.id} 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`flex flex-col gap-2 ${c.user_id === user.uid ? 'items-start' : 'items-start'}`}
+                >
+                  <div className={`max-w-[90%] p-4 rounded-2xl shadow-sm border ${c.user_id === user.uid ? 'bg-emerald-50 border-emerald-100 rounded-tr-none' : 'bg-white border-stone-100 rounded-tl-none'}`}>
                     <div className="flex items-center justify-between gap-4 mb-2">
-                      <p className="text-sm font-bold text-stone-900">{c.user_name}</p>
-                      {c.user_phone && (
-                        <a
-                          href={`https://wa.me/${c.user_phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`السلام عليكم، بخصوص هذا العقار: ${window.location.href}`)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-green-700 flex items-center gap-1 hover:underline"
-                        >
-                          {c.user_phone}
-                          <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
-                        </a>
-                      )}
-                      <div className="flex items-center gap-3">
-                        <p className="text-xs text-stone-500">
-                          {formatDateTime(c.created_at) || 'جاري التحميل...'}
-                        </p>
-                        <div className="flex items-center gap-2">
-                          {(c.user_id === user.uid || isAdmin) && (
-                            <button 
-                              onClick={() => {
-                                setEditingCommentId(c.id);
-                                setEditCommentText(c.text);
-                              }}
-                              className="text-stone-400 hover:text-emerald-600 transition-colors"
-                              title="تعديل"
-                            >
-                              <Edit size={14} />
-                            </button>
-                          )}
-                          {isAdmin && (
-                            <button 
-                              onClick={() => {
-                                onDeleteComment(c.id);
-                              }}
-                              className="text-stone-400 hover:text-red-600 transition-colors"
-                              title="حذف"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
+                      <span className="text-xs font-bold text-emerald-800">{c.user_name}</span>
+                      <span className="text-[10px] text-stone-400">{formatRelativeDate(c.created_at)}</span>
                     </div>
-                    
+
                     {editingCommentId === c.id ? (
-                      <div className="mt-2 space-y-2">
+                      <div className="space-y-2">
                         <textarea 
-                          className="w-full p-3 bg-white border border-stone-200 rounded-lg text-base focus:ring-1 focus:ring-emerald-500 transition-all resize-none"
+                          className="w-full p-2 text-sm bg-white border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
                           rows={3}
                           value={editCommentText}
                           onChange={(e) => setEditCommentText(e.target.value)}
                         />
-                        <div className="flex gap-2 justify-end">
-                          <button 
-                            onClick={() => setEditingCommentId(null)}
-                            className="px-3 py-1.5 text-sm text-stone-500 hover:bg-stone-100 rounded-md transition-colors"
-                          >
-                            إلغاء
-                          </button>
+                        <div className="flex justify-end gap-2">
+                          <button onClick={() => setEditingCommentId(null)} className="text-xs text-stone-500 hover:underline">إلغاء</button>
                           <button 
                             onClick={async () => {
                               if (!editCommentText.trim()) return;
-                              try {
-                                await supabase.from('comments').update({
-                                  text: editCommentText,
-                                  updated_at: new Date().toISOString()
-                                }).eq('id', c.id);
-
-                                // Update last comment on property card if this was the latest
-                                const sorted = [...comments].sort((a, b) => {
-                                  const createdAtA = (a as any).created_at || a.createdAt;
-                                  const createdAtB = (b as any).created_at || b.createdAt;
-                                  const timeA = new Date(createdAtA).getTime();
-                                  const timeB = new Date(createdAtB).getTime();
-                                  return timeB - timeA;
-                                });
-                                if (c.id === sorted[0]?.id) {
-                                  await supabase.from('properties').update({
-                                    last_comment: editCommentText
-                                  }).eq('id', property.id);
-                                }
-
-                                setEditingCommentId(null);
-                              } catch (error) {
-                                console.error("Error updating comment:", error);
-                              }
+                              await supabase.from('comments').update({ text: editCommentText }).eq('id', c.id);
+                              setEditingCommentId(null);
                             }}
-                            className="px-3 py-1.5 text-sm bg-emerald-600 text-white hover:bg-emerald-700 rounded-md transition-colors"
+                            className="bg-emerald-600 text-white px-3 py-1 rounded-md text-xs font-bold"
                           >
-                            حفظ التعديل
+                            حفظ
                           </button>
                         </div>
                       </div>
                     ) : (
-                      <div className="mt-2 space-y-3">
-                        {c.text && (
-                          <div className="text-stone-800 text-sm leading-relaxed whitespace-pre-wrap">
-                            <Markdown 
-                              remarkPlugins={[remarkGfm]}
-                              components={{
-                                img: () => null
-                              }}
-                            >
-                              {c.text}
-                            </Markdown>
+                      <>
+                        <p className="text-sm text-stone-700 leading-relaxed whitespace-pre-wrap">{c.text}</p>
+                        {Array.isArray(c.images) && c.images.length > 0 && (
+                          <div className="grid grid-cols-2 gap-2 mt-3">
+                            {c.images.map((img: any, idx) => (
+                              <div 
+                                key={idx} 
+                                onClick={() => {
+                                  setViewerImages(c.images.map((i: any) => typeof i === 'string' ? i : (i?.url || '')));
+                                  setViewerIndex(idx);
+                                  setShowViewer(true);
+                                }}
+                                className="relative aspect-square rounded-lg overflow-hidden border border-emerald-100 cursor-pointer hover:opacity-90 transition-opacity"
+                              >
+                                {((typeof img === 'string' ? img : img.url).toLowerCase().endsWith('.mp4')) ? (
+                                  <div className="w-full h-full bg-black flex items-center justify-center">
+                                    <Play size={16} className="text-white" />
+                                  </div>
+                                ) : (
+                                  <img src={typeof img === 'string' ? img : img.url} alt="" className="w-full h-full object-cover" />
+                                )}
+                              </div>
+                            ))}
                           </div>
                         )}
-                        
-                        {(Array.isArray(c.images) && c.images.length > 0) ? (
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {c.images.map((img: any, idx) => {
-                              const url = typeof img === 'string' ? img : (img?.url || '');
-                              const isVideo = typeof img === 'string' 
-                                ? (img.startsWith('data:video/') || img.toLowerCase().endsWith('.mp4')) 
-                                : (img?.type === 'video' || (img?.url && String(img.url).startsWith('data:video/') || String(img.url).toLowerCase().endsWith('.mp4')));
-
-                              return (
-                                <motion.div
-                                  key={idx}
-                                  whileHover={{ scale: 1.02 }}
-                                  whileTap={{ scale: 0.98 }}
-                                  onClick={() => {
-                                    const imageList = Array.isArray(c.images) ? c.images.map((i: any) => typeof i === 'string' ? i : (i?.url || '')) : [];
-                                    setViewerImages(imageList);
-                                    setViewerIndex(idx);
-                                    setShowViewer(true);
-                                  }}
-                                  className="relative w-20 h-20 rounded-lg overflow-hidden border border-stone-200 cursor-pointer shadow-sm"
-                                >
-                                  {isVideo ? (
-                                    <div className="w-full h-full bg-black flex items-center justify-center">
-                                      <video src={url} className="w-full h-full object-cover" />
-                                    </div>
-                                  ) : (
-                                    <img src={url} alt="" className="w-full h-full object-cover" />
-                                  )}
-                                </motion.div>
-                              );
-                            })}
-                          </div>
-                        ) : (typeof c.image_url === 'string' && c.image_url) ? (
-                          <div className="mt-2">
-                            <motion.div
-                              whileHover={{ scale: 1.02 }}
-                              whileTap={{ scale: 0.98 }}
-                              onClick={() => {
-                                setViewerImages([String(c.image_url)]);
-                                setViewerIndex(0);
-                                setShowViewer(true);
-                              }}
-                              className="relative w-24 h-24 rounded-lg overflow-hidden border border-stone-200 cursor-pointer shadow-sm"
-                            >
-                              {(c.image_url.startsWith('data:video/') || c.image_url.toLowerCase().endsWith('.mp4')) ? (
-                                <video src={c.image_url} className="w-full h-full object-cover" />
-                              ) : (
-                                <img src={c.image_url} alt="" className="w-full h-full object-cover" />
-                              )}
-                            </motion.div>
-                          </div>
-                        ) : null}
-                      </div>
+                      </>
                     )}
                   </div>
-                </div>
+                  
+                  <div className="flex items-center gap-3 px-1">
+                    {(c.user_id === user.uid || isAdmin) && (
+                      <button onClick={() => { setEditingCommentId(c.id); setEditCommentText(c.text); }} className="text-[10px] text-stone-400 hover:text-emerald-600">تعديل</button>
+                    )}
+                    {isAdmin && (
+                      <button onClick={() => onDeleteComment(c.id)} className="text-[10px] text-stone-400 hover:text-red-500">حذف</button>
+                    )}
+                  </div>
+                </motion.div>
               ))
             )}
           </div>
-        </div>
 
-        {/* Add Note Box */}
-        <div className="ios-card p-5">
-          <h3 className="text-sm font-bold mb-5 flex items-center gap-2 text-stone-900 justify-center">
-            <Plus size={16} className="text-emerald-500" /> 
-            إضافة ملاحظة
-          </h3>
-          {(user.role === 'employee' || user.role === 'admin' || user.role === 'super_admin' || (user.email && SUPER_ADMIN_EMAILS.includes(user.email))) ? (
-            <form onSubmit={handleAddComment} className="space-y-2">
-              <div className="relative">
+          <div className="p-4 border-t border-stone-100 bg-white">
+            <form onSubmit={handleAddComment} className="space-y-3">
+              <div className="relative group">
                 <textarea 
                   id="comment-textarea"
-                  placeholder="أضف ملاحظة أو تعليق... (يمكنك استخدام Markdown)"
-                  rows={4}
-                  className="w-full p-4 bg-stone-50/50 border border-stone-100 rounded-xl text-base focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none pb-14"
+                  placeholder="أضف تعليقاً..."
+                  rows={2}
+                  className="w-full p-4 bg-stone-50 border border-stone-200 rounded-2xl text-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-all resize-none pr-12"
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
                 />
-                <div className="absolute bottom-3 right-3 flex gap-3">
-                  <input 
-                    id="comment-image-upload"
-                    type="file" 
-                    onChange={handleCommentImageUpload}
-                    multiple
-                    accept="image/*,video/*"
-                    className="hidden"
-                  />
-                  <label 
-                    htmlFor="comment-image-upload"
-                    className={`p-2.5 bg-white border border-stone-100 rounded-full text-emerald-600 hover:bg-emerald-50 hover:border-emerald-500 transition-all shadow-sm flex items-center justify-center cursor-pointer ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
-                    title="إضافة صور أو فيديو (حتى 10)"
-                  >
-                    {isUploading ? (
-                      <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <ImageIcon size={24} />
-                    )}
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input 
-                      type="text"
-                      placeholder="رابط الصورة/الفيديو..."
-                      className="p-2 text-sm border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-                      onBlur={(e) => {
-                        if (e.target.value) {
-                          insertAtCursor(`[رابط](${e.target.value})`);
-                          e.target.value = '';
-                        }
-                      }}
-                    />
-                    <LinkIcon size={20} className="text-stone-400" />
-                  </div>
-                </div>
+                <button 
+                  type="submit"
+                  disabled={isUploading || (!newComment.trim() && commentImages.length === 0)}
+                  className="absolute left-3 bottom-3 p-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:bg-stone-300"
+                >
+                  <Send size={18} />
+                </button>
+                <label htmlFor="comment-image-upload" className="absolute right-3 top-3 p-2 text-stone-400 hover:text-emerald-600 cursor-pointer transition-colors">
+                  <ImageIcon size={20} />
+                  <input id="comment-image-upload" type="file" onChange={handleCommentImageUpload} multiple accept="image/*,video/*" className="hidden" />
+                </label>
               </div>
 
               {commentImages.length > 0 && (
                 <div className="flex flex-wrap gap-2 p-2 bg-stone-50 rounded-xl border border-stone-100">
                   {commentImages.map((img, idx) => (
-                    <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-stone-200 group">
+                    <div key={idx} className="relative w-12 h-12 rounded-lg overflow-hidden border border-stone-200 group">
                       {img.type === 'video' ? (
-                        <video src={img.url} className="w-full h-full object-cover" />
+                        <div className="w-full h-full bg-black flex items-center justify-center"><Play size={12} className="text-white" /></div>
                       ) : (
                         <img src={img.url} alt="" className="w-full h-full object-cover" />
                       )}
-                      <button
-                        type="button"
-                        onClick={() => removeCommentImage(idx)}
-                        className="absolute top-0.5 right-0.5 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <X size={10} />
-                      </button>
+                      <button type="button" onClick={() => removeCommentImage(idx)} className="absolute -top-1 -right-1 bg-red-500 text-white p-0.5 rounded-full shadow-sm"><X size={10} /></button>
                     </div>
                   ))}
                 </div>
               )}
-
-              <button 
-                type="submit"
-                disabled={isUploading || (!newComment.trim() && commentImages.length === 0)}
-                className="w-full bg-emerald-500 text-white px-4 py-3 rounded-xl hover:bg-emerald-600 active:scale-[0.98] transition-all text-sm font-bold mt-2 shadow-sm disabled:opacity-50"
-              >
-                {isUploading ? 'جاري الإرسال...' : 'إرسال التعليق'}
-              </button>
             </form>
-          ) : (
-            <div className="p-3 bg-stone-50 rounded-lg border border-stone-100 text-center">
-              <p className="text-[10px] text-stone-500">التعليقات متاحة للمستخدمين فقط</p>
-            </div>
-          )}
+          </div>
         </div>
 
-        {/* Marketer Info Box */}
-        <div className="ios-card p-5">
-          <div className="flex items-center gap-4 p-4 bg-stone-50 rounded-xl border border-stone-100 w-full">
-            <div className="flex flex-col items-start gap-2" dir="ltr">
-              <div className="flex items-center gap-2">
-                <a
-                  href={`https://wa.me/${(property.assigned_employee_phone || property.phone).replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`السلام عليكم، بخصوص هذا العقار: ${window.location.href}`)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-10 h-10 flex items-center justify-center text-green-600 bg-white border border-stone-100 hover:bg-green-50 rounded-full transition-colors shadow-sm"
-                  title="واتساب"
-                >
-                  <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
-                </a>
-                <a 
-                  href={`tel:${property.assigned_employee_phone || property.phone}`}
-                  className="w-10 h-10 flex items-center justify-center text-emerald-600 bg-white border border-stone-100 hover:bg-emerald-50 rounded-full transition-colors shadow-sm"
-                  title="اتصال"
-                >
-                  <Phone size={18} />
-                </a>
-              </div>
-              <span className="text-xs font-bold text-stone-600">
-                {property.assigned_employee_phone || property.phone}
-              </span>
-              {property.created_at && (
-                <p className="text-xs text-stone-400 mt-1">
-                  تاريخ الإدخال: {formatDateTime(property.created_at) || 'جاري التحميل...'}
-                </p>
-              )}
+        {/* Info Cards */}
+        <div className="space-y-3">
+          <div className="ios-card p-4 flex items-center gap-4 bg-stone-50/50">
+            <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 flex-shrink-0">
+              <User size={24} />
             </div>
             <div className="flex-1 min-w-0 text-right">
-              <button 
-                onClick={() => {
-                  if (onUserClick && property.assigned_employee_id) {
-                    onUserClick(property.assigned_employee_id);
-                  }
-                }}
-                className="text-xs font-bold text-stone-900 hover:text-emerald-700 transition-colors text-right truncate w-full block"
-              >
-                {property.assigned_employee_name || 'غير محدد'}
+              <p className="text-[10px] text-stone-400">المسؤول عن العقار</p>
+              <h4 className="font-bold text-stone-900 truncate">{property.assigned_employee_name || 'غير محدد'}</h4>
+            </div>
+          </div>
+
+          <div className="ios-card p-5 space-y-4">
+            <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2 justify-end border-b border-stone-100 pb-3">
+              المواصفات والعنوان
+              <MapPin size={18} className="text-emerald-600" />
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: 'المحافظة', value: property.governorate, key: 'governorate' },
+                { label: 'المنطقة', value: cleanAreaName(property.area), key: 'area' },
+                { label: 'النوع', value: property.type, key: 'type' },
+                { label: 'الغرض', value: property.purpose, key: 'purpose' },
+                { label: 'القطعة', value: property.block, key: 'block' },
+                { label: 'القسيمة', value: property.plot_number, key: 'plotNumber' },
+                { label: 'الموقع', value: property.street, key: 'street' },
+                { label: 'الجادة', value: property.avenue, key: 'avenue' },
+                { label: 'المنزل', value: property.house_number, key: 'houseNumber' }
+              ].filter(attr => attr.value).map((attr, idx) => (
+                <button 
+                  key={idx}
+                  onClick={() => onFilter(attr.key, attr.value)}
+                  className="flex flex-col items-end p-3 bg-stone-50 rounded-xl border border-transparent hover:border-emerald-200 hover:bg-emerald-50 transition-all text-right group"
+                >
+                  <span className="text-[10px] text-stone-400 group-hover:text-emerald-500 transition-colors">{attr.label}</span>
+                  <span className="text-xs font-bold text-stone-800">{attr.value}</span>
+                </button>
+              ))}
+              {property.location && (
+                <div className="col-span-2 p-3 bg-stone-50 rounded-xl text-right">
+                  <span className="text-[10px] text-stone-400 block">الموقع العام</span>
+                  <span className="text-xs font-bold text-stone-800">{property.location}</span>
+                </div>
+              )}
+              {property.location_link && (
+                <a 
+                  href={property.location_link} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="col-span-2 p-3 bg-emerald-50 text-emerald-700 rounded-xl text-center text-xs font-bold hover:bg-emerald-100 transition-colors flex items-center justify-center gap-2"
+                >
+                  <ExternalLink size={14} />
+                  عرض الموقع على الخريطة
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+});loyee_name || 'غير محدد'}
               </button>
               <p className="text-[10px] text-stone-500 mt-0.5">مستخدم معتمد</p>
             </div>
