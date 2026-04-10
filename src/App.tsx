@@ -208,6 +208,12 @@ async function handleSupabaseError(error: unknown, operationType: OperationType,
 // --- Helper Functions ---
 const compressImage = (file: File): Promise<Blob> => {
   return new Promise((resolve, reject) => {
+    // If it's a small image (e.g. < 200KB), don't bother compressing
+    if (file.size < 200 * 1024) {
+      resolve(file);
+      return;
+    }
+
     const reader = new FileReader();
     reader.onerror = () => reject(new Error('فشل قراءة الملف'));
     reader.readAsDataURL(file);
@@ -217,8 +223,10 @@ const compressImage = (file: File): Promise<Blob> => {
       img.src = event.target?.result as string;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 1200;
-        const MAX_HEIGHT = 1200;
+        
+        // Slightly larger dimensions for high-quality real estate shots
+        const MAX_WIDTH = 1600; 
+        const MAX_HEIGHT = 1600;
         let width = img.width;
         let height = img.height;
 
@@ -238,15 +246,33 @@ const compressImage = (file: File): Promise<Blob> => {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         if (!ctx) return reject(new Error('فشل إنشاء سياق الرسم'));
+        
+        // Improved rendering quality
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        
         ctx.drawImage(img, 0, 0, width, height);
         canvas.toBlob((blob) => {
           if (!blob) return reject(new Error('فشل ضغط الصورة'));
           resolve(blob);
-        }, 'image/jpeg', 0.6);
+        }, 'image/jpeg', 0.82); // Balanced quality vs size
       };
     };
   });
 };
+
+function getMediaType(url: string, fileType?: string): 'image' | 'video' {
+  if (fileType) {
+    if (fileType.startsWith('video/')) return 'video';
+    if (fileType.startsWith('image/')) return 'image';
+  }
+  
+  const lowerUrl = url?.toLowerCase() || '';
+  if (lowerUrl.endsWith('.mp4') || lowerUrl.endsWith('.mov') || lowerUrl.endsWith('.webm') || lowerUrl.startsWith('data:video/')) {
+    return 'video';
+  }
+  return 'image';
+}
 
 // --- Sub-Components ---
 
@@ -413,7 +439,10 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
     assigned_employee_id: property?.assigned_employee_id || '',
     assigned_employee_name: property?.assigned_employee_name || '',
     assigned_employee_phone: property?.assigned_employee_phone || '',
-    images: (property?.images || []).map((img: any) => typeof img === 'string' ? { url: img, type: img.startsWith('data:video/') ? 'video' : 'image' } : img),
+    images: (property?.images || []).map((img: any) => {
+      const url = typeof img === 'string' ? img : (img?.url || '');
+      return { url, type: getMediaType(url) };
+    }),
     location_link: property?.location_link || '',
     is_sold: property?.is_sold || false,
     sector: property?.sector || '',
@@ -431,6 +460,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
 
   const [employees, setEmployees] = useState<UserProfile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
 
   useEffect(() => {
     if (!user) return;
@@ -478,7 +508,6 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
     const files = Array.from(e.target.files || []) as File[];
     if (!files.length) return;
 
-    // التحقق من الحد قبل البدء بالرفع
     if ((formData.images || []).length + files.length > 20) {
       toast.error('لا يمكن رفع أكثر من 20 ملفاً');
       if (e.target) e.target.value = '';
@@ -486,36 +515,70 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
     }
 
     setIsUploading(true);
+    setUploadProgress({ current: 0, total: files.length });
+    
     try {
-      const newImages = [...(formData.images || [])];
-      for (const file of files) {
-        let fileToUpload: Blob;
-        if (file.type.startsWith('image/')) {
-          fileToUpload = await compressImage(file);
-        } else {
-          fileToUpload = file;
-        }
-
-        const ext = file.type.startsWith('image/') ? 'jpg' : (file.name.split('.').pop() || 'mp4');
-        const safeFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${ext}`;
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('properties_media')
-          .upload(`properties/${safeFileName}`, fileToUpload, { contentType: file.type.startsWith('image/') ? 'image/jpeg' : (file.type || 'video/mp4') });
-
-        if (uploadError) throw uploadError;
-
-        const { data: publicUrl } = supabase.storage
-          .from('properties_media')
-          .getPublicUrl(`properties/${safeFileName}`);
-
-        newImages.push({ url: publicUrl.publicUrl, type: file.type.startsWith('video/') ? 'video' : 'image' });
+      // Process files in parallel but with a slight throttle to avoid memory issues
+      // chunkING them into batches of 3
+      const chunks = [];
+      for (let i = 0; i < files.length; i += 3) {
+        chunks.push(files.slice(i, i + 3));
       }
-      setFormData(prevData => ({ ...prevData, images: newImages }));
+
+      for (const chunk of chunks) {
+        const uploadPromises = chunk.map(async (file) => {
+          try {
+            let fileToUpload: Blob;
+            if (file.type.startsWith('image/')) {
+              fileToUpload = await compressImage(file);
+            } else {
+              fileToUpload = file;
+            }
+
+            const ext = file.type.startsWith('image/') ? 'jpg' : (file.name.split('.').pop() || 'mp4');
+            const safeFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${ext}`;
+            
+            const { error: uploadError } = await supabase.storage
+              .from('properties_media')
+              .upload(`properties/${safeFileName}`, fileToUpload, { 
+                contentType: file.type.startsWith('image/') ? 'image/jpeg' : (file.type || 'video/mp4'),
+                cacheControl: '3600'
+              });
+
+            if (uploadError) throw uploadError;
+
+            const { data: publicUrl } = supabase.storage
+              .from('properties_media')
+              .getPublicUrl(`properties/${safeFileName}`);
+
+            const newImageData = { 
+              url: publicUrl.publicUrl, 
+              type: getMediaType(publicUrl.publicUrl, file.type) 
+            };
+
+            // Update state incrementally so user sees success immediately
+            setFormData(prev => ({
+              ...prev,
+              images: [...prev.images, newImageData]
+            }));
+            
+            setUploadProgress(prev => ({ ...prev, current: prev.current + 1 }));
+            return true;
+          } catch (err) {
+            console.error("Individual file upload error:", err);
+            toast.error(`فشل رفع الملف: ${file.name}`);
+            return false;
+          }
+        });
+
+        await Promise.all(uploadPromises);
+      }
     } catch (error) {
-      console.error("Upload error:", error);
-      toast.error("حدث خطأ أثناء رفع الملفات");
+      console.error("Batch upload error:", error);
+      toast.error("حدث خطأ أثناء معالجة بعض الملفات");
     } finally {
       setIsUploading(false);
+      setUploadProgress({ current: 0, total: 0 });
       if (e.target) e.target.value = '';
     }
   };
@@ -879,9 +942,21 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
           </div>
           
           {isUploading && (
-            <div className="flex items-center gap-3 text-emerald-600 bg-emerald-50 p-4 rounded-xl border border-emerald-100 animate-pulse">
-              <RefreshCw className="animate-spin" size={20} />
-              <span className="text-sm font-bold">جاري رفع الملفات ومعالجتها...</span>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-emerald-700">
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="animate-spin" size={14} />
+                  <span>جاري رفع ومعالجة الملفات...</span>
+                </div>
+                <span>{uploadProgress.current} من {uploadProgress.total}</span>
+              </div>
+              <div className="w-full bg-emerald-100 h-1.5 rounded-full overflow-hidden">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                  className="bg-emerald-500 h-full"
+                />
+              </div>
             </div>
           )}
           <p className="text-[10px] text-stone-400">يمكنك رفع حتى 20 صورة أو فيديو للعقار الواحد.</p>
@@ -1035,19 +1110,54 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
 
   const handleCommentImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []) as File[];
+    if (!files.length) return;
+
     setIsUploading(true);
     try {
-      const newImages = [...commentImages];
-      for (const file of files) {
-        const fileToUpload = file.type.startsWith('image/') ? await compressImage(file) : file;
-        const ext = file.type.startsWith('image/') ? 'jpg' : (file.name.split('.').pop() || 'mp4');
-        const safeName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${ext}`;
-        await supabase.storage.from('comment-images').upload(`comments/${safeName}`, fileToUpload);
-        const { data: publicUrl } = supabase.storage.from('comment-images').getPublicUrl(`comments/${safeName}`);
-        newImages.push({ url: publicUrl.publicUrl, type: file.type.startsWith('video/') ? 'video' : 'image' });
+      const chunks = [];
+      for (let i = 0; i < files.length; i += 3) {
+        chunks.push(files.slice(i, i + 3));
       }
-      setCommentImages(newImages);
-    } catch (error) { toast.error("حدث خطأ أثناء رفع الملفات"); } finally { setIsUploading(false); }
+
+      for (const chunk of chunks) {
+        const uploadPromises = chunk.map(async (file) => {
+          try {
+            const fileToUpload = file.type.startsWith('image/') ? await compressImage(file) : file;
+            const ext = file.type.startsWith('image/') ? 'jpg' : (file.name.split('.').pop() || 'mp4');
+            const safeName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${ext}`;
+            
+            await supabase.storage
+              .from('comment-images')
+              .upload(`comments/${safeName}`, fileToUpload, {
+                contentType: file.type.startsWith('image/') ? 'image/jpeg' : (file.type || 'video/mp4')
+              });
+              
+            const { data: publicUrl } = supabase.storage
+              .from('comment-images')
+              .getPublicUrl(`comments/${safeName}`);
+
+            const newImageData = { 
+              url: publicUrl.publicUrl, 
+              type: getMediaType(publicUrl.publicUrl, file.type) 
+            };
+
+            setCommentImages(prev => [...prev, newImageData]);
+            return true;
+          } catch (err) {
+            console.error("Comment image upload error:", err);
+            toast.error(`فشل رفع الملف: ${file.name}`);
+            return false;
+          }
+        });
+        await Promise.all(uploadPromises);
+      }
+    } catch (error) {
+      console.error("Batch comment upload error:", error);
+      toast.error("حدث خطأ أثناء رفع ملفات التعليق");
+    } finally {
+      setIsUploading(false);
+      if (e.target) e.target.value = '';
+    }
   };
 
   const handleShare = async () => {
