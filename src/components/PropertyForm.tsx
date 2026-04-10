@@ -48,16 +48,18 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
     assigned_employee_id: property?.assigned_employee_id || '',
     assigned_employee_name: property?.assigned_employee_name || '',
     assigned_employee_phone: property?.assigned_employee_phone || '',
-    images: (property?.images || []).map((img: any) => typeof img === 'string' ? { url: img, type: img.startsWith('data:video/') ? 'video' : 'image' } : img),
-    location_link: property?.location_link || property?.location_link || '',
+    images: (property?.images && Array.isArray(property.images) ? property.images : []).map((img: any) => 
+      typeof img === 'string' ? { url: img, type: img.includes('.mp4') || img.includes('.mov') ? 'video' : 'image' } : img
+    ),
+    location_link: property?.location_link || '',
     is_sold: property?.is_sold || false,
     sector: property?.sector || '',
     distribution: property?.distribution || '',
     block: property?.block || '',
     street: property?.street || '',
     avenue: property?.avenue || '',
-    plot_number: property?.plot_number || property?.plot_number || '',
-    house_number: property?.house_number || property?.house_number || '',
+    plot_number: property?.plot_number || '',
+    house_number: property?.house_number || '',
     location: property?.location || '',
     price: property?.price || '',
     details: property?.details || '',
@@ -65,7 +67,7 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
     comments_2: property?.comments_2 || '',
     comments_3: property?.comments_3 || '',
     status_label: property?.status_label || '',
-    company_id: property?.company_id || ''
+    company_id: property?.company_id || (isSuperAdmin ? selectedCompanyId : user?.companyId)
   });
 
   const [employees, setEmployees] = useState<UserProfile[]>([]);
@@ -77,18 +79,14 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
     const fetchEmployees = async () => {
       try {
         let employeesData: UserProfile[] = [];
-        if (isSuperAdmin) {
-          const targetCompanyId = property?.company_id || selectedCompanyId;
-          if (targetCompanyId) {
-            const { data } = await supabase.from('users').select('*').eq('role', 'employee').eq('company_id', targetCompanyId);
-            employeesData = data || [];
-          } else {
-            const { data } = await supabase.from('users').select('*').eq('role', 'employee');
-            employeesData = data || [];
-          }
-        } else {
-          const { data } = await supabase.from('users').select('*').eq('role', 'employee').eq('company_id', user?.company_id);
-          employeesData = data || [];
+        const targetCompanyId = isSuperAdmin ? (formData.company_id || selectedCompanyId) : user?.companyId;
+        
+        if (targetCompanyId) {
+          const { data } = await supabase.from('profiles').select('*').eq('company_id', targetCompanyId);
+          employeesData = (data || []) as any;
+        } else if (isSuperAdmin) {
+          const { data } = await supabase.from('profiles').select('*');
+          employeesData = (data || []) as any;
         }
 
         setEmployees(employeesData);
@@ -98,15 +96,14 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
     };
     
     fetchEmployees();
-  }, [isSuperAdmin, selectedCompanyId, user?.company_id, property?.company_id]);
+  }, [isSuperAdmin, selectedCompanyId, user?.companyId, formData.company_id]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []) as File[];
     if (!files.length) return;
 
-    // التحقق من الحد قبل البدء بالرفع
-    if ((formData.images || []).length + files.length > 20) {
-      toast.error('لا يمكن رفع أكثر من 20 ملفاً');
+    if ((formData.images || []).length + files.length > 30) {
+      toast.error('لا يمكن رفع أكثر من 30 ملفاً');
       if (e.target) e.target.value = '';
       return;
     }
@@ -126,7 +123,6 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
           contentType = file.type || 'video/mp4';
         }
 
-        // استخدام اسم عشوائي آمن بدلاً من اسم الملف الأصلي (يتجنب مشاكل الأسماء العربية والرموز الخاصة)
         const ext = file.type.startsWith('image/') ? 'jpg' : (file.name.split('.').pop() || 'mp4');
         const safeFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${ext}`;
         const filePath = `properties/${safeFileName}`;
@@ -136,8 +132,11 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
           .upload(filePath, fileToUpload, { contentType });
         if (error) throw error;
 
-        const { data: { publicUrl } } = supabase.storage.from('properties_media').getPublicUrl(filePath);
-        newImages.push({ url: publicUrl, type: file.type.startsWith('video/') ? 'video' : 'image' });
+        const { data: publicUrlData } = supabase.storage.from('properties_media').getPublicUrl(filePath);
+        newImages.push({ 
+          url: publicUrlData.publicUrl, 
+          type: file.type.startsWith('video/') ? 'video' : 'image' 
+        });
       }
       setFormData(prevData => ({ ...prevData, images: newImages }));
     } catch (error) {
@@ -181,79 +180,54 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
     setShowConfirm(false);
     
     try {
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-      const normalizeUuid = (value: any): string | null => {
-        const v = String(value || '').trim();
-        if (!v) return null;
-        return uuidRegex.test(v) ? v : null;
-      };
+      const formattedImages = (formData.images || []).map((img: any) => 
+        typeof img === 'string' ? img : (img?.url || '')
+      ).filter(Boolean);
 
       let empId = formData.assigned_employee_id;
       let empName = formData.assigned_employee_name;
 
-      // If we have a name but no ID, it means it's a new marketer
+      // Handle marketer logic similar to App.tsx
       if (empName && !empId) {
-        try {
-          const { data: newUser, error: userError } = await supabase.from('users').insert({
-            name: empName,
-            role: 'employee',
-            company_id: isSuperAdmin ? selectedCompanyId : user?.company_id,
-            created_at: new Date().toISOString()
-          }).select().single();
-          if (userError) throw userError;
-          empId = newUser.id;
-        } catch (error) {
-          console.error("Error creating user:", error);
+        const { data: matchedEmp } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('full_name', empName)
+          .maybeSingle();
+        
+        if (matchedEmp) {
+          empId = matchedEmp.id;
         }
       }
 
       const data = {
         ...formData,
-        company_id: isSuperAdmin ? selectedCompanyId : user?.company_id,
-        assigned_employee_id: normalizeUuid(empId),
+        company_id: (isSuperAdmin && formData.company_id) ? formData.company_id : (user?.companyId || user?.company_id),
+        assigned_employee_id: empId || null,
         assigned_employee_name: empName,
-        images: formData.images,
-        location_link: formData.location_link.trim(),
-        is_sold: formData.is_sold,
+        images: formattedImages,
         updated_at: new Date().toISOString(),
         status: isAdmin ? (property?.status || 'approved') : 'pending'
       };
 
-      try {
-        if (property) {
-          const updatePayload = {
-            ...data,
-            created_at: property.created_at
-          };
-          const { error } = await supabase.from('properties').update(updatePayload).eq('id', property.id);
-          if (error) throw error;
-          
-          // Notify interested users
-          await notifyFavoriteUsers(property.id, property, data);
-        } else {
-          const sessionUserId = (await supabase.auth.getUser()).data.user?.id;
-          const insertPayload = {
-            ...data,
-            created_at: new Date().toISOString(),
-            created_by: normalizeUuid(sessionUserId),
-          };
-          const { error } = await supabase.from('properties').insert(insertPayload);
-          if (error) throw error;
-        }
-      } catch (error) {
-        console.error("Error saving property:", error);
-        throw error;
+      if (property) {
+        const { error } = await supabase.from('properties').update(data).eq('id', property.id);
+        if (error) throw error;
+        await notifyFavoriteUsers(property.id, property, data);
+      } else {
+        const { error } = await supabase.from('properties').insert({
+          ...data,
+          created_at: new Date().toISOString(),
+          created_by: user?.uid || user?.id,
+        });
+        if (error) throw error;
       }
+
       toast.success(property ? 'تم تحديث العقار بنجاح' : 'تمت إضافة العقار بنجاح');
       onSave();
     } catch (error: any) {
       console.error("Error saving property:", error);
-      let message = error.message;
-      try {
-        const parsed = JSON.parse(error.message);
-        message = parsed.error;
-      } catch (e) {}
-      toast.error(`حدث خطأ أثناء حفظ البيانات: ${message}`);
+      toast.error(`حدث خطأ أثناء حفظ البيانات: ${error.message}`);
     } finally {
       setIsSaving(false);
     }

@@ -40,14 +40,17 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
   const [commentImages, setCommentImages] = useState<Array<{ url: string, type: 'image' | 'video' }>>([]);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
-  // Safely extract URL and check if video
-  const getImageData = (img: any) => {
-    if (!img) return { url: '', isVideo: false };
-    if (typeof img === 'string') {
-      return { url: img, isVideo: img.startsWith('data:video/') || img.includes('/video/') || img.toLowerCase().endsWith('.mp4') };
-    }
-    return { url: img.url || '', isVideo: img.type === 'video' || (img.url && (img.url.startsWith('data:video/') || img.url.toLowerCase().endsWith('.mp4'))) };
-  };
+  const images = React.useMemo(() => {
+    const raw = property.images && Array.isArray(property.images) ? property.images : [];
+    const fallback = property.image_url || property.imageUrl || property.image || property.photo || '';
+    const unified = raw.map((img: any) => {
+      const url = typeof img === 'string' ? img : (img?.url || '');
+      const type = typeof img === 'string' ? (img.includes('.mp4') || img.includes('.mov') ? 'video' : 'image') : (img?.type || 'image');
+      return { url, type };
+    }).filter(img => img.url);
+    if (fallback && !unified.some(img => img.url === fallback)) unified.push({ url: fallback, type: 'image' });
+    return unified;
+  }, [property]);
 
   const [showViewer, setShowViewer] = useState(false);
   const [viewerImages, setViewerImages] = useState<string[]>([]);
@@ -309,70 +312,71 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
         </div>
 
         <div className="ios-card overflow-hidden">
-          <div className="relative aspect-square bg-stone-50 group">
-             {property.images?.[activeImageIndex] ? (
+          <div className="relative aspect-[16/10] sm:aspect-video bg-black group shadow-2xl">
+             {images[activeImageIndex] ? (
               <>
-                {getImageData(property.images[activeImageIndex]).isVideo ? (
+                {images[activeImageIndex].type === 'video' ? (
                   <video 
-                    src={getImageData(property.images[activeImageIndex]).url} 
+                    src={images[activeImageIndex].url} 
                     controls 
-                    className={`w-full h-full object-contain bg-black ${property.is_sold ? 'grayscale opacity-60' : ''}`}
+                    autoPlay
+                    className={`w-full h-full object-contain ${property.is_sold ? 'grayscale opacity-60' : ''}`}
                   />
                 ) : (
                   <img 
                     loading="lazy"
-                    src={getImageData(property.images[activeImageIndex]).url} 
+                    src={images[activeImageIndex].url} 
                     alt={property.name} 
-                    className={`w-full h-full object-contain cursor-zoom-in ${property.is_sold ? 'grayscale opacity-60' : ''}`}
+                    className={`w-full h-full object-contain cursor-zoom-in transition-all duration-500 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
                     referrerPolicy="no-referrer"
                     onClick={() => {
-                      const imageList = (property.images || []).map((img: any) => getImageData(img).url);
-                      setViewerImages(imageList);
+                      setViewerImages(images.map(img => img.url));
                       setViewerIndex(activeImageIndex);
                       setShowViewer(true);
                     }}
                   />
                 )}
                 {property.is_sold && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-stone-700/80 backdrop-blur-sm pointer-events-none z-10">
-                    <span className="text-white font-black text-4xl tracking-wider transform -rotate-12 border-4 border-white px-6 py-2 rounded-xl shadow-2xl">مباع</span>
+                  <div className="absolute inset-0 flex items-center justify-center bg-stone-900/60 backdrop-blur-sm pointer-events-none z-10">
+                    <span className="text-white font-black text-4xl sm:text-6xl tracking-wider transform -rotate-12 border-4 border-white px-8 py-3 rounded-2xl shadow-2xl">مباع</span>
                   </div>
                 )}
               </>
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-stone-300 relative">
-                <ImageIcon size={48} />
+              <div className="w-full h-full flex flex-col items-center justify-center text-stone-500 bg-stone-50 relative">
+                <ImageIcon size={64} className="opacity-20" />
+                <p className="text-sm font-bold opacity-40 mt-2">لا توجد صور متوفرة</p>
                 {property.is_sold && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-stone-700/80 backdrop-blur-sm pointer-events-none z-10">
-                    <span className="text-white font-black text-4xl tracking-wider transform -rotate-12 border-4 border-white px-6 py-2 rounded-xl shadow-2xl">مباع</span>
+                  <div className="absolute inset-0 flex items-center justify-center bg-stone-900/40 backdrop-blur-sm pointer-events-none z-10">
+                    <span className="text-white font-black text-4xl tracking-wider transform -rotate-12 border-4 border-white px-8 py-3 rounded-2xl shadow-2xl">مباع</span>
                   </div>
                 )}
               </div>
             )}
             
-            {(property.images || []).length > 1 && (
-              <div className="absolute inset-0 flex items-center justify-between p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+            {images.length > 1 && (
+              <div className="absolute inset-0 flex items-center justify-between p-4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                 <button 
-                  onClick={() => setActiveImageIndex(prev => (prev === 0 ? (property.images?.length || 1) - 1 : prev - 1))}
-                  className="p-2 bg-white/80 backdrop-blur rounded-full text-stone-800 hover:bg-white transition-all shadow-md"
+                  onClick={(e) => { e.stopPropagation(); setActiveImageIndex(prev => (prev === 0 ? images.length - 1 : prev - 1)); }}
+                  className="p-3 bg-white/20 backdrop-blur-xl rounded-full text-white hover:bg-white/40 transition-all shadow-xl pointer-events-auto border border-white/20"
                 >
-                  <ChevronRight size={20} />
+                  <ChevronRight size={24} />
                 </button>
                 <button 
-                  onClick={() => setActiveImageIndex(prev => (prev === (property.images?.length || 1) - 1 ? 0 : prev + 1))}
-                  className="p-2 bg-white/80 backdrop-blur rounded-full text-stone-800 hover:bg-white transition-all shadow-md"
+                  onClick={(e) => { e.stopPropagation(); setActiveImageIndex(prev => (prev === images.length - 1 ? 0 : prev + 1)); }}
+                  className="p-3 bg-white/20 backdrop-blur-xl rounded-full text-white hover:bg-white/40 transition-all shadow-xl pointer-events-auto border border-white/20"
                 >
-                  <ChevronLeft size={20} />
+                  <ChevronLeft size={24} />
                 </button>
               </div>
             )}
 
-            <div className="absolute bottom-4 right-4 flex gap-1.5">
-              {(property.images || []).map((_: any, i: number) => (
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 px-3 py-1.5 bg-black/30 backdrop-blur-md rounded-full shadow-lg">
+              {images.map((_: any, i: number) => (
                 <button 
                   key={i}
                   onClick={() => setActiveImageIndex(i)}
-                  className={`w-2 h-2 rounded-full transition-all ${i === activeImageIndex ? 'bg-white w-4' : 'bg-white/50'}`}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${i === activeImageIndex ? 'bg-emerald-500 w-6' : 'bg-white/40 w-1.5'}`}
                 />
               ))}
             </div>
@@ -471,30 +475,31 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
               </div>
             </div>
 
-            {(property.images || []).length > 1 && (
+            {images.length > 1 && (
               <div className="mt-8 pt-6 border-t border-stone-100">
                 <h3 className="text-sm font-bold text-stone-900 mb-4 flex items-center gap-2 justify-center">
                   <ImageIcon size={16} className="text-emerald-600" />
-                  معرض الصور ({(property.images || []).length})
+                  معرض الصور ({images.length})
                 </h3>
-                <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                  {(property.images || []).map((img: any, i: number) => {
-                    const { url, isVideo } = getImageData(img);
+                <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-3">
+                  {images.map((img: any, i: number) => {
                     return (
                       <button 
                         key={i} 
                         onClick={() => {
-                          const imageList = (property.images || []).map((item: any) => getImageData(item).url);
-                          setViewerImages(imageList);
-                          setViewerIndex(i);
-                          setShowViewer(true);
+                          setActiveImageIndex(i);
                         }}
-                        className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${i === activeImageIndex ? 'border-emerald-500 scale-95' : 'border-transparent hover:border-stone-300'}`}
+                        className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all shadow-sm active:scale-95 ${i === activeImageIndex ? 'border-emerald-500 ring-4 ring-emerald-500/10' : 'border-transparent hover:border-emerald-300'}`}
                       >
-                        {isVideo ? (
-                          <video src={url} className="w-full h-full object-cover" />
+                        {img.type === 'video' ? (
+                          <video src={img.url} className="w-full h-full object-cover" />
                         ) : (
-                          <img loading="lazy" src={url} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" />
+                          <img loading="lazy" src={img.url} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" />
+                        )}
+                        {img.type === 'video' && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                            <Plus size={16} className="text-white" />
+                          </div>
                         )}
                       </button>
                     );

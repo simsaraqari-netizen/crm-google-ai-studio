@@ -239,7 +239,7 @@ function buildSheetHeader() {
     "الاسم", "الغرض", "الهاتف", "الهاتف ٢", "المنطقة", "نوع العقار",
     "المحافظة", "القطاع", "التوزيعة", "القطعة", "الشارع", "الجادة",
     "رقم القسيمة", "المنزل", "الموقع", "رابط الموقع", "حالة العقار",
-    "موظف الادخال", "تعليقات", "تعليقات ٢", "تعليقات ٣", "ID", "تاريخ الادخال"
+    "موظف الادخال", "الصور", "تعليقات", "تعليقات ٢", "تعليقات ٣", "ID", "تاريخ الادخال"
   ];
 }
 
@@ -288,6 +288,7 @@ async function buildSupabaseSheetPayload(): Promise<any[][]> {
     p.location_link || '',
     normalizeDigits(p.status_label || ''),
     normalizeDigits(p.assigned_employee_name || ''),
+    Array.isArray(p.images) ? p.images.map((img: any) => typeof img === 'string' ? img : img.url).join(', ') : '',
     normalizeDigits(p.last_comment || ''),
     normalizeDigits(p.comments_2 || ''),
     normalizeDigits(p.comments_3 || ''),
@@ -422,11 +423,12 @@ export const syncSupabaseWithSheets = async () => {
         const location_link = readCell(row, ['رابط الموقع', 'location_link'], 15);
         const status_label = readCell(row, ['حالة العقار', 'status_label'], 16);
         const assigned_employee_name = readCell(row, ['موظف الادخال', 'assigned_employee_name'], 17);
-        const last_comment = readCell(row, ['تعليقات', 'last_comment'], 18);
-        const comments_2 = readCell(row, ['تعليقات ٢', 'comments_2'], 19);
-        const comments_3 = readCell(row, ['تعليقات ٣', 'comments_3'], 20);
-        const id = readCell(row, ['ID', 'id'], 21);
-        const created_atStr = readCell(row, ['تاريخ الادخال', 'created_at'], 22);
+        const images_raw = readCell(row, ['الصور', 'images', 'Photos', 'photos'], 18);
+        const last_comment = readCell(row, ['تعليقات', 'last_comment'], 19);
+        const comments_2 = readCell(row, ['تعليقات ٢', 'comments_2'], 20);
+        const comments_3 = readCell(row, ['تعليقات ٣', 'comments_3'], 21);
+        const id = readCell(row, ['ID', 'id'], 22);
+        const created_atStr = readCell(row, ['تاريخ الادخال', 'created_at'], 23);
 
         // Fetch existing record to preserve fields if sheet is empty
         let existing: any = null;
@@ -507,7 +509,8 @@ export const syncSupabaseWithSheets = async () => {
           status_label: getVal(status_label, 'status_label'),
           comments_2: getVal(comments_2, 'comments_2'),
           comments_3: getVal(comments_3, 'comments_3'),
-          last_comment: cleanStr(last_comment)
+          last_comment: cleanStr(last_comment),
+          images: cleanStr(images_raw) ? splitMultiValue(images_raw) : (existing?.images || [])
         };
 
         if (created_atStr) propertyData.created_at = new Date(created_atStr).toISOString();

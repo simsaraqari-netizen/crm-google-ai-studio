@@ -55,6 +55,16 @@ import { normalizeArabic, cleanAreaName, searchMatch, normalizeDigits, generateP
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+import { PropertyCard } from './components/PropertyCard';
+import { PropertyForm } from './components/PropertyForm';
+import { PropertyDetails } from './components/PropertyDetails';
+import { SyncModal } from './components/SyncModal';
+import { SearchableFilter } from './components/SearchableFilter';
+import { ImageViewer } from './components/ImageViewer';
+import { ConfirmModal } from './components/ConfirmModal';
+import { LoadingSpinner } from './components/LoadingSpinner';
+import { ErrorBoundary } from './components/ErrorBoundary';
+
 // --- Types ---
 
 interface Property {
@@ -274,6 +284,30 @@ function getMediaType(url: string, fileType?: string): 'image' | 'video' {
   return 'image';
 }
 
+function extractPropertyImages(property: any): Array<{ url: string, type: 'image' | 'video' }> {
+  if (!property) return [];
+  
+  // 1. Check primary 'images' array
+  const rawImages = property.images && Array.isArray(property.images) ? property.images : [];
+  
+  // 2. Check legacy single image fields
+  const fallbackUrl = property.image_url || property.imageUrl || property.image || property.photo || property.Photo || '';
+  
+  // Create unified list
+  const unified: Array<{ url: string, type: 'image' | 'video' }> = rawImages.map((img: any) => {
+    const url = typeof img === 'string' ? img : (img?.url || '');
+    return { url, type: getMediaType(url) };
+  });
+
+  // Add fallback if not already present
+  if (fallbackUrl && !unified.some(img => img.url === fallbackUrl)) {
+    unified.push({ url: fallbackUrl, type: getMediaType(fallbackUrl) });
+  }
+
+  // Filter out invalid/empty entries
+  return unified.filter(img => img.url && typeof img.url === 'string');
+}
+
 // --- Sub-Components ---
 
 const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavorite, onClick, onImageClick, isAdmin, onFilter, onUserClick, onApprove, onReject, onEdit, onDelete, onRestore, onPermanentDelete, view }: any) {
@@ -289,20 +323,21 @@ const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavori
         className="relative aspect-[16/10] bg-stone-100 overflow-hidden group/img cursor-zoom-in" 
         onClick={(e) => {
           e.stopPropagation();
-          if ((property.images || []).length > 0) {
-            const imageList = property.images.map((img: any) => typeof img === 'string' ? img : (img?.url || ''));
-            onImageClick(imageList, 0);
+          const allImages = extractPropertyImages(property);
+          if (allImages.length > 0) {
+            onImageClick(allImages.map(img => img.url), 0);
           }
         }}
       >
-        {property.images?.[0] ? (
-          <div className="w-full h-full relative">
-            {(() => {
-              const img = property.images[0];
-              const url = typeof img === 'string' ? img : (img?.url || '');
-              const isVideo = typeof img === 'string' 
-                ? (img.startsWith('data:video/') || img.toLowerCase().endsWith('.mp4')) 
-                : (img?.type === 'video' || (img?.url && img.url.toLowerCase().endsWith('.mp4')));
+        {(() => {
+          const allImages = extractPropertyImages(property);
+          if (allImages.length > 0) {
+            return (
+              <div className="w-full h-full relative">
+                {(() => {
+                  const img = allImages[0];
+                  const url = img.url;
+                  const isVideo = img.type === 'video';
               
               return isVideo ? (
                 <video 
@@ -337,19 +372,23 @@ const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavori
                 </span>
               </div>
             )}
-            {property.images && property.images.length > 1 && (
-              <div className="absolute bottom-3 left-3 bg-black/50 backdrop-blur-md text-white text-[10px] px-2 py-1 rounded-lg font-bold flex items-center gap-1 border border-white/10">
-                <ImageIcon size={12} />
-                <span>{property.images.length}</span>
+                {allImages.length > 1 && (
+                  <div className="absolute bottom-3 left-3 bg-black/50 backdrop-blur-md text-white text-[10px] px-2 py-1 rounded-lg font-bold flex items-center gap-1 border border-white/10">
+                    <ImageIcon size={12} />
+                    <span>{allImages.length}</span>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center bg-stone-50 gap-2 border-b border-stone-100">
-            <ImageIcon className="text-stone-300" size={32} />
-            <span className="text-[11px] font-bold text-stone-400">لا توجد صور</span>
-          </div>
-        )}
+            );
+          } else {
+            return (
+              <div className="w-full h-full flex flex-col items-center justify-center bg-stone-50 gap-2 border-b border-stone-100">
+                <ImageIcon className="text-stone-300" size={32} />
+                <span className="text-[11px] font-bold text-stone-400">لا توجد صور</span>
+              </div>
+            );
+          }
+        })()}
         {property.purpose && (
           <div className="absolute bottom-3 right-3 z-10">
             <span className="bg-white/90 backdrop-blur-md text-emerald-800 px-2 py-1 text-[10px] font-black rounded-lg shadow-sm border border-stone-100">
@@ -439,10 +478,7 @@ const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selec
     assigned_employee_id: property?.assigned_employee_id || '',
     assigned_employee_name: property?.assigned_employee_name || '',
     assigned_employee_phone: property?.assigned_employee_phone || '',
-    images: (property?.images || []).map((img: any) => {
-      const url = typeof img === 'string' ? img : (img?.url || '');
-      return { url, type: getMediaType(url) };
-    }),
+    images: extractPropertyImages(property),
     location_link: property?.location_link || '',
     is_sold: property?.is_sold || false,
     sector: property?.sector || '',
@@ -1171,6 +1207,8 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
 
   const safeImages = Array.isArray(property.images) ? property.images : [];
 
+  const allImages = useMemo(() => extractPropertyImages(property), [property]);
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       {showViewer && <ImageViewer images={viewerImages} initialIndex={viewerIndex} onClose={() => setShowViewer(false)} isSold={property.is_sold} />}
@@ -1190,21 +1228,21 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
         </div>
         <div className="ios-card overflow-hidden">
           <div className="relative aspect-square bg-stone-50 group">
-            {safeImages.length > 0 ? (
+            {allImages.length > 0 ? (
               <div 
                 ref={galleryRef}
                 className="w-full h-full flex overflow-x-auto snap-x snap-mandatory scrollbar-none scroll-smooth"
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
               >
-                {safeImages.map((img: any, i: number) => {
-                  const url = typeof img === 'string' ? img : (img?.url || '');
-                  const isVideo = getMediaType(url) === 'video';
+                {allImages.map((img: any, i: number) => {
+                  const url = img.url;
+                  const isVideo = img.type === 'video';
                   return (
                     <div 
                       key={i} 
                       className="w-full h-full flex-shrink-0 snap-center relative cursor-zoom-in"
                       onClick={() => { 
-                        setViewerImages(safeImages.map((img: any) => typeof img === 'string' ? img : (img?.url || ''))); 
+                        setViewerImages(allImages.map(img => img.url)); 
                         setViewerIndex(i); 
                         setShowViewer(true); 
                       }}
@@ -1229,14 +1267,14 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
               </div>
             )}
             
-            {safeImages.length > 1 && (
+            {allImages.length > 1 && (
               <>
                 <div className="absolute inset-0 flex items-center justify-between p-4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                   <button className="p-2 bg-white/80 rounded-full shadow-md pointer-events-auto"><ChevronRight size={20} /></button>
                   <button className="p-2 bg-white/80 rounded-full shadow-md pointer-events-auto"><ChevronLeft size={20} /></button>
                 </div>
                 <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
-                  {safeImages.map((_: any, i: number) => (
+                  {allImages.map((_: any, i: number) => (
                     <div key={i} className="w-1.5 h-1.5 rounded-full bg-white/50 shadow-sm" />
                   ))}
                 </div>
@@ -1249,9 +1287,9 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
               <span className="text-emerald-600 font-black text-xl">{property.price}</span>
             </div>
             <div className="bg-stone-50 p-4 rounded-xl border border-stone-100 italic text-stone-700 leading-relaxed whitespace-pre-wrap mb-6">{property.details}</div>
-            {safeImages.length > 1 && (
+            {allImages.length > 1 && (
               <div className="grid grid-cols-5 sm:grid-cols-6 gap-2">
-                {safeImages.map((img:any, i:number) => (
+                {allImages.map((img:any, i:number) => (
                   <button 
                     key={i} 
                     onClick={() => {
@@ -1264,7 +1302,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
                     }} 
                     className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${i === activeImageIndex ? 'border-emerald-500 ring-2 ring-emerald-100' : 'border-transparent hover:border-emerald-200'}`}
                   >
-                    <img src={typeof img === 'string' ? img : img.url} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
+                    <img src={img.url} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
                   </button>
                 ))}
               </div>
