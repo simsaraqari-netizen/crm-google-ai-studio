@@ -109,9 +109,13 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
     }
 
     setIsUploading(true);
-    try {
-      const newImages = [...(formData.images || [])];
-      for (const file of files) {
+    
+    // Process each file in parallel but with incremental state updates
+    const uploadPromises = files.map(async (file, index) => {
+      try {
+        // Yield to browser for responsiveness before starting next file
+        await new Promise(r => setTimeout(r, index * 100));
+
         let fileToUpload: Blob;
         let contentType: string;
 
@@ -130,18 +134,33 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
         const { error } = await supabase.storage
           .from('properties_media')
           .upload(filePath, fileToUpload, { contentType });
+        
         if (error) throw error;
 
         const { data: publicUrlData } = supabase.storage.from('properties_media').getPublicUrl(filePath);
-        newImages.push({ 
+        const newImageData = { 
           url: publicUrlData.publicUrl, 
-          type: file.type.startsWith('video/') ? 'video' : 'image' 
-        });
+          type: (file.type.startsWith('video/') || contentType.startsWith('video/')) ? 'video' : 'image' 
+        };
+
+        // Update state incrementally for better feedback
+        setFormData(prev => ({
+          ...prev,
+          images: [...prev.images, newImageData]
+        }));
+
+        return { success: true };
+      } catch (error) {
+        console.error("Single file upload error:", error);
+        toast.error(`فشل رفع: ${file.name}`);
+        return { success: false, error };
       }
-      setFormData(prevData => ({ ...prevData, images: newImages }));
+    });
+
+    try {
+      await Promise.all(uploadPromises);
     } catch (error) {
-      console.error("Upload error:", error);
-      toast.error("حدث خطأ أثناء رفع الملفات");
+      console.error("Overall upload error:", error);
     } finally {
       setIsUploading(false);
       if (e.target) e.target.value = '';
