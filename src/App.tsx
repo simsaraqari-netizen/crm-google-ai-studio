@@ -1220,9 +1220,24 @@ export default function App() {
     const sourceProperties = view === 'trash' ? deletedProperties : properties;
     return sourceProperties.filter(p => {
       // View specific filtering
-      if (view === 'my-listings' && p.created_by !== user?.uid) return false;
+      if (view === 'my-listings') {
+        // Match by assigned_employee_id OR assigned_employee_name OR created_by
+        const myId = user?.uid;
+        const myName = user?.name || user?.full_name || '';
+        const byId = p.assigned_employee_id === myId || p.created_by === myId;
+        const byName = myName && p.assigned_employee_name &&
+          p.assigned_employee_name.trim() === myName.trim();
+        if (!byId && !byName) return false;
+      }
       if (view === 'my-favorites' && !favorites.includes(p.id)) return false;
-      if (view === 'user-listings' && selectedMarketerId && p.assigned_employee_id !== selectedMarketerId) return false;
+      if (view === 'user-listings' && selectedMarketerId) {
+        // Match by assigned_employee_id OR assigned_employee_name
+        const emp = employees.find(e => e.uid === selectedMarketerId);
+        const byId = p.assigned_employee_id === selectedMarketerId;
+        const byName = emp?.name && p.assigned_employee_name &&
+          p.assigned_employee_name.trim() === emp.name.trim();
+        if (!byId && !byName) return false;
+      }
       if (view === 'pending-properties' && p.status !== 'pending') return false;
       
       const { query, governorate, area, type, purpose, location, marketer, status } = appliedFilters;
