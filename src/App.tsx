@@ -299,9 +299,6 @@ function extractPropertyImages(property: any): Array<{ url: string, type: 'image
     return { url, type: getMediaType(url) };
   });
 
-  return unified;
-}
-
 // --- App Component ---
 
 export default function App() {
