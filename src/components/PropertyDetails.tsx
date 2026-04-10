@@ -459,8 +459,10 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                         <span>{String(property.assigned_employee_phone).replace(/\s/g, '')}</span>
                         <Phone size={16} />
                       </a>
-                      <a 
-                        href={employeeWhatsappUrl || '#'}
+                      <a
+                        href={property.assigned_employee_phone
+                          ? `https://wa.me/${property.assigned_employee_phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(buildShareText().text)}`
+                          : '#'}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex-1 flex items-center justify-center gap-2 bg-green-500 text-white px-6 py-3 rounded-xl hover:bg-green-600 transition-all font-bold text-sm shadow-sm"
@@ -854,7 +856,9 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
             <div className="flex flex-col items-start gap-2">
               <div className="flex items-center gap-2" dir="ltr">
                 <a
-                  href={`https://wa.me/${(property.assigned_employee_phone || '').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`السلام عليكم، بخصوص هذا العقار: ${window.location.href}`)}`}
+                  href={property.assigned_employee_phone
+                    ? `https://wa.me/${property.assigned_employee_phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(buildShareText().text)}`
+                    : '#'}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={`w-8 h-8 flex items-center justify-center text-green-600 bg-stone-50 border border-stone-100 hover:bg-green-50 rounded-full transition-colors shadow-sm ${!property.assigned_employee_phone ? 'opacity-30 pointer-events-none' : ''}`}
