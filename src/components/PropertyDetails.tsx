@@ -158,9 +158,26 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
     }, 0);
   };
 
-  const whatsappUrl = `https://wa.me/${(property.assigned_employee_phone || property.phone || '').replace(/\+/g, '').replace(/\s/g, '')}`; // This remains for the "WhatsApp Direct" button but we can split it.
-  const employeeWhatsappUrl = property.assigned_employee_phone ? `https://wa.me/${property.assigned_employee_phone.replace(/\+/g, '').replace(/\s/g, '')}` : null;
-  const propertyWhatsappUrl = property.phone ? `https://wa.me/${property.phone.replace(/\+/g, '').replace(/\s/g, '')}` : null;
+  // WhatsApp for property/client owner — no pre-filled message, just open chat
+  const employeeWhatsappUrl = property.assigned_employee_phone
+    ? `https://wa.me/${property.assigned_employee_phone.replace(/[^0-9]/g, '')}`
+    : null;
+  const propertyWhatsappUrl = property.phone
+    ? `https://wa.me/${property.phone.replace(/[^0-9]/g, '')}`
+    : null;
+
+  // Build rich share text (for share button & employee WhatsApp)
+  const buildShareText = () => {
+    const code = getPropertyCode(property);
+    const base = window.location.origin + window.location.pathname;
+    const shareUrl = `${base}?p=${code}`;
+    const title = property.name || 'عقار';
+    const details = property.details ? property.details.slice(0, 200) : '';
+    const phone = property.phone ? `📞 ${property.phone.replace(/\s/g, '')}` : '';
+    const phone2 = property.phone_2 ? ` | ${property.phone_2.replace(/\s/g, '')}` : '';
+    const codeStr = `🔑 كود العقار: #${code}`;
+    return { title, shareUrl, text: [title, details, phone + phone2, codeStr, shareUrl].filter(Boolean).join('\n') };
+  };
 
   const handleCommentImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []) as File[];
@@ -215,15 +232,7 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
   };
 
   const handleShare = async () => {
-    const code = getPropertyCode(property);
-    const base = window.location.origin + window.location.pathname;
-    const shareUrl = `${base}?p=${code}`;
-    const title = property.name || 'عقار';
-    const details = property.details ? property.details.slice(0, 200) : '';
-    const phone = property.phone ? `📞 ${property.phone.replace(/\s/g, '')}` : '';
-    const phone2 = property.phone_2 ? ` | ${property.phone_2.replace(/\s/g, '')}` : '';
-    const codeStr = `🔑 كود العقار: #${code}`;
-    const text = [title, details, phone + phone2, codeStr, shareUrl].filter(Boolean).join('\n');
+    const { title, shareUrl, text } = buildShareText();
     try {
       if (navigator.share) {
         // Try with image attachment first
@@ -234,7 +243,7 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
               const blob = await resp.blob();
               const file = new File([blob], 'property.jpg', { type: blob.type });
               if ((navigator as any).canShare({ files: [file] })) {
-                await navigator.share({ title, text: details || title, files: [file], url: shareUrl });
+                await navigator.share({ title, text, files: [file] });
                 return;
               }
             }
