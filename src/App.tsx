@@ -297,7 +297,14 @@ function extractPropertyImages(property: any): Array<{ url: string, type: 'image
   const unified: Array<{ url: string, type: 'image' | 'video' }> = rawImages.map((img: any) => {
     const url = typeof img === 'string' ? img : (img?.url || '');
     return { url, type: getMediaType(url) };
-  });
+  }).filter(img => img.url);
+
+  if (fallbackUrl && !unified.some(img => img.url === fallbackUrl)) {
+    unified.push({ url: fallbackUrl, type: getMediaType(fallbackUrl) });
+  }
+
+  return unified;
+}
 
 // --- App Component ---
 
