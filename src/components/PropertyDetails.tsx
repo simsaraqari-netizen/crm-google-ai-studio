@@ -19,13 +19,14 @@ import {
 import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabaseClient';
 import { toast } from 'react-hot-toast';
-import { 
-  generatePropertyTitle, 
-  formatRelativeDate, 
-  cleanAreaName, 
+import {
+  generatePropertyTitle,
+  formatRelativeDate,
+  cleanAreaName,
   compressImage,
   formatDateTime,
-  formatPropertyDate
+  formatPropertyDate,
+  getPropertyCode
 } from '../utils';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -214,20 +215,38 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
   };
 
   const handleShare = async () => {
-    const shareData = {
-      title: property.name || 'عقار',
-      text: property.details,
-      url: window.location.href,
-    };
+    const code = getPropertyCode(property);
+    const base = window.location.origin + window.location.pathname;
+    const shareUrl = `${base}?p=${code}`;
+    const title = property.name || 'عقار';
+    const details = property.details ? property.details.slice(0, 200) : '';
+    const text = [title, details, shareUrl].filter(Boolean).join('\n');
     try {
       if (navigator.share) {
-        await navigator.share(shareData);
+        // Try with image attachment first
+        if (images.length > 0 && (navigator as any).canShare) {
+          try {
+            const resp = await fetch(images[0].url).catch(() => null);
+            if (resp?.ok) {
+              const blob = await resp.blob();
+              const file = new File([blob], 'property.jpg', { type: blob.type });
+              if ((navigator as any).canShare({ files: [file] })) {
+                await navigator.share({ title, text: details || title, files: [file], url: shareUrl });
+                return;
+              }
+            }
+          } catch {}
+        }
+        await navigator.share({ title, text, url: shareUrl });
       } else {
-        await navigator.clipboard.writeText(window.location.href);
-        toast.success('تم نسخ الرابط للمشاركة');
+        await navigator.clipboard.writeText(text);
+        toast.success('تم نسخ تفاصيل العقار');
       }
-    } catch (err) {
-      console.error('Error sharing:', err);
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') {
+        navigator.clipboard.writeText(text).catch(() => {});
+        toast.success('تم نسخ تفاصيل العقار');
+      }
     }
   };
 
@@ -255,6 +274,10 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
           </button>
           
           <div className="flex items-center gap-1">
+            {/* Property code badge */}
+            <span className="text-[11px] font-black text-stone-400 tracking-widest px-1">
+              #{getPropertyCode(property)}
+            </span>
             {isAdmin && property.status === 'deleted' ? (
               <>
                 <button 

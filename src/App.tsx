@@ -51,7 +51,7 @@ import { API_BASE } from './lib/apiBase';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { GOVERNORATES, AREAS, PROPERTY_TYPES, PURPOSES, LOCATIONS, SUPER_ADMIN_EMAILS, SUPER_ADMIN_PHONES } from './constants';
-import { normalizeArabic, cleanAreaName, searchMatch, normalizeDigits, generatePropertyTitle, usernameToEmail, extractSpreadsheetId, formatRelativeDate, formatDateTime } from './utils';
+import { normalizeArabic, cleanAreaName, searchMatch, normalizeDigits, generatePropertyTitle, usernameToEmail, extractSpreadsheetId, formatRelativeDate, formatDateTime, getPropertyCode } from './utils';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -486,9 +486,13 @@ export default function App() {
       setSearchQuery(q);
     }
     
+    // Support both ?propertyId=UUID (legacy) and ?p=CODE (short link)
     const propertyId = params.get('propertyId');
-    if (propertyId && properties.length > 0) {
-      const property = properties.find(p => p.id === propertyId);
+    const shortCode = params.get('p');
+    if (properties.length > 0) {
+      let property = null;
+      if (propertyId) property = properties.find(p => p.id === propertyId) || null;
+      if (!property && shortCode) property = properties.find(p => String(p.property_code) === shortCode) || null;
       if (property) {
         setSelectedProperty(property);
         setView('details');
@@ -1433,33 +1437,35 @@ export default function App() {
   // --- Actions ---
 
   async function toggleFavorite(propertyId: string) {
-    if (!user) return;
+    if (!user) { toast.error('يجب تسجيل الدخول أولاً'); return; }
     const isFav = favorites.includes(propertyId);
-    if (isFav) {
-      try {
+    // Optimistic update — immediate UI response
+    setFavorites(prev => isFav ? prev.filter(id => id !== propertyId) : [...prev, propertyId]);
+    try {
+      if (isFav) {
         const { data: favs } = await supabase
           .from('favorites')
           .select('id')
           .eq('user_id', user.uid)
           .eq('property_id', propertyId);
-
         const deletePromises = (favs || []).map(fav =>
           supabase.from('favorites').delete().eq('id', fav.id)
         );
         await Promise.all(deletePromises);
-      } catch (error) {
-        console.error("Error removing favorite:", error);
-      }
-    } else {
-      try {
+        toast.success('تمت إزالة العقار من المفضلة');
+      } else {
         await supabase.from('favorites').insert({
           user_id: user.uid,
           property_id: propertyId,
           created_at: new Date().toISOString()
         });
-      } catch (error) {
-        console.error("Error adding favorite:", error);
+        toast.success('تمت إضافة العقار للمفضلة ❤️');
       }
+    } catch (error) {
+      // Rollback on failure
+      setFavorites(prev => isFav ? [...prev, propertyId] : prev.filter(id => id !== propertyId));
+      console.error("Error toggling favorite:", error);
+      toast.error('حدث خطأ، يرجى المحاولة مرة أخرى');
     }
   }
 
@@ -2282,12 +2288,13 @@ export default function App() {
 
           {(view === 'add' || view === 'edit') && (
             <div className="px-4 py-6 w-full max-w-5xl mx-auto">
-              <PropertyForm 
+              <PropertyForm
                 property={view === 'edit' ? selectedProperty : null}
                 isAdmin={isAdmin}
                 user={user}
                 selectedCompanyId={selectedCompanyId}
                 companies={companies}
+                existingProperties={properties}
                 onCancel={() => window.history.back()}
                 onSave={(savedData: any) => {
                   if (savedData && savedData.id) {

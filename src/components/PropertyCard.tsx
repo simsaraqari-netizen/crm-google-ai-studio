@@ -9,7 +9,7 @@ import {
   Tag
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { cleanAreaName, formatRelativeDate } from '../utils';
+import { cleanAreaName, formatRelativeDate, getPropertyCode } from '../utils';
 
 export const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavorite, onClick, onImageClick, isAdmin, onFilter, onUserClick, onApprove, onReject, onEdit, onDelete, onRestore, onPermanentDelete, view }: any) {
   const images = React.useMemo(() => {
@@ -135,13 +135,19 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
 
       {/* ── Footer ── */}
       <div className="flex items-center justify-between px-3 py-2 border-t border-stone-50">
-        {/* Timestamp */}
+        {/* Left: timestamp */}
         <span className="text-[9px] text-stone-400">
           {property.created_at ? formatRelativeDate(property.created_at) : ''}
         </span>
 
-        {/* Action buttons — context-aware */}
-        <div className="flex items-center gap-0.5">
+        {/* Right: code + actions */}
+        <div className="flex items-center gap-1">
+          {/* Property code — always visible on the right */}
+          <span className="text-[10px] font-black text-stone-400 tracking-widest ml-1">
+            #{getPropertyCode(property)}
+          </span>
+
+          {/* Context-aware action buttons */}
           {view === 'pending-properties' && isAdmin ? (
             <>
               <button
@@ -150,7 +156,7 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
               >قبول</button>
               <button
                 onClick={(e) => { e.stopPropagation(); onReject(property.id); }}
-                className="bg-red-600 text-white px-2.5 py-1 rounded-md text-[10px] font-bold mr-1"
+                className="bg-red-600 text-white px-2.5 py-1 rounded-md text-[10px] font-bold mr-0.5"
               >رفض</button>
             </>
           ) : view === 'trash' && isAdmin ? (
@@ -172,16 +178,41 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
             </>
           ) : (
             <>
-              {/* Share */}
+              {/* Share — rich message with title + details + image */}
               <button
-                onClick={(e) => {
+                onClick={async (e) => {
                   e.stopPropagation();
-                  const shareUrl = `${window.location.origin}?propertyId=${property.id}`;
+                  const code = getPropertyCode(property);
+                  const base = window.location.origin + window.location.pathname;
+                  const shareUrl = `${base}?p=${code}`;
+                  const title = property.name || 'عقار';
+                  const details = property.details ? property.details.slice(0, 200) : '';
+                  const text = [title, details, shareUrl].filter(Boolean).join('\n');
+
                   if (navigator.share) {
-                    navigator.share({ title: property.name || 'عقار', text: property.details, url: shareUrl }).catch(console.error);
+                    try {
+                      // Try sharing with image if available
+                      if (images.length > 0 && (navigator as any).canShare) {
+                        const resp = await fetch(images[0]).catch(() => null);
+                        if (resp?.ok) {
+                          const blob = await resp.blob();
+                          const file = new File([blob], 'property.jpg', { type: blob.type });
+                          if ((navigator as any).canShare({ files: [file] })) {
+                            await navigator.share({ title, text: details || title, files: [file], url: shareUrl });
+                            return;
+                          }
+                        }
+                      }
+                      await navigator.share({ title, text, url: shareUrl });
+                    } catch (err: any) {
+                      if (err?.name !== 'AbortError') {
+                        navigator.clipboard.writeText(text).catch(() => {});
+                        toast.success('تم نسخ تفاصيل العقار');
+                      }
+                    }
                   } else {
-                    navigator.clipboard.writeText(shareUrl);
-                    toast.success('تم نسخ رابط العقار');
+                    navigator.clipboard.writeText(text).catch(() => {});
+                    toast.success('تم نسخ تفاصيل العقار');
                   }
                 }}
                 className="p-1.5 text-stone-400 hover:bg-stone-100 rounded-lg transition-all"

@@ -247,6 +247,46 @@ export const formatDateTime = (date: any) => {
   }
 };
 
+/**
+ * Returns the stored 4-digit property code if present,
+ * otherwise derives a stable 4-digit display code from the UUID.
+ * Uniqueness is guaranteed only for newly created properties
+ * (where property_code is stored in the DB).
+ */
+export function getPropertyCode(property: any): string {
+  if (property?.property_code) return String(property.property_code).padStart(4, '0');
+  if (!property?.id) return '----';
+  // Deterministic fallback from UUID bytes
+  const hex = (property.id as string).replace(/-/g, '');
+  const a = parseInt(hex.slice(0, 2), 16);
+  const b = parseInt(hex.slice(8, 10), 16);
+  const c = parseInt(hex.slice(16, 18), 16);
+  const d = parseInt(hex.slice(24, 26), 16);
+  const code = (((a ^ c) * 97 + (b ^ d) * 31) % 9000) + 1000;
+  return String(code);
+}
+
+/**
+ * Generates a unique 4-digit code not already in use by
+ * the provided list of existing properties.
+ */
+export function generateUniqueCode(existingProperties: any[]): string {
+  const used = new Set(
+    existingProperties
+      .map(p => p.property_code)
+      .filter(Boolean)
+      .map(String)
+  );
+  let attempts = 0;
+  while (attempts < 5000) {
+    const code = String(Math.floor(Math.random() * 9000) + 1000);
+    if (!used.has(code)) return code;
+    attempts++;
+  }
+  // Fallback: 5-digit if 4-digit space exhausted
+  return String(Math.floor(Math.random() * 90000) + 10000);
+}
+
 export const formatPropertyDate = (date: any) => {
   if (!date) return '';
   try {

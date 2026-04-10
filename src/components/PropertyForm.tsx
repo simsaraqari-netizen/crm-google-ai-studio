@@ -14,7 +14,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabaseClient';
-import { compressImage } from '../utils';
+import { compressImage, generateUniqueCode } from '../utils';
 import { notifyFavoriteUsers } from '../services/notificationService';
 import { SearchableFilter } from './SearchableFilter';
 import { LoadingSpinner } from './LoadingSpinner';
@@ -29,7 +29,7 @@ import {
 } from '../constants';
 import { UserProfile } from '../types';
 
-export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selectedCompanyId, companies, onCancel, onSave }: any) {
+export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user, selectedCompanyId, companies, existingProperties, onCancel, onSave }: any) {
   const isSuperAdmin = React.useMemo(() =>
     user?.role === 'super_admin' ||
     (user?.email && SUPER_ADMIN_EMAILS.includes(user.email)) ||
@@ -223,10 +223,12 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
         savedProperty = updated;
         await notifyFavoriteUsers(property.id, property, data);
       } else {
+        const newCode = generateUniqueCode(existingProperties || []);
         const { data: inserted, error } = await supabase
           .from('properties')
           .insert({
             ...data,
+            property_code: newCode,
             created_at: new Date().toISOString(),
             created_by: user?.uid || user?.id,
           })
