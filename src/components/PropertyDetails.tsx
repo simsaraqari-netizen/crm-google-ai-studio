@@ -783,16 +783,17 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
               {commentImages.length > 0 && (
                 <div className="flex flex-wrap gap-2 p-2 bg-stone-50 rounded-xl border border-stone-100">
                   {commentImages.map((img, idx) => (
-                    <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-stone-200 group">
+                    <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-stone-200">
                       {img.type === 'video' ? (
                         <video src={img.url} className="w-full h-full object-cover" />
                       ) : (
                         <img loading="lazy" src={img.url} alt="" className="w-full h-full object-cover" />
                       )}
+                      {/* Always visible X on mobile */}
                       <button
                         type="button"
                         onClick={() => removeCommentImage(idx)}
-                        className="absolute top-0.5 right-0.5 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute top-0.5 right-0.5 bg-red-500 text-white p-1 rounded-full shadow"
                       >
                         <X size={10} />
                       </button>
