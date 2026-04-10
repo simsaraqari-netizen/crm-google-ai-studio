@@ -610,6 +610,10 @@ export default function App() {
             };
 
             setUser(mappedUser);
+            // Auto-show properties list for admin/super_admin without requiring manual search
+            if (mappedUser.role === 'super_admin' || mappedUser.role === 'admin') {
+              setHasSearched(true);
+            }
             if (mappedUser.companyId) {
               setSelectedCompanyId(mappedUser.companyId);
             }
@@ -670,6 +674,8 @@ export default function App() {
 
     // Subscribe to auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      // INITIAL_SESSION is already handled by setupAuth() above — skip to avoid double fetch
+      if (_event === 'INITIAL_SESSION') return;
       try {
         if (session?.user) {
           const sbUser = session.user;
@@ -798,7 +804,11 @@ export default function App() {
       try {
         let allPropsData: any[] = [];
         let from = 0;
-        const step = 1000;
+        // For super_admin with no company filter, limit initial load to 500 to prevent mobile freeze
+        // For company-scoped queries (admin/employee), load all records in batches
+        const isSuperAdminAllCompanies = isSuperAdmin && !selectedCompanyId;
+        const step = isSuperAdminAllCompanies ? 500 : 1000;
+        const maxRecords = isSuperAdminAllCompanies ? 500 : Infinity;
         let fetchMore = true;
 
         while (fetchMore) {
@@ -820,11 +830,11 @@ export default function App() {
             .range(from, from + step - 1);
 
           if (error) throw error;
-          
+
           if (data && data.length > 0) {
             allPropsData = [...allPropsData, ...data];
             from += step;
-            if (data.length < step) fetchMore = false;
+            if (data.length < step || allPropsData.length >= maxRecords) fetchMore = false;
           } else {
             fetchMore = false;
           }
