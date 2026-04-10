@@ -1189,22 +1189,56 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
         </div>
         <div className="ios-card overflow-hidden">
           <div className="relative aspect-square bg-stone-50 group">
-            {safeImages[activeImageIndex] ? (
-              <div className="w-full h-full relative cursor-zoom-in" onClick={() => { setViewerImages(safeImages.map((i:any)=>typeof i==='string'?i:(i?.url||''))); setViewerIndex(activeImageIndex); setShowViewer(true); }}>
-                {(() => {
-                  const img = safeImages[activeImageIndex];
+            {safeImages.length > 0 ? (
+              <div 
+                className="w-full h-full flex overflow-x-auto snap-x snap-mandatory scrollbar-none"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
+                {safeImages.map((img: any, i: number) => {
                   const url = typeof img === 'string' ? img : (img?.url || '');
-                  const isVideo = typeof img === 'string' ? img.toLowerCase().endsWith('.mp4') : (img?.type === 'video');
-                  return isVideo ? <video src={url} controls className="w-full h-full object-contain bg-black" /> : <img src={url} alt="" className="w-full h-full object-contain" referrerPolicy="no-referrer" />;
-                })()}
-                {property.is_sold && <div className="absolute inset-0 flex items-center justify-center bg-stone-900/60 backdrop-blur-sm pointer-events-none z-10"><span className="text-white font-black text-4xl transform -rotate-12 border-4 border-white px-6 py-2 rounded-xl shadow-2xl">مباع</span></div>}
+                  const isVideo = getMediaType(url) === 'video';
+                  return (
+                    <div 
+                      key={i} 
+                      className="w-full h-full flex-shrink-0 snap-center relative cursor-zoom-in"
+                      onClick={() => { 
+                        setViewerImages(safeImages.map((img: any) => typeof img === 'string' ? img : (img?.url || ''))); 
+                        setViewerIndex(i); 
+                        setShowViewer(true); 
+                      }}
+                    >
+                      {isVideo ? (
+                        <video src={url} controls className="w-full h-full object-contain bg-black" />
+                      ) : (
+                        <img src={url} alt="" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                      )}
+                      {property.is_sold && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-stone-900/60 backdrop-blur-sm pointer-events-none z-10">
+                          <span className="text-white font-black text-4xl transform -rotate-12 border-4 border-white px-6 py-2 rounded-xl shadow-2xl">مباع</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            ) : <div className="w-full h-full flex items-center justify-center text-stone-300"><ImageIcon size={48} /></div>}
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-stone-300">
+                <ImageIcon size={48} />
+              </div>
+            )}
+            
             {safeImages.length > 1 && (
-              <div className="absolute inset-0 flex items-center justify-between p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={(e)=>{e.stopPropagation(); setActiveImageIndex(prev => (prev === 0 ? safeImages.length - 1 : prev - 1))}} className="p-2 bg-white/80 rounded-full shadow-md"><ChevronRight size={20} /></button>
-                <button onClick={(e)=>{e.stopPropagation(); setActiveImageIndex(prev => (prev === safeImages.length - 1 ? 0 : prev + 1))}} className="p-2 bg-white/80 rounded-full shadow-md"><ChevronLeft size={20} /></button>
-              </div>
+              <>
+                <div className="absolute inset-0 flex items-center justify-between p-4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                  <button className="p-2 bg-white/80 rounded-full shadow-md pointer-events-auto"><ChevronRight size={20} /></button>
+                  <button className="p-2 bg-white/80 rounded-full shadow-md pointer-events-auto"><ChevronLeft size={20} /></button>
+                </div>
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
+                  {safeImages.map((_: any, i: number) => (
+                    <div key={i} className="w-1.5 h-1.5 rounded-full bg-white/50 shadow-sm" />
+                  ))}
+                </div>
+              </>
             )}
           </div>
           <div className="p-6">
@@ -1525,24 +1559,26 @@ function ConfirmModal({ isOpen, onConfirm, onCancel, title, message, confirmText
 function ImageViewer({ images, initialIndex, onClose, isSold }: any) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
 
+  const handleNext = () => {
+    setCurrentIndex((prev: number) => (prev === images.length - 1 ? 0 : prev + 1));
+  };
+
+  const handlePrev = () => {
+    setCurrentIndex((prev: number) => (prev === 0 ? images.length - 1 : prev - 1));
+  };
+
   return (
     <AnimatePresence>
       <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[110] bg-black/95 flex items-center justify-center p-4" 
-        onClick={(e) => {
-          e.stopPropagation();
-          onClose();
-        }}
+        className="fixed inset-0 z-[110] bg-black/95 flex items-center justify-center overscroll-none" 
+        onClick={onClose}
       >
-        <div className="absolute top-6 right-6 flex gap-4 z-[120]">
+        <div className="absolute top-6 right-6 flex gap-4 z-[130]">
           <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              onClose();
-            }}
+            onClick={(e) => { e.stopPropagation(); onClose(); }}
             className="text-white/70 hover:text-white p-3 bg-white/20 hover:bg-white/30 rounded-full transition-all"
           >
             <X size={32} />
@@ -1552,69 +1588,75 @@ function ImageViewer({ images, initialIndex, onClose, isSold }: any) {
         {images.length > 1 && (
           <>
             <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                setCurrentIndex((prev: number) => (prev === 0 ? images.length - 1 : prev - 1));
-              }}
-              className="absolute left-6 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-3 bg-white/10 hover:bg-white/20 rounded-full transition-all z-[120]"
+              onClick={(e) => { e.stopPropagation(); handlePrev(); }}
+              className="absolute left-6 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-3 bg-white/10 hover:bg-white/20 rounded-full transition-all z-[130] hidden md:block"
             >
               <ChevronLeft size={32} />
             </button>
             <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                setCurrentIndex((prev: number) => (prev === images.length - 1 ? 0 : prev + 1));
-              }}
-              className="absolute right-6 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-3 bg-white/10 hover:bg-white/20 rounded-full transition-all z-[120]"
+              onClick={(e) => { e.stopPropagation(); handleNext(); }}
+              className="absolute right-6 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-3 bg-white/10 hover:bg-white/20 rounded-full transition-all z-[130] hidden md:block"
             >
               <ChevronRight size={32} />
             </button>
+            <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex gap-2 z-[130]">
+              {images.map((_: any, i: number) => (
+                <div key={i} className={`h-1.5 rounded-full transition-all ${i === currentIndex ? 'w-6 bg-emerald-500' : 'w-1.5 bg-white/30'}`} />
+              ))}
+            </div>
           </>
         )}
 
-        <div className="max-w-5xl w-full h-full flex items-center justify-center relative p-4" onClick={(e) => e.stopPropagation()}>
-          <motion.div
-            key={currentIndex}
-            initial={{ opacity: 0, scale: 0.9, x: 20 }}
-            animate={{ opacity: 1, scale: 1, x: 0 }}
-            exit={{ opacity: 0, scale: 1.1, x: -20 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="w-full h-full flex items-center justify-center"
-          >
-            {(() => {
-              const img = images[currentIndex];
-              if (!img) return null;
-              
-              const imgUrl = typeof img === 'string' ? img : (img?.url || '');
-              const isVideo = typeof img === 'string' 
-                ? (img.startsWith('data:video/') || img.toLowerCase().endsWith('.mp4') || img.includes('/video/'))
-                : (img?.type === 'video' || (img?.url && (img.url.startsWith('data:video/') || img.url.toLowerCase().endsWith('.mp4'))));
-              
-              return isVideo ? (
-                <video 
-                  src={imgUrl} 
-                  controls 
-                  autoPlay
-                  className={`max-w-full max-h-full object-contain rounded-lg shadow-2xl ${isSold ? 'grayscale opacity-60' : ''}`}
-                />
-              ) : (
-                <img 
-                  src={imgUrl} 
-                  className={`max-w-full max-h-full object-contain rounded-lg shadow-2xl ${isSold ? 'grayscale opacity-60' : ''}`} 
-                  referrerPolicy="no-referrer"
-                  alt=""
-                />
-              );
-            })()}
-            {isSold && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                <span className="text-white font-black text-6xl tracking-wider transform -rotate-12 border-4 border-white px-8 py-3 rounded-2xl shadow-2xl bg-stone-700/80 backdrop-blur-sm">مباع</span>
-              </div>
-            )}
-          </motion.div>
+        <div className="w-full h-full flex items-center justify-center relative touch-none" onClick={(e) => e.stopPropagation()}>
+          <AnimatePresence initial={false} mode="wait">
+            <motion.div
+              key={currentIndex}
+              drag="x"
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.4}
+              onDragEnd={(_, info) => {
+                const swipeThreshold = 50;
+                if (info.offset.x < -swipeThreshold) handleNext();
+                else if (info.offset.x > swipeThreshold) handlePrev();
+              }}
+              initial={{ opacity: 0, x: 100 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -100 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="w-full h-full flex items-center justify-center p-4 relative"
+            >
+              {(() => {
+                const img = images[currentIndex];
+                if (!img) return null;
+                const imgUrl = typeof img === 'string' ? img : (img?.url || '');
+                const isVideo = getMediaType(imgUrl) === 'video';
+                
+                return isVideo ? (
+                  <video 
+                    src={imgUrl} 
+                    controls 
+                    autoPlay
+                    className={`max-w-full max-h-full object-contain rounded-lg shadow-2xl ${isSold ? 'grayscale opacity-60' : ''}`}
+                  />
+                ) : (
+                  <img 
+                    src={imgUrl} 
+                    alt="" 
+                    className={`max-w-full max-h-full object-contain rounded-lg shadow-2xl ${isSold ? 'grayscale opacity-60' : ''}`}
+                    referrerPolicy="no-referrer"
+                  />
+                );
+              })()}
+              {isSold && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                  <span className="text-white font-black text-6xl tracking-wider transform -rotate-12 border-4 border-white px-8 py-3 rounded-2xl shadow-2xl bg-stone-700/80 backdrop-blur-sm">مباع</span>
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
         </div>
 
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/50 text-sm font-bold bg-white/10 px-4 py-2 rounded-full backdrop-blur-sm">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/50 text-xs font-bold bg-white/5 px-3 py-1.5 rounded-full backdrop-blur-sm">
           {currentIndex + 1} / {images.length}
         </div>
       </motion.div>
