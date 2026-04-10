@@ -52,10 +52,10 @@ WHERE
 --    Company: شركة مصادقة العقارية (f9439b9d-8e44-4f8a-af31-c02d04a6f9d3)
 --
 --    Login credentials (username = phone number):
---      ابوسارة  → 97335844  / password: 97335844
---      ابوحفني  → 66038736  / password: 66038736
---      ابوفارس  → 97335771  / password: 97335771
---      مروة    → 66899136  / password: 66899136
+--      ابوسارة  → 97335844  / password: Sara#7842
+--      ابوحفني  → 66038736  / password: Hafni#3619
+--      ابوفارس  → 97335771  / password: Faris#2085
+--      مروة    → 66899136  / password: Marwa#5463
 -- =============================================================
 DO $$
 DECLARE
@@ -81,16 +81,16 @@ BEGIN
     is_super_admin, is_sso_user
   ) VALUES
     ('00000000-0000-0000-0000-000000000000', v_emp1_id, 'authenticated', 'authenticated',
-     '97335844@realestate.com', crypt('97335844', gen_salt('bf')), NOW(), NOW(), NOW(),
+     '97335844@realestate.com', crypt('Sara#7842', gen_salt('bf')), NOW(), NOW(), NOW(),
      '{"full_name":"ابوسارة"}'::jsonb, '{"provider":"email","providers":["email"]}'::jsonb, false, false),
     ('00000000-0000-0000-0000-000000000000', v_emp2_id, 'authenticated', 'authenticated',
-     '66038736@realestate.com', crypt('66038736', gen_salt('bf')), NOW(), NOW(), NOW(),
+     '66038736@realestate.com', crypt('Hafni#3619', gen_salt('bf')), NOW(), NOW(), NOW(),
      '{"full_name":"ابوحفني"}'::jsonb, '{"provider":"email","providers":["email"]}'::jsonb, false, false),
     ('00000000-0000-0000-0000-000000000000', v_emp3_id, 'authenticated', 'authenticated',
-     '97335771@realestate.com', crypt('97335771', gen_salt('bf')), NOW(), NOW(), NOW(),
+     '97335771@realestate.com', crypt('Faris#2085', gen_salt('bf')), NOW(), NOW(), NOW(),
      '{"full_name":"ابوفارس"}'::jsonb, '{"provider":"email","providers":["email"]}'::jsonb, false, false),
     ('00000000-0000-0000-0000-000000000000', v_emp4_id, 'authenticated', 'authenticated',
-     '66899136@realestate.com', crypt('66899136', gen_salt('bf')), NOW(), NOW(), NOW(),
+     '66899136@realestate.com', crypt('Marwa#5463', gen_salt('bf')), NOW(), NOW(), NOW(),
      '{"full_name":"مروة"}'::jsonb, '{"provider":"email","providers":["email"]}'::jsonb, false, false)
   ON CONFLICT (email) DO NOTHING;
 
