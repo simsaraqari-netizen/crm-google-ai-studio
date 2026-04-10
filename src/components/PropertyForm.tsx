@@ -210,21 +210,34 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
         status: isAdmin ? (property?.status || 'approved') : 'pending'
       };
 
+      let savedProperty: any = null;
+
       if (property) {
-        const { error } = await supabase.from('properties').update(data).eq('id', property.id);
+        const { data: updated, error } = await supabase
+          .from('properties')
+          .update(data)
+          .eq('id', property.id)
+          .select()
+          .single();
         if (error) throw error;
+        savedProperty = updated;
         await notifyFavoriteUsers(property.id, property, data);
       } else {
-        const { error } = await supabase.from('properties').insert({
-          ...data,
-          created_at: new Date().toISOString(),
-          created_by: user?.uid || user?.id,
-        });
+        const { data: inserted, error } = await supabase
+          .from('properties')
+          .insert({
+            ...data,
+            created_at: new Date().toISOString(),
+            created_by: user?.uid || user?.id,
+          })
+          .select()
+          .single();
         if (error) throw error;
+        savedProperty = inserted;
       }
 
       toast.success(property ? 'تم تحديث العقار بنجاح' : 'تمت إضافة العقار بنجاح');
-      onSave();
+      onSave(savedProperty);
     } catch (error: any) {
       console.error("Error saving property:", error);
       toast.error(`حدث خطأ أثناء حفظ البيانات: ${error.message}`);
