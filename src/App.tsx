@@ -1711,7 +1711,7 @@ export default function App() {
                   className={`w-full flex items-center gap-4 p-3 rounded-lg transition-colors ${view === 'my-listings' ? 'bg-emerald-50 text-emerald-700' : 'hover:bg-stone-50 text-stone-600'}`}
                 >
                   <LayoutList size={20} />
-                  <span className="font-bold text-md">إعلاناتي</span>
+                  <span className="font-bold text-md">عقاراتي</span>
                 </button>
 
                 <button 
@@ -1719,7 +1719,7 @@ export default function App() {
                   className={`w-full flex items-center gap-4 p-3 rounded-lg transition-colors ${view === 'my-favorites' ? 'bg-emerald-50 text-emerald-700' : 'hover:bg-stone-50 text-stone-600'}`}
                 >
                   <Heart size={20} />
-                  <span className="font-bold text-md">إعلاناتي المفضلة</span>
+                  <span className="font-bold text-md">عقاراتي المفضلة</span>
                 </button>
 
                 {isAdmin && (
@@ -2222,7 +2222,7 @@ export default function App() {
                    !hasSearched ? 'ابحث عن عقار...' :
                    (appliedFilters.query || appliedFilters.governorate || appliedFilters.area || appliedFilters.type || appliedFilters.purpose || appliedFilters.location || appliedFilters.marketer || appliedFilters.status
                     ? `نتائج البحث (${filteredProperties.length})` 
-                    : `${view === 'list' ? 'كل العقارات' : view === 'my-listings' ? 'إعلاناتي' : view === 'my-favorites' ? 'إعلاناتي المفضلة' : `عقارات ${employees.find(emp => emp.uid === selectedMarketerId)?.name || 'المستخدم'}`} (${filteredProperties.length})`)}
+                    : `${view === 'list' ? 'كل العقارات' : view === 'my-listings' ? 'عقاراتي' : view === 'my-favorites' ? 'عقاراتي المفضلة' : `عقارات ${employees.find(emp => emp.uid === selectedMarketerId)?.name || 'المستخدم'}`} (${filteredProperties.length})`)}
                 </h2>
               </div>
 

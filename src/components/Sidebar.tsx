@@ -46,7 +46,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const menuItems: { id: ViewType; label: string; icon: any; show: boolean; badge?: number }[] = [
     { id: 'list', label: 'كل العقارات', icon: LayoutGrid, show: true },
     { id: 'add', label: 'إضافة عقار', icon: PlusCircle, show: user?.role !== 'pending' },
-    { id: 'my-listings', label: 'إعلاناتي', icon: LayoutGrid, show: user?.role !== 'pending' },
+    { id: 'my-listings', label: 'عقاراتي', icon: LayoutGrid, show: user?.role !== 'pending' },
     { id: 'my-favorites', label: 'المفضلة', icon: Heart, show: true },
     { id: 'notifications', label: 'التنبيهات', icon: Bell, show: true, badge: unreadCount },
     { id: 'pending-properties', label: 'طلبات المراجعة', icon: ShieldCheck, show: isAdmin },
