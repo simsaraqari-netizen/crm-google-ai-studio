@@ -1070,6 +1070,7 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
   const [viewerImages, setViewerImages] = useState<string[]>([]);
   const [viewerIndex, setViewerIndex] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const galleryRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!property.id) return;
@@ -1191,7 +1192,8 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
           <div className="relative aspect-square bg-stone-50 group">
             {safeImages.length > 0 ? (
               <div 
-                className="w-full h-full flex overflow-x-auto snap-x snap-mandatory scrollbar-none"
+                ref={galleryRef}
+                className="w-full h-full flex overflow-x-auto snap-x snap-mandatory scrollbar-none scroll-smooth"
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
               >
                 {safeImages.map((img: any, i: number) => {
@@ -1250,7 +1252,18 @@ const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, 
             {safeImages.length > 1 && (
               <div className="grid grid-cols-5 sm:grid-cols-6 gap-2">
                 {safeImages.map((img:any, i:number) => (
-                  <button key={i} onClick={() => setActiveImageIndex(i)} className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${i === activeImageIndex ? 'border-emerald-500 ring-2 ring-emerald-100' : 'border-transparent hover:border-emerald-200'}`}>
+                  <button 
+                    key={i} 
+                    onClick={() => {
+                      setActiveImageIndex(i);
+                      const container = galleryRef.current;
+                      if (container) {
+                        const targetPos = container.offsetWidth * i;
+                        container.scrollTo({ left: targetPos, behavior: 'smooth' });
+                      }
+                    }} 
+                    className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${i === activeImageIndex ? 'border-emerald-500 ring-2 ring-emerald-100' : 'border-transparent hover:border-emerald-200'}`}
+                  >
                     <img src={typeof img === 'string' ? img : img.url} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
                   </button>
                 ))}
