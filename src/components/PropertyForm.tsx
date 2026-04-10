@@ -63,9 +63,6 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
     location: property?.location || '',
     price: property?.price || '',
     details: property?.details || '',
-    last_comment: property?.last_comment || '',
-    comments_2: property?.comments_2 || '',
-    comments_3: property?.comments_3 || '',
     status_label: property?.status_label || '',
     company_id: property?.company_id || (isSuperAdmin ? selectedCompanyId : user?.companyId)
   });
@@ -440,30 +437,23 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
           </div>
         </div>
 
-        {/* Section 3: Property Details */}
+        {/* Section 3: Property Details & History */}
         <div className="space-y-6">
+          <div className="flex items-center gap-2 text-stone-600 border-b border-stone-100 pb-2">
+            <Info size={18} />
+            <h3 className="font-bold text-sm">تفاصيل وتاريخ التعليقات</h3>
+          </div>
           <textarea 
-            rows={3}
-            placeholder="تعليقات ١ (وصف إضافي وتفاصيل العقار...)"
+            rows={6}
+            placeholder="ادمج التعليقات وقم بوصف العقار هنا (سيظهر مرتباً حسب التاريخ...)"
             className="w-full p-3 bg-stone-50 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm resize-none"
-            value={formData.details || (formData as any).last_comment}
+            value={formData.details}
             onChange={(e) => setFormData({...formData, details: e.target.value})}
           />
-          <textarea 
-            rows={2}
-            placeholder="تعليقات ٢"
-            className="w-full p-3 bg-stone-50 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm resize-none"
-            value={(formData as any).comments_2}
-            onChange={(e) => setFormData({...formData, comments_2: e.target.value})}
-          />
-          <textarea 
-            rows={2}
-            placeholder="تعليقات ٣"
-            className="w-full p-3 bg-stone-50 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm resize-none"
-            value={(formData as any).comments_3}
-            onChange={(e) => setFormData({...formData, comments_3: e.target.value})}
-          />
         </div>
+        
+        {/* Note for the user */}
+        <p className="text-[10px] text-stone-400 text-center">سيتم حفظ هذا النص في قاعدة البيانات ومزامنتة مع الشيت في عمود واحد مرتب زمنياً.</p>
 
         {/* Section 4: Company and Marketer */}
         <div className="space-y-6">

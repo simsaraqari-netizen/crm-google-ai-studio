@@ -116,19 +116,19 @@ async function syncSheetCommentsForProperty(
 ) {
   const commentCells = [
     {
-      raw: readCell(row, ['التعليق 1', 'تعليق 1', 'COMMENT 1', 'COMMENT1', 'comment 1'], 25),
-      date: readCell(row, ['ISSUE DATE 1', 'تاريخ التعليق 1', 'تاريخ 1'], 26),
-      interviewer: readCell(row, ['INTERVIEWER 1', 'المعلق 1', 'الموظف 1'], 27),
+      raw: readCell(row, ['التعليق 1', 'تعليق 1', 'COMMENT 1', 'COMMENT1', 'comment 1'], 19),
+      date: readCell(row, ['ISSUE DATE 1', 'تاريخ التعليق 1', 'تاريخ 1'], 20),
+      interviewer: readCell(row, ['INTERVIEWER 1', 'المعلق 1', 'الموظف 1'], 21),
     },
     {
-      raw: readCell(row, ['التعليق 2', 'تعليق 2', 'COMMENT 2', 'COMMENT2', 'comment 2'], 28),
-      date: readCell(row, ['ISSUE DATE 2', 'تاريخ التعليق 2', 'تاريخ 2'], 29),
-      interviewer: readCell(row, ['INTERVIEWER 2', 'المعلق 2', 'الموظف 2'], 30),
+      raw: readCell(row, ['التعليق 2', 'تعليق 2', 'COMMENT 2', 'COMMENT2', 'comment 2'], 22),
+      date: readCell(row, ['ISSUE DATE 2', 'تاريخ التعليق 2', 'تاريخ 2'], 23),
+      interviewer: readCell(row, ['INTERVIEWER 2', 'المعلق 2', 'الموظف 2'], 24),
     },
     {
-      raw: readCell(row, ['التعليق 3', 'تعليق 3', 'COMMENT 3', 'COMMENT3', 'comment 3'], 31),
-      date: readCell(row, ['ISSUE DATE 3', 'تاريخ التعليق 3', 'تاريخ 3'], 32),
-      interviewer: readCell(row, ['INTERVIEWER 3', 'المعلق 3', 'الموظف 3'], 33),
+      raw: readCell(row, ['التعليق 3', 'تعليق 3', 'COMMENT 3', 'COMMENT3', 'comment 3'], 25),
+      date: readCell(row, ['ISSUE DATE 3', 'تاريخ التعليق 3', 'تاريخ 3'], 26),
+      interviewer: readCell(row, ['INTERVIEWER 3', 'المعلق 3', 'الموظف 3'], 27),
     },
   ];
 
@@ -186,11 +186,25 @@ async function syncSheetCommentsForProperty(
     }
   }
 
-  if (insertedComments.length > 0) {
-    const latest = insertedComments.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+  // Update chronological history in property 'details' field
+  const { data: allComments } = await supabaseAdmin
+    .from('comments')
+    .select('text,created_at,user_name')
+    .eq('property_id', propertyId)
+    .order('created_at', { ascending: true });
+
+  if (allComments && allComments.length > 0) {
+    const historyText = allComments
+      .map(c => `[${new Date(c.created_at).toLocaleDateString('ar-KW')}] ${c.user_name}: ${c.text}`)
+      .join('\n');
+    
     await supabaseAdmin
       .from('properties')
-      .update({ last_comment: latest.text, last_comment_at: latest.created_at })
+      .update({ 
+        details: historyText,
+        last_comment: allComments[allComments.length-1].text,
+        last_comment_at: allComments[allComments.length-1].created_at
+      })
       .eq('id', propertyId);
   }
 }
@@ -239,7 +253,7 @@ function buildSheetHeader() {
     "الاسم", "الغرض", "الهاتف", "الهاتف ٢", "المنطقة", "نوع العقار",
     "المحافظة", "القطاع", "التوزيعة", "القطعة", "الشارع", "الجادة",
     "رقم القسيمة", "المنزل", "الموقع", "رابط الموقع", "حالة العقار",
-    "موظف الادخال", "الصور", "تعليقات", "تعليقات ٢", "تعليقات ٣", "ID", "تاريخ الادخال"
+    "موظف الادخال", "الصور", "تاريخ التعليقات", "ID", "تاريخ الادخال"
   ];
 }
 
@@ -289,9 +303,7 @@ async function buildSupabaseSheetPayload(): Promise<any[][]> {
     normalizeDigits(p.status_label || ''),
     normalizeDigits(p.assigned_employee_name || ''),
     Array.isArray(p.images) ? p.images.map((img: any) => typeof img === 'string' ? img : img.url).join(', ') : '',
-    normalizeDigits(p.last_comment || ''),
-    normalizeDigits(p.comments_2 || ''),
-    normalizeDigits(p.comments_3 || ''),
+    normalizeDigits(p.details || ''), // Consolidated comments history
     p.id,
     p.created_at ? new Date(p.created_at).toLocaleString('ar-KW') : '',
   ]);

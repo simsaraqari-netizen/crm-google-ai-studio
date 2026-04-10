@@ -527,228 +527,29 @@ export default function App() {
   }, [view, selectedProperty, prevView]);
 
   // Reset visible count when applied filters or view change
+  const { user, loading: authLoading, authError: contextAuthError, isAdmin, isSuperAdmin, handleLogout: contextLogout, selectedCompanyId, setSelectedCompanyId } = useAuth();
+
+  // Unified loading state
+  const isLoading = authLoading || loading;
+
+  // Sync Auth Context User to local state if needed (or just use context)
+  useEffect(() => {
+    if (user) {
+      setUser(user);
+    } else {
+      setUser(null);
+    }
+  }, [user]);
+
+  // Handle Auth Errors from context
+  useEffect(() => {
+    if (contextAuthError) setAuthError(contextAuthError);
+  }, [contextAuthError]);
+
   useEffect(() => {
     setVisibleCount(50);
   }, [appliedFilters, view]);
 
-  // Auth Listener
-  useEffect(() => {
-    console.log("Setting up Auth Listener...");
-
-    const setupAuth = async () => {
-      // Force loading to end after 5 seconds regardless of what happens
-      const timeoutId = setTimeout(() => {
-        console.log("Auth setup timed out, forcing UI to load...");
-        setLoading(false);
-      }, 5000);
-
-      try {
-        // Get initial session
-        const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) throw sessionError;
-
-        if (initialSession?.user) {
-          const sbUser = initialSession.user;
-          console.log("Auth State Changed:", `User: ${sbUser.email}`);
-
-          // Fetch user profile
-          const { data: userData, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', sbUser.id)
-            .maybeSingle();
-
-          if (profileError) throw profileError;
-
-          if (userData) {
-            console.log("User profile found:", userData.role);
-
-            // Check force sign out
-            if (userData.force_sign_out) {
-              await supabase.from('profiles').update({ force_sign_out: false }).eq('id', sbUser.id);
-              setAuthError('تم تسجيل خروجك من قبل المسؤول.');
-              await supabase.auth.signOut();
-              setUser(null);
-              setLoading(false);
-              clearTimeout(timeoutId);
-              return;
-            }
-
-            // Check if rejected
-            if (userData.role === 'rejected') {
-              setAuthError('تم رفض حسابك من قبل الإدارة.');
-              await supabase.auth.signOut();
-              setUser(null);
-              setLoading(false);
-              clearTimeout(timeoutId);
-              return;
-            }
-
-            // Check if deleted
-            if (userData.is_deleted) {
-              setAuthError('هذا الحساب تم حذفه من قبل الإدارة.');
-              await supabase.auth.signOut();
-              setUser(null);
-              setLoading(false);
-              clearTimeout(timeoutId);
-              return;
-            }
-
-            // Check for super admin email
-            let profileData = userData;
-            if (SUPER_ADMIN_EMAILS.includes(sbUser.email || '') && userData.role !== 'super_admin') {
-              console.log("Super Admin email detected, updating role to super_admin...");
-              await supabase.from('profiles').update({ role: 'super_admin' }).eq('id', sbUser.id);
-              profileData = { ...userData, role: 'super_admin' };
-            }
-
-            // Map Supabase snake_case to app camelCase
-            const mappedUser: UserProfile = {
-              uid: profileData.id,
-              email: sbUser.email || '',
-              name: profileData.name || 'User',
-              role: profileData.role,
-              companyId: profileData.company_id,
-              createdAt: profileData.created_at,
-              forceSignOut: profileData.force_sign_out,
-              phone: profileData.phone
-            };
-
-            setUser(mappedUser);
-            // Auto-show properties list for admin/super_admin without requiring manual search
-            if (mappedUser.role === 'super_admin' || mappedUser.role === 'admin') {
-              setHasSearched(true);
-            }
-            if (mappedUser.companyId) {
-              setSelectedCompanyId(mappedUser.companyId);
-            }
-          } else {
-            console.log("User profile not found, creating new profile...");
-            const isSuper = SUPER_ADMIN_EMAILS.includes(sbUser.email || '');
-            const role = isSuper ? 'super_admin' : 'pending';
-
-            const newProfile = {
-              id: sbUser.id,
-              email: sbUser.email || '',
-              name: sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'User',
-              role: role,
-              created_at: new Date().toISOString()
-            };
-
-            const { error: insertError } = await supabase.from('profiles').insert(newProfile);
-            if (insertError) throw insertError;
-
-            const mappedUser: UserProfile = {
-              uid: newProfile.id,
-              email: newProfile.email,
-              name: newProfile.name,
-              role: newProfile.role as UserProfile['role'],
-              createdAt: newProfile.created_at
-            };
-
-            console.log("New user profile created successfully");
-            if (role === 'pending') {
-              await supabase.from('notifications').insert({
-                type: 'new-user',
-                title: 'طلب انضمام جديد',
-                message: `المستخدم ${newProfile.name} يطلب الانضمام للنظام`,
-                user_id: sbUser.id,
-                read: false,
-                created_at: new Date().toISOString()
-              });
-            }
-
-            setUser(mappedUser);
-          }
-        } else {
-          console.log("Auth State Changed: No User");
-          setUser(null);
-          setSelectedCompanyId(null);
-        }
-      } catch (error: any) {
-        console.error("Auth initialization error:", error);
-        setAuthError(`خطأ في الوصول لقاعدة البيانات: ${error.message}`);
-        setUser(null);
-      } finally {
-        setLoading(false);
-        clearTimeout(timeoutId);
-      }
-    };
-
-    setupAuth();
-
-    // Subscribe to auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      // INITIAL_SESSION is already handled by setupAuth() above — skip to avoid double fetch
-      if (_event === 'INITIAL_SESSION') return;
-      try {
-        if (session?.user) {
-          const sbUser = session.user;
-          const { data: userData, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', sbUser.id)
-            .maybeSingle();
-
-          if (profileError) throw profileError;
-
-          if (userData) {
-            if (userData.force_sign_out) {
-              await supabase.from('profiles').update({ force_sign_out: false }).eq('id', sbUser.id);
-              setAuthError('تم تسجيل خروجك من قبل المسؤول.');
-              await supabase.auth.signOut();
-              setUser(null);
-              return;
-            }
-
-            if (userData.role === 'rejected') {
-              setAuthError('تم رفض حسابك من قبل الإدارة.');
-              await supabase.auth.signOut();
-              setUser(null);
-              return;
-            }
-
-            if (userData.is_deleted) {
-              setAuthError('هذا الحساب تم حذفه من قبل الإدارة.');
-              await supabase.auth.signOut();
-              setUser(null);
-              return;
-            }
-
-            let profileData = userData;
-            if (SUPER_ADMIN_EMAILS.includes(sbUser.email || '') && userData.role !== 'super_admin') {
-              await supabase.from('profiles').update({ role: 'super_admin' }).eq('id', sbUser.id);
-              profileData = { ...userData, role: 'super_admin' };
-            }
-
-            const mappedUser: UserProfile = {
-              uid: profileData.id,
-              email: sbUser.email || '',
-              name: profileData.name || 'User',
-              role: profileData.role,
-              companyId: profileData.company_id,
-              createdAt: profileData.created_at,
-              forceSignOut: profileData.force_sign_out,
-              phone: profileData.phone
-            };
-
-            setUser(mappedUser);
-            if (mappedUser.companyId) {
-              setSelectedCompanyId(mappedUser.companyId);
-            }
-          }
-        } else {
-          setUser(null);
-          setSelectedCompanyId(null);
-        }
-      } catch (error: any) {
-        console.error("Auth state change error:", error);
-        setAuthError(`خطأ في الوصول لقاعدة البيانات: ${error.message}`);
-      }
-    });
-
-    return () => subscription?.unsubscribe();
-  }, []);
 
   // Companies Listener (for Super Admin)
   useEffect(() => {
@@ -793,10 +594,6 @@ export default function App() {
           }
         ).subscribe();
 
-        return () => { channel.unsubscribe(); };
-      } catch (err) {
-        console.error('Companies fetch error:', err);
-        handleSupabaseError(err, OperationType.GET, 'companies');
       }
     })();
   }, [isSuperAdmin]);

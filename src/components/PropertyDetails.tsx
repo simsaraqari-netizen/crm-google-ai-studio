@@ -216,22 +216,22 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
             ) : (
               <>
                 {isAdmin && (
-                  <button 
-                    onClick={onEdit}
-                    className="p-2.5 text-blue-500 hover:text-blue-700 rounded-full transition-all active:scale-90"
-                    title="تعديل"
-                  >
-                    <Edit size={18} />
-                  </button>
-                )}
-                {isAdmin && (
-                  <button 
-                    onClick={onDelete}
-                    className="p-2.5 text-red-500 hover:text-red-700 hover:bg-white rounded-full transition-all active:scale-90"
-                    title="حذف"
-                  >
-                    <Trash2 size={18} />
-                  </button>
+                  <>
+                    <button 
+                      onClick={onEdit}
+                      className="p-2.5 text-blue-500 hover:text-blue-700 rounded-full transition-all active:scale-90"
+                      title="تعديل"
+                    >
+                      <Edit size={18} />
+                    </button>
+                    <button 
+                      onClick={onDelete}
+                      className="p-2.5 text-red-500 hover:text-red-700 hover:bg-white rounded-full transition-all active:scale-90"
+                      title="حذف"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </>
                 )}
               </>
             )}
