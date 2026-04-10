@@ -188,45 +188,43 @@ export function toEnglishNumerals(str: string): string {
 }
 
 export const compressImage = (file: File): Promise<Blob> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('فشل قراءة الملف'));
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onerror = () => reject(new Error('فشل تحميل الصورة'));
-      img.src = event.target?.result as string;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 1200;
-        const MAX_HEIGHT = 1200;
-        let width = img.width;
-        let height = img.height;
+  // Timeout safety: if canvas.toBlob hangs, fall back to original file after 8s
+  return Promise.race([
+    new Promise<Blob>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('فشل قراءة الملف'));
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('فشل تحميل الصورة'));
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 1200;
+          const MAX_HEIGHT = 1200;
+          let width = img.width;
+          let height = img.height;
 
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width;
-            width = MAX_WIDTH;
+          if (width > height) {
+            if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+          } else {
+            if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
           }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height;
-            height = MAX_HEIGHT;
-          }
-        }
 
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return reject(new Error('فشل إنشاء سياق الرسم'));
-        ctx.drawImage(img, 0, 0, width, height);
-        canvas.toBlob((blob) => {
-          if (!blob) return reject(new Error('فشل ضغط الصورة'));
-          resolve(blob);
-        }, 'image/jpeg', 0.6);
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) { resolve(file); return; }
+          ctx.drawImage(img, 0, 0, width, height);
+          canvas.toBlob((blob) => {
+            resolve(blob || file);
+          }, 'image/jpeg', 0.7);
+        };
       };
-    };
-  });
+    }),
+    // Fallback: if compression hangs for 8 seconds, use original file
+    new Promise<Blob>((resolve) => setTimeout(() => resolve(file), 8000))
+  ]);
 };
 
 export const formatDateTime = (date: any) => {

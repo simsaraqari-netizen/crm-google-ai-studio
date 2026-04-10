@@ -114,18 +114,15 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
     }
 
     setIsUploading(true);
-    
-    // Process each file in parallel but with incremental state updates
-    const uploadPromises = files.map(async (file, index) => {
-      try {
-        // Yield to browser for responsiveness before starting next file
-        await new Promise(r => setTimeout(r, index * 100));
 
+    // Upload sequentially to avoid hanging/overloading on mobile
+    for (const file of files) {
+      try {
         let fileToUpload: Blob;
         let contentType: string;
 
         if (file.type.startsWith('image/')) {
-          fileToUpload = await compressImage(file);
+          fileToUpload = await compressImage(file); // has 8s timeout built-in
           contentType = 'image/jpeg';
         } else {
           fileToUpload = file;
@@ -136,40 +133,33 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
         const safeFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${ext}`;
         const filePath = `properties/${safeFileName}`;
 
-        const { error } = await supabase.storage
-          .from('properties_media')
-          .upload(filePath, fileToUpload, { contentType });
-        
+        // Upload with 30s timeout
+        const uploadWithTimeout = Promise.race([
+          supabase.storage.from('properties_media').upload(filePath, fileToUpload, { contentType }),
+          new Promise<{ error: Error }>(resolve =>
+            setTimeout(() => resolve({ error: new Error('انتهت مهلة الرفع') }), 30000)
+          )
+        ]);
+
+        const { error } = await uploadWithTimeout as any;
         if (error) throw error;
 
         const { data: publicUrlData } = supabase.storage.from('properties_media').getPublicUrl(filePath);
-        const newImageData = { 
-          url: publicUrlData.publicUrl, 
-          type: (file.type.startsWith('video/') || contentType.startsWith('video/')) ? 'video' : 'image' 
+        const newImageData = {
+          url: publicUrlData.publicUrl,
+          type: (file.type.startsWith('video/') || contentType.startsWith('video/')) ? 'video' : 'image'
         };
 
-        // Update state incrementally for better feedback
-        setFormData(prev => ({
-          ...prev,
-          images: [...prev.images, newImageData]
-        }));
+        setFormData(prev => ({ ...prev, images: [...prev.images, newImageData] }));
 
-        return { success: true };
-      } catch (error) {
-        console.error("Single file upload error:", error);
-        toast.error(`فشل رفع: ${file.name}`);
-        return { success: false, error };
+      } catch (error: any) {
+        console.error("Upload error:", error);
+        toast.error(`فشل رفع: ${file.name} — ${error?.message || ''}`);
       }
-    });
-
-    try {
-      await Promise.all(uploadPromises);
-    } catch (error) {
-      console.error("Overall upload error:", error);
-    } finally {
-      setIsUploading(false);
-      if (e.target) e.target.value = '';
     }
+
+    setIsUploading(false);
+    if (e.target) e.target.value = '';
   };
 
   const removeImage = (index: number) => {
