@@ -435,68 +435,39 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                 )}
               </div>
               
-              <div className="flex flex-col gap-3 w-full">
-                {/* Employee Contact - Priority */}
-                {property.assigned_employee_phone && (
-                  <div className="space-y-2">
-                    <p className="text-[10px] text-stone-400 text-right pr-2">تواصل مع المسؤول: {property.assigned_employee_name}</p>
-                    <div className="flex flex-col md:flex-row gap-2">
-                      <a 
-                        href={`tel:${property.assigned_employee_phone}`}
-                        className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-xl hover:bg-emerald-700 transition-all font-bold text-sm shadow-sm"
-                      >
-                        <span>{String(property.assigned_employee_phone).replace(/\s/g, '')}</span>
-                        <Phone size={16} />
-                      </a>
+              {/* Property phone — kept, employee contact moved to info box below */}
+              {property.phone && (
+                <div className="flex flex-col gap-2">
+                  <p className="text-[10px] text-stone-400 text-right">هاتف العقار المسجل</p>
+                  <div className="flex flex-col md:flex-row gap-2">
+                    <a
+                      href={`tel:${property.phone}`}
+                      className="flex-1 flex items-center justify-center gap-2 bg-stone-100 text-stone-800 px-6 py-3 rounded-xl hover:bg-stone-200 transition-all font-bold text-sm shadow-sm"
+                    >
+                      <span>{String(property.phone).replace(/\s/g, '')}</span>
+                      <Phone size={16} />
+                    </a>
+                    {property.phone_2 && (
                       <a
-                        href={property.assigned_employee_phone
-                          ? `https://wa.me/${property.assigned_employee_phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(buildShareText().text)}`
-                          : '#'}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 flex items-center justify-center gap-2 bg-green-500 text-white px-6 py-3 rounded-xl hover:bg-green-600 transition-all font-bold text-sm shadow-sm"
+                        href={`tel:${property.phone_2}`}
+                        className="flex-1 flex items-center justify-center gap-2 bg-stone-50 text-stone-600 px-6 py-3 rounded-xl hover:bg-stone-100 transition-all font-bold text-sm shadow-sm border border-stone-100"
                       >
-                        <MessageCircle size={16} />
-                        واتساب المسؤول
-                      </a>
-                    </div>
-                  </div>
-                )}
-
-                {/* Property Contact */}
-                {property.phone && (
-                  <div className="space-y-2 mt-2">
-                    <p className="text-[10px] text-stone-400 text-right pr-2">هاتف العقار المسجل</p>
-                    <div className="flex flex-col md:flex-row gap-2">
-                      <a 
-                        href={`tel:${property.phone}`}
-                        className="flex-1 flex items-center justify-center gap-2 bg-stone-100 text-stone-800 px-6 py-3 rounded-xl hover:bg-stone-200 transition-all font-bold text-sm shadow-sm"
-                      >
-                        <span>{String(property.phone).replace(/\s/g, '')}</span>
+                        <span>{String(property.phone_2).replace(/\s/g, '')}</span>
                         <Phone size={16} />
                       </a>
-                      {property.phone_2 && (
-                        <a
-                          href={`tel:${property.phone_2}`}
-                          className="flex-1 flex items-center justify-center gap-2 bg-stone-50 text-stone-600 px-6 py-3 rounded-xl hover:bg-stone-100 transition-all font-bold text-sm shadow-sm border border-stone-100"
-                        >
-                          <span>{String(property.phone_2).replace(/\s/g, '')}</span>
-                          <Phone size={16} />
-                        </a>
-                      )}
-                      <a 
-                        href={propertyWhatsappUrl || '#'}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 flex items-center justify-center gap-2 bg-white text-green-600 border border-green-200 px-6 py-3 rounded-xl hover:bg-green-50 transition-all font-bold text-sm shadow-sm"
-                      >
-                        <MessageCircle size={16} />
-                        واتساب العقار
-                      </a>
-                    </div>
+                    )}
+                    <a
+                      href={propertyWhatsappUrl || '#'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 flex items-center justify-center gap-2 bg-white text-green-600 border border-green-200 px-6 py-3 rounded-xl hover:bg-green-50 transition-all font-bold text-sm shadow-sm"
+                    >
+                      <MessageCircle size={16} />
+                      واتساب العقار
+                    </a>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
             {images.length > 1 && (
