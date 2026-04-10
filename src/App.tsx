@@ -326,20 +326,6 @@ export default function App() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   
-  // -- TEMPORARY BYPASS FOR VERIFICATION --
-  useEffect(() => {
-    if (!user) {
-      setUser({
-        uid: 'test-admin-id',
-        email: 'simsaraqari@gmail.com', // Recognized as super admin
-        name: 'Admin Tester',
-        role: 'super_admin'
-      });
-      setHasSearched(true); // Show properties immediately
-      setLoading(false);
-    }
-  }, []);
-  // ----------------------------------------
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
