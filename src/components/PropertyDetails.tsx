@@ -63,7 +63,7 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
   useEffect(() => {
     if (!property.id) return;
     async function fetchComments() {
-      const { data, error } = await supabase.from('comments').select('*').eq('property_id', property.id).order('createdAt', { ascending: false });
+      const { data } = await supabase.from('comments').select('*').eq('property_id', property.id).order('created_at', { ascending: false });
       if (data) setComments((data as Comment[]).filter(c => !c.is_deleted));
     }
     fetchComments();
@@ -90,40 +90,29 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
     
     setIsUploading(true);
     try {
-      await supabase.from('comments').insert({
+      const commentData = {
         property_id: property.id,
         user_id: user.uid,
-        user_name: user.full_name,
+        user_name: user.name || user.full_name || user.email || 'مستخدم',
         user_phone: user.phone || '',
         text: newComment,
         images: commentImages,
         created_at: new Date().toISOString()
-      });
-      
-      // Update last comment on property
+      };
+
+      const { data: inserted, error } = await supabase.from('comments').insert(commentData).select().single();
+      if (error) throw error;
+
+      // Optimistic update — show immediately without waiting for realtime
+      if (inserted) {
+        setComments(prev => [inserted as Comment, ...prev]);
+      }
+
+      // Update last comment on property card
       await supabase.from('properties').update({
         last_comment: newComment || (commentImages.length > 0 ? 'تم إضافة صور' : '')
       }).eq('id', property.id);
 
-      // Notify interested users (who favorited the property)
-      const { data: favorites, error: favError } = await supabase.from('favorites').select('userId').eq('property_id', property.id);
-      const interestedUserIds = (favorites || []).map(d => d.userId);
-      
-      for (const recipientId of interestedUserIds) {
-        if (recipientId === user.uid) continue; // Don't notify the commenter
-        
-        await supabase.from('notifications').insert({
-          type: 'new-comment',
-          title: 'تعليق جديد على عقار يهمك',
-          message: `أضاف ${user.full_name} تعليقاً جديداً على العقار: ${generatePropertyTitle(property)}`,
-          recipientId,
-          user_id: user.uid,
-          property_id: property.id,
-          read: false,
-          created_at: new Date().toISOString()
-        });
-      }
-      
       setNewComment('');
       setCommentImages([]);
       toast.success('تم إضافة التعليق بنجاح');
