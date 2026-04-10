@@ -62,7 +62,15 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
     house_number: property?.house_number || '',
     location: property?.location || '',
     price: property?.price || '',
-    details: property?.details || '',
+    // Merge all comment columns into a single details field
+    details: [
+      property?.details || property?.last_comment || '',
+      property?.comments_2 || '',
+      property?.comments_3 || '',
+    ].filter(Boolean).join('\n').trim(),
+    last_comment: '',
+    comments_2: '',
+    comments_3: '',
     status_label: property?.status_label || '',
     company_id: property?.company_id || (isSuperAdmin ? selectedCompanyId : user?.companyId)
   });
@@ -437,23 +445,16 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
           </div>
         </div>
 
-        {/* Section 3: Property Details & History */}
+        {/* Section 3: Property Details (merged single field) */}
         <div className="space-y-6">
-          <div className="flex items-center gap-2 text-stone-600 border-b border-stone-100 pb-2">
-            <Info size={18} />
-            <h3 className="font-bold text-sm">تفاصيل وتاريخ التعليقات</h3>
-          </div>
-          <textarea 
-            rows={6}
-            placeholder="ادمج التعليقات وقم بوصف العقار هنا (سيظهر مرتباً حسب التاريخ...)"
+          <textarea
+            rows={5}
+            placeholder="التفاصيل والتعليقات..."
             className="w-full p-3 bg-stone-50 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm resize-none"
             value={formData.details}
             onChange={(e) => setFormData({...formData, details: e.target.value})}
           />
         </div>
-        
-        {/* Note for the user */}
-        <p className="text-[10px] text-stone-400 text-center">سيتم حفظ هذا النص في قاعدة البيانات ومزامنتة مع الشيت في عمود واحد مرتب زمنياً.</p>
 
         {/* Section 4: Company and Marketer */}
         <div className="space-y-6">

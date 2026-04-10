@@ -216,22 +216,22 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
             ) : (
               <>
                 {isAdmin && (
-                  <>
-                    <button 
-                      onClick={onEdit}
-                      className="p-2.5 text-blue-500 hover:text-blue-700 rounded-full transition-all active:scale-90"
-                      title="تعديل"
-                    >
-                      <Edit size={18} />
-                    </button>
-                    <button 
-                      onClick={onDelete}
-                      className="p-2.5 text-red-500 hover:text-red-700 hover:bg-white rounded-full transition-all active:scale-90"
-                      title="حذف"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </>
+                  <button 
+                    onClick={onEdit}
+                    className="p-2.5 text-blue-500 hover:text-blue-700 rounded-full transition-all active:scale-90"
+                    title="تعديل"
+                  >
+                    <Edit size={18} />
+                  </button>
+                )}
+                {isAdmin && (
+                  <button 
+                    onClick={onDelete}
+                    className="p-2.5 text-red-500 hover:text-red-700 hover:bg-white rounded-full transition-all active:scale-90"
+                    title="حذف"
+                  >
+                    <Trash2 size={18} />
+                  </button>
                 )}
               </>
             )}
@@ -332,24 +332,20 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                     </p>
                   )}
                 </div>
-                {property.details && (
-                  <div className="text-base text-stone-700 leading-relaxed whitespace-pre-wrap text-right bg-stone-50 p-4 rounded-xl border border-stone-100">
-                    <p className="font-bold text-xs text-stone-400 mb-1">التفاصيل:</p>
-                    {property.details}
-                  </div>
-                )}
-                {property.comments_2 && (
-                  <div className="text-base text-stone-700 leading-relaxed whitespace-pre-wrap text-right bg-stone-50 p-4 rounded-xl border border-stone-100">
-                    <p className="font-bold text-xs text-stone-400 mb-1">تعليقات إضافية:</p>
-                    {property.comments_2}
-                  </div>
-                )}
-                {property.comments_3 && (
-                  <div className="text-base text-stone-700 leading-relaxed whitespace-pre-wrap text-right bg-stone-50 p-4 rounded-xl border border-stone-100">
-                    <p className="font-bold text-xs text-stone-400 mb-1">تعليقات إضافية:</p>
-                    {property.comments_3}
-                  </div>
-                )}
+                {/* Merged details/comments display */}
+                {(() => {
+                  const combined = [
+                    property.details || property.last_comment,
+                    property.comments_2,
+                    property.comments_3,
+                  ].filter(Boolean).join('\n');
+                  return combined ? (
+                    <div className="text-base text-stone-700 leading-relaxed whitespace-pre-wrap text-right bg-stone-50 p-4 rounded-xl border border-stone-100">
+                      <p className="font-bold text-xs text-stone-400 mb-1">التفاصيل:</p>
+                      {combined}
+                    </div>
+                  ) : null;
+                })()}
               </div>
               
               {/* Property phone — kept, employee contact moved to info box below */}
