@@ -31,30 +31,27 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
       className={`ios-card overflow-hidden hover:shadow-xl transition-all group relative flex flex-col cursor-pointer bg-white border border-stone-100 ${view === 'pending-properties' ? 'ring-2 ring-amber-500/20' : ''}`}
       onClick={() => onClick && onClick(property)}
     >
-      {/* Image Header - Prominent as requested */}
-      <div 
-        className="relative aspect-[16/10] bg-stone-100 overflow-hidden group/img shrink-0"
-        onClick={(e) => {
-          if (images.length > 0) {
+      {/* Image Header — only rendered when image exists */}
+      {firstImageUrl ? (
+        <div
+          className="relative aspect-[16/10] bg-stone-100 overflow-hidden group/img shrink-0"
+          onClick={(e) => {
             e.stopPropagation();
             onImageClick(images, 0);
-          }
-        }}
-      >
-        {firstImageUrl ? (
+          }}
+        >
           <div className="w-full h-full">
             {isVideo ? (
               <video src={firstImageUrl} className={`w-full h-full object-cover transition-transform duration-700 group-hover/img:scale-110 ${property.is_sold ? 'grayscale opacity-60' : ''}`} />
             ) : (
-              <img 
-                loading="lazy" 
-                src={firstImageUrl} 
-                alt={property.name} 
+              <img
+                loading="lazy"
+                src={firstImageUrl}
+                alt={property.name}
                 className={`w-full h-full object-cover transition-transform duration-700 group-hover/img:scale-110 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
                 referrerPolicy="no-referrer"
               />
             )}
-            
             <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover/img:opacity-100 transition-opacity flex items-end p-3">
               <span className="text-white text-[10px] bg-black/40 backdrop-blur-md px-2 py-1 rounded-full flex items-center gap-1.5 font-bold">
                 <ImageIcon size={12} />
@@ -62,33 +59,42 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
               </span>
             </div>
           </div>
-        ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center bg-stone-50 gap-2 border-b border-stone-100">
-            <ImageIcon className="text-stone-300" size={32} />
-            <span className="text-[11px] font-bold text-stone-400">لا توجد صور</span>
-          </div>
-        )}
 
-        {/* Status badges */}
-        {property.is_sold && (
-          <div className="absolute inset-0 flex items-center justify-center bg-stone-900/60 backdrop-blur-sm z-20 pointer-events-none">
-            <span className="text-white font-black text-2xl tracking-wider transform -rotate-12 border-4 border-white px-4 py-1.5 rounded-xl shadow-2xl">مباع</span>
+          {/* Status badges */}
+          {property.is_sold && (
+            <div className="absolute inset-0 flex items-center justify-center bg-stone-900/60 backdrop-blur-sm z-20 pointer-events-none">
+              <span className="text-white font-black text-2xl tracking-wider transform -rotate-12 border-4 border-white px-4 py-1.5 rounded-xl shadow-2xl">مباع</span>
+            </div>
+          )}
+          {property.status_label && (
+            <div className="absolute top-3 left-3 z-30">
+              <span className="bg-amber-500 text-white px-2 py-1 rounded-lg text-[10px] font-black shadow-lg flex items-center gap-1">
+                <Tag size={10} />
+                {property.status_label}
+              </span>
+            </div>
+          )}
+        </div>
+      ) : (
+        /* No image — show compact top bar with sold/label badges if needed */
+        (property.is_sold || property.status_label) ? (
+          <div className="relative flex items-center gap-2 px-3 pt-3">
+            {property.is_sold && (
+              <span className="text-red-600 font-black text-[10px] border border-red-200 bg-red-50 px-2 py-0.5 rounded-lg">مباع</span>
+            )}
+            {property.status_label && (
+              <span className="bg-amber-500 text-white px-2 py-0.5 rounded-lg text-[10px] font-black flex items-center gap-1">
+                <Tag size={10} />
+                {property.status_label}
+              </span>
+            )}
           </div>
-        )}
-
-        {property.status_label && (
-          <div className="absolute top-3 left-3 z-30">
-            <span className="bg-amber-500 text-white px-2 py-1 rounded-lg text-[10px] font-black shadow-lg flex items-center gap-1">
-              <Tag size={10} />
-              {property.status_label}
-            </span>
-          </div>
-        )}
-      </div>
+        ) : null
+      )}
 
       <div className="p-4 flex-1 flex flex-col">
         <div className="flex justify-between items-start gap-2 mb-2">
-           <h3 className="text-sm font-bold text-stone-900 line-clamp-2 leading-tight flex-1 text-right">
+           <h3 className="text-sm font-bold text-stone-900 leading-tight flex-1 text-right">
             {property.name || 'عقار بدون اسم'}
           </h3>
           <span className="text-emerald-600 font-black text-xs shrink-0">{property.price}</span>

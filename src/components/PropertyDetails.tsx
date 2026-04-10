@@ -312,81 +312,79 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
         </div>
 
         <div className="ios-card overflow-hidden">
-          <div className="relative aspect-[16/10] sm:aspect-video bg-black group shadow-2xl">
-             {images[activeImageIndex] ? (
-              <>
-                {images[activeImageIndex].type === 'video' ? (
-                  <video 
-                    src={images[activeImageIndex].url} 
-                    controls 
-                    autoPlay
-                    className={`w-full h-full object-contain ${property.is_sold ? 'grayscale opacity-60' : ''}`}
-                  />
-                ) : (
-                  <img 
-                    loading="lazy"
-                    src={images[activeImageIndex].url} 
-                    alt={property.name} 
-                    className={`w-full h-full object-contain cursor-zoom-in transition-all duration-500 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
-                    referrerPolicy="no-referrer"
-                    onClick={() => {
-                      setViewerImages(images.map(img => img.url));
-                      setViewerIndex(activeImageIndex);
-                      setShowViewer(true);
-                    }}
-                  />
-                )}
-                {property.is_sold && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-stone-900/60 backdrop-blur-sm pointer-events-none z-10">
-                    <span className="text-white font-black text-4xl sm:text-6xl tracking-wider transform -rotate-12 border-4 border-white px-8 py-3 rounded-2xl shadow-2xl">مباع</span>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center text-stone-500 bg-stone-50 relative">
-                <ImageIcon size={64} className="opacity-20" />
-                <p className="text-sm font-bold opacity-40 mt-2">لا توجد صور متوفرة</p>
-                {property.is_sold && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-stone-900/40 backdrop-blur-sm pointer-events-none z-10">
-                    <span className="text-white font-black text-4xl tracking-wider transform -rotate-12 border-4 border-white px-8 py-3 rounded-2xl shadow-2xl">مباع</span>
-                  </div>
-                )}
-              </div>
-            )}
-            
-            {images.length > 1 && (
-              <div className="absolute inset-0 flex items-center justify-between p-4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                <button 
-                  onClick={(e) => { e.stopPropagation(); setActiveImageIndex(prev => (prev === 0 ? images.length - 1 : prev - 1)); }}
-                  className="p-3 bg-white/20 backdrop-blur-xl rounded-full text-white hover:bg-white/40 transition-all shadow-xl pointer-events-auto border border-white/20"
-                >
-                  <ChevronRight size={24} />
-                </button>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); setActiveImageIndex(prev => (prev === images.length - 1 ? 0 : prev + 1)); }}
-                  className="p-3 bg-white/20 backdrop-blur-xl rounded-full text-white hover:bg-white/40 transition-all shadow-xl pointer-events-auto border border-white/20"
-                >
-                  <ChevronLeft size={24} />
-                </button>
-              </div>
-            )}
-
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 px-3 py-1.5 bg-black/30 backdrop-blur-md rounded-full shadow-lg">
-              {images.map((_: any, i: number) => (
-                <button 
-                  key={i}
-                  onClick={() => setActiveImageIndex(i)}
-                  className={`h-1.5 rounded-full transition-all duration-300 ${i === activeImageIndex ? 'bg-emerald-500 w-6' : 'bg-white/40 w-1.5'}`}
+          {/* Main image viewer — only shown when images exist */}
+          {images.length > 0 && (
+            <div className="relative aspect-[16/10] sm:aspect-video bg-black group shadow-2xl">
+              {images[activeImageIndex].type === 'video' ? (
+                <video
+                  src={images[activeImageIndex].url}
+                  controls
+                  autoPlay
+                  className={`w-full h-full object-contain ${property.is_sold ? 'grayscale opacity-60' : ''}`}
                 />
-              ))}
+              ) : (
+                <img
+                  loading="lazy"
+                  src={images[activeImageIndex].url}
+                  alt={property.name}
+                  className={`w-full h-full object-contain cursor-zoom-in transition-all duration-500 ${property.is_sold ? 'grayscale opacity-60' : ''}`}
+                  referrerPolicy="no-referrer"
+                  onClick={() => {
+                    setViewerImages(images.map(img => img.url));
+                    setViewerIndex(activeImageIndex);
+                    setShowViewer(true);
+                  }}
+                />
+              )}
+
+              {property.is_sold && (
+                <div className="absolute inset-0 flex items-center justify-center bg-stone-900/60 backdrop-blur-sm pointer-events-none z-10">
+                  <span className="text-white font-black text-4xl sm:text-6xl tracking-wider transform -rotate-12 border-4 border-white px-8 py-3 rounded-2xl shadow-2xl">مباع</span>
+                </div>
+              )}
+
+              {images.length > 1 && (
+                <div className="absolute inset-0 flex items-center justify-between p-4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setActiveImageIndex(prev => (prev === 0 ? images.length - 1 : prev - 1)); }}
+                    className="p-3 bg-white/20 backdrop-blur-xl rounded-full text-white hover:bg-white/40 transition-all shadow-xl pointer-events-auto border border-white/20"
+                  >
+                    <ChevronRight size={24} />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setActiveImageIndex(prev => (prev === images.length - 1 ? 0 : prev + 1)); }}
+                    className="p-3 bg-white/20 backdrop-blur-xl rounded-full text-white hover:bg-white/40 transition-all shadow-xl pointer-events-auto border border-white/20"
+                  >
+                    <ChevronLeft size={24} />
+                  </button>
+                </div>
+              )}
+
+              {images.length > 1 && (
+                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 px-3 py-1.5 bg-black/30 backdrop-blur-md rounded-full shadow-lg">
+                  {images.map((_: any, i: number) => (
+                    <button
+                      key={i}
+                      onClick={() => setActiveImageIndex(i)}
+                      className={`h-1.5 rounded-full transition-all duration-300 ${i === activeImageIndex ? 'bg-emerald-500 w-6' : 'bg-white/40 w-1.5'}`}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
+          )}
           
           <div className="p-6">
             <div className="flex flex-col gap-6">
               <div className="space-y-4">
                 <div className="flex flex-col gap-1">
-                  <h1 className="text-xl font-bold serif text-stone-900 text-right">{property.name || 'عقار بدون اسم'}</h1>
+                  <div className="flex items-center gap-2 justify-end flex-wrap">
+                    <h1 className="text-xl font-bold serif text-stone-900 text-right">{property.name || 'عقار بدون اسم'}</h1>
+                    {/* Show "مباع" badge inline when there's no image to overlay it on */}
+                    {property.is_sold && images.length === 0 && (
+                      <span className="text-red-600 font-black text-sm border-2 border-red-400 bg-red-50 px-3 py-0.5 rounded-xl tracking-wide shrink-0">مباع</span>
+                    )}
+                  </div>
                   {property.created_at && (
                     <p className="text-[10px] text-stone-400 text-right">
                       تم الإضافة {formatRelativeDate(property.created_at)}
