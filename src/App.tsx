@@ -1963,7 +1963,7 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="space-y-6 px-4 py-8"
+              className="space-y-4 px-2 py-4"
             >
               {/* Search & Filters */}
               <div className="bg-white/40 backdrop-blur-xl border border-white/40 p-5 rounded-2xl shadow-xl shadow-stone-200/50 w-full space-y-4">
@@ -2183,7 +2183,7 @@ export default function App() {
               {/* Grid - Always show results */}
               {filteredProperties.length > 0 ? (
                 <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
                     {filteredProperties.slice(0, visibleCount).map((p) => (
                       <PropertyCard 
                         key={p.id} 
