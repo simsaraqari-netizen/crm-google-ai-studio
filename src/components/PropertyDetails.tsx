@@ -220,7 +220,10 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
     const shareUrl = `${base}?p=${code}`;
     const title = property.name || 'عقار';
     const details = property.details ? property.details.slice(0, 200) : '';
-    const text = [title, details, shareUrl].filter(Boolean).join('\n');
+    const phone = property.phone ? `📞 ${property.phone.replace(/\s/g, '')}` : '';
+    const phone2 = property.phone_2 ? ` | ${property.phone_2.replace(/\s/g, '')}` : '';
+    const codeStr = `🔑 كود العقار: #${code}`;
+    const text = [title, details, phone + phone2, codeStr, shareUrl].filter(Boolean).join('\n');
     try {
       if (navigator.share) {
         // Try with image attachment first
@@ -416,19 +419,19 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                 </div>
                 {property.details && (
                   <div className="text-base text-stone-700 leading-relaxed whitespace-pre-wrap text-right bg-stone-50 p-4 rounded-xl border border-stone-100">
-                    <p className="font-bold text-xs text-stone-400 mb-1">تعليقات ١:</p>
+                    <p className="font-bold text-xs text-stone-400 mb-1">التفاصيل:</p>
                     {property.details}
                   </div>
                 )}
                 {property.comments_2 && (
                   <div className="text-base text-stone-700 leading-relaxed whitespace-pre-wrap text-right bg-stone-50 p-4 rounded-xl border border-stone-100">
-                    <p className="font-bold text-xs text-stone-400 mb-1">تعليقات ٢:</p>
+                    <p className="font-bold text-xs text-stone-400 mb-1">تعليقات إضافية:</p>
                     {property.comments_2}
                   </div>
                 )}
                 {property.comments_3 && (
                   <div className="text-base text-stone-700 leading-relaxed whitespace-pre-wrap text-right bg-stone-50 p-4 rounded-xl border border-stone-100">
-                    <p className="font-bold text-xs text-stone-400 mb-1">تعليقات ٣:</p>
+                    <p className="font-bold text-xs text-stone-400 mb-1">تعليقات إضافية:</p>
                     {property.comments_3}
                   </div>
                 )}
@@ -444,7 +447,7 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                         href={`tel:${property.assigned_employee_phone}`}
                         className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-xl hover:bg-emerald-700 transition-all font-bold text-sm shadow-sm"
                       >
-                        <span>{property.assigned_employee_phone}</span>
+                        <span>{String(property.assigned_employee_phone).replace(/\s/g, '')}</span>
                         <Phone size={16} />
                       </a>
                       <a 
@@ -469,15 +472,15 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                         href={`tel:${property.phone}`}
                         className="flex-1 flex items-center justify-center gap-2 bg-stone-100 text-stone-800 px-6 py-3 rounded-xl hover:bg-stone-200 transition-all font-bold text-sm shadow-sm"
                       >
-                        <span>{property.phone}</span>
+                        <span>{String(property.phone).replace(/\s/g, '')}</span>
                         <Phone size={16} />
                       </a>
                       {property.phone_2 && (
-                        <a 
+                        <a
                           href={`tel:${property.phone_2}`}
                           className="flex-1 flex items-center justify-center gap-2 bg-stone-50 text-stone-600 px-6 py-3 rounded-xl hover:bg-stone-100 transition-all font-bold text-sm shadow-sm border border-stone-100"
                         >
-                          <span>{property.phone_2}</span>
+                          <span>{String(property.phone_2).replace(/\s/g, '')}</span>
                           <Phone size={16} />
                         </a>
                       )}
@@ -730,40 +733,42 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
             (user.email && SUPER_ADMIN_EMAILS.includes(user.email)) ||
             (user.phone && SUPER_ADMIN_PHONES.includes(user.phone))) ? (
             <form onSubmit={handleAddComment} className="space-y-2">
-              <div className="relative">
-                <textarea 
+              <div className="space-y-2">
+                <textarea
                   id="comment-textarea"
                   placeholder="أضف ملاحظة أو تعليق... (يمكنك استخدام Markdown)"
                   rows={4}
-                  className="w-full p-4 bg-stone-50/50 border border-stone-100 rounded-xl text-base focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none pb-14"
+                  className="w-full p-4 bg-stone-50/50 border border-stone-100 rounded-xl text-base focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none"
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
                 />
-                <div className="absolute bottom-3 right-3 flex gap-3">
-                  <input 
+                {/* Media row */}
+                <div className="flex items-center gap-2 bg-stone-50 border border-stone-100 rounded-xl px-3 py-2">
+                  <input
                     id="comment-image-upload"
-                    type="file" 
+                    type="file"
                     onChange={handleCommentImageUpload}
                     multiple
                     accept="image/*,video/*"
                     className="hidden"
                   />
-                  <label 
+                  <label
                     htmlFor="comment-image-upload"
-                    className={`p-2.5 bg-white border border-stone-100 rounded-full text-emerald-600 hover:bg-emerald-50 hover:border-emerald-500 transition-all shadow-sm flex items-center justify-center cursor-pointer ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
+                    className={`p-2 bg-white border border-stone-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-500 transition-all shadow-sm flex items-center justify-center cursor-pointer shrink-0 ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
                     title="إضافة صور أو فيديو (حتى 10)"
                   >
                     {isUploading ? (
-                      <LoadingSpinner size={24} className="border-emerald-500" />
+                      <LoadingSpinner size={20} className="border-emerald-500" />
                     ) : (
-                      <ImageIcon size={24} />
+                      <ImageIcon size={20} />
                     )}
                   </label>
-                  <div className="flex items-center gap-2">
-                    <input 
+                  <div className="flex items-center gap-2 flex-1">
+                    <LinkIcon size={16} className="text-stone-400 shrink-0" />
+                    <input
                       type="text"
-                      placeholder="رابط الصورة/الفيديو..."
-                      className="p-2 text-sm border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                      placeholder="رابط صورة أو فيديو..."
+                      className="flex-1 bg-transparent border-none outline-none text-sm text-right placeholder:text-stone-300"
                       onBlur={(e) => {
                         if (e.target.value) {
                           insertAtCursor(`[رابط](${e.target.value})`);
@@ -771,7 +776,6 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                         }
                       }}
                     />
-                    <LinkIcon size={20} className="text-stone-400" />
                   </div>
                 </div>
               </div>

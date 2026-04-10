@@ -348,6 +348,7 @@ export default function App() {
   const [tempSpreadsheetId, setTempSpreadsheetId] = useState('');
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchTerms, setSearchTerms] = useState<string[]>([]);
 
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
@@ -1221,17 +1222,22 @@ export default function App() {
       
       const { query, governorate, area, type, purpose, location, marketer, status } = appliedFilters;
       
-      const matchesSearch = 
-        searchMatch(p.name, query) || 
-        searchMatch(p.phone, query) || 
-        searchMatch(p.phone_2 || '', query) ||
-        searchMatch(p.area, query) || 
-        searchMatch(p.sector || '', query) ||
-        searchMatch(p.block || '', query) ||
-        searchMatch(p.plot_number || '', query) ||
-        searchMatch(p.house_number || '', query) ||
-        searchMatch(p.id, query) ||
-        searchMatch(p.assigned_employee_name || '', query);
+      const matchesSingle = (q: string) =>
+        searchMatch(p.name, q) ||
+        searchMatch(p.phone, q) ||
+        searchMatch(p.phone_2 || '', q) ||
+        searchMatch(p.area, q) ||
+        searchMatch(p.sector || '', q) ||
+        searchMatch(p.block || '', q) ||
+        searchMatch(p.plot_number || '', q) ||
+        searchMatch(p.house_number || '', q) ||
+        searchMatch(String(p.property_code || ''), q) ||
+        searchMatch(p.id, q) ||
+        searchMatch(p.assigned_employee_name || '', q);
+
+      // Must match query AND all extra searchTerms
+      const matchesSearch = (!query || matchesSingle(query)) &&
+        (searchTerms.length === 0 || searchTerms.every(t => matchesSingle(t)));
       
       const matchesGov = !governorate || p.governorate === governorate;
       const matchesArea = !area || p.area === area;
@@ -1253,7 +1259,7 @@ export default function App() {
       const dateB = b.createdAt?.seconds || 0;
       return dateB - dateA;
     });
-  }, [properties, deletedProperties, appliedFilters, favorites, user, view, selectedMarketerId]);
+  }, [properties, deletedProperties, appliedFilters, searchTerms, favorites, user, view, selectedMarketerId]);
 
   if (loading) {
     return (
@@ -2004,36 +2010,60 @@ export default function App() {
                         </span>
                       )}
 
-                      <div className="flex-1 flex items-center relative min-w-[150px]">
-                        <div className={`flex items-center w-full transition-all duration-300 ${searchQuery ? 'bg-emerald-50 rounded-lg border border-emerald-100 px-2' : ''}`}>
-                          <input 
-                            id="main-search-input"
-                            type="text"
-                            placeholder={!searchQuery ? "ابحث بالاسم، الرقم، أو المنطقة..." : ""}
-                            className={`w-full bg-transparent border-none outline-none text-sm py-1.5 transition-all ${searchQuery ? 'font-bold text-emerald-700' : 'text-stone-600'}`}
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(normalizeDigits(e.target.value))}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
+                      <div className="flex-1 flex flex-wrap items-center gap-1 min-w-[150px]">
+                        {/* Search term chips */}
+                        {searchTerms.map((term, idx) => (
+                          <span key={idx} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-800 rounded-md text-xs font-bold whitespace-nowrap">
+                            {term}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSearchTerms(prev => prev.filter((_, i) => i !== idx));
+                              }}
+                              className="hover:bg-blue-200 rounded-full p-0.5 transition-colors"
+                            >
+                              <X size={10} />
+                            </button>
+                          </span>
+                        ))}
+                        <input
+                          id="main-search-input"
+                          type="text"
+                          placeholder={searchTerms.length === 0 && !searchQuery ? "ابحث بالاسم، الرقم، أو المنطقة..." : ""}
+                          className="flex-1 min-w-[80px] bg-transparent border-none outline-none text-sm py-1.5 text-stone-700"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(normalizeDigits(e.target.value))}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
+                              if (searchQuery.trim()) {
+                                e.preventDefault();
+                                setSearchTerms(prev => [...prev, searchQuery.trim()]);
+                                setSearchQuery('');
+                                setHasSearched(true);
+                              } else if (e.key === 'Enter') {
                                 e.preventDefault();
                                 setAppliedFilters({ ...filters, query: searchQuery });
                                 setHasSearched(true);
                               }
+                            } else if (e.key === 'Backspace' && !searchQuery && searchTerms.length > 0) {
+                              setSearchTerms(prev => prev.slice(0, -1));
+                            }
+                          }}
+                        />
+                        {(searchQuery || searchTerms.length > 0) && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSearchQuery('');
+                              setSearchTerms([]);
                             }}
-                          />
-                          {searchQuery && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSearchQuery('');
-                              }}
-                              className="ml-1 text-emerald-400 hover:text-emerald-600 p-1 flex-shrink-0"
-                              title="مسح البحث"
-                            >
-                              <X size={14} />
-                            </button>
-                          )}
-                        </div>
+                            className="ml-1 text-stone-400 hover:text-stone-600 p-1 flex-shrink-0"
+                            title="مسح البحث"
+                          >
+                            <X size={14} />
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -2041,7 +2071,11 @@ export default function App() {
                   {/* MASTER SEARCH BUTTON - 1/3 Width */}
                   <button
                     onClick={() => {
-                      setAppliedFilters({ ...filters, query: searchQuery });
+                      if (searchQuery.trim()) {
+                        setSearchTerms(prev => [...prev, searchQuery.trim()]);
+                        setSearchQuery('');
+                      }
+                      setAppliedFilters({ ...filters, query: '' });
                       setHasSearched(true);
                     }}
                     className="flex-1 bg-emerald-500 text-white py-3 px-6 rounded-xl hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-200/50 flex items-center justify-center gap-2 min-h-[52px]"
@@ -2067,6 +2101,7 @@ export default function App() {
                       };
                       setFilters(emptyFilters);
                       setSearchQuery('');
+                      setSearchTerms([]);
                       setAppliedFilters({ ...emptyFilters, query: '' });
                       setHasSearched(false);
                     }}
