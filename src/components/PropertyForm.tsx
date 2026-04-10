@@ -206,7 +206,7 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
         assigned_employee_id: empId || null,
         assigned_employee_name: empName,
         images: formattedImages,
-        updated_at: new Date().toISOString(),
+        price: formData.price || null,
         status: isAdmin ? (property?.status || 'approved') : 'pending'
       };
 

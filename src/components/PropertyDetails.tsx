@@ -597,8 +597,7 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                               if (!editCommentText.trim()) return;
                               try {
                                 await supabase.from('comments').update({
-                                  text: editCommentText,
-                                  updated_at: new Date().toISOString()
+                                  text: editCommentText
                                 }).eq('id', c.id);
                                 
                                 // Update last comment on property card if this was the latest
