@@ -50,7 +50,7 @@ import { supabase } from './lib/supabaseClient';
 import { API_BASE } from './lib/apiBase';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
-import { GOVERNORATES, AREAS, PROPERTY_TYPES, PURPOSES, LOCATIONS } from './constants';
+import { GOVERNORATES, AREAS, PROPERTY_TYPES, PURPOSES, LOCATIONS, SUPER_ADMIN_EMAILS, SUPER_ADMIN_PHONES } from './constants';
 import { normalizeArabic, cleanAreaName, searchMatch, normalizeDigits, generatePropertyTitle, usernameToEmail, extractSpreadsheetId, formatRelativeDate, formatDateTime } from './utils';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
