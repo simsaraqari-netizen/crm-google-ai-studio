@@ -1,18 +1,17 @@
 import React, { useState, useEffect, memo } from 'react';
-import { 
-  ChevronRight, 
-  RefreshCw, 
-  Trash2, 
-  Edit, 
-  Share2, 
-  Heart, 
-  Image as ImageIcon, 
-  ChevronLeft, 
-  Phone, 
-  MessageCircle, 
-  MessageSquare, 
-  Plus, 
-  Link as LinkIcon, 
+import {
+  ChevronRight,
+  RefreshCw,
+  Trash2,
+  Edit,
+  Share2,
+  Heart,
+  Image as ImageIcon,
+  ChevronLeft,
+  Phone,
+  MessageCircle,
+  MessageSquare,
+  Plus,
   MapPin,
   X
 } from 'lucide-react';
@@ -23,7 +22,6 @@ import {
   generatePropertyTitle,
   formatRelativeDate,
   cleanAreaName,
-  compressImage,
   formatDateTime,
   formatPropertyDate,
   getPropertyCode
@@ -38,7 +36,6 @@ import { SUPER_ADMIN_EMAILS, SUPER_ADMIN_PHONES } from '../constants';
 export const PropertyDetails = memo(function PropertyDetails({ property, user, onBack, isAdmin, isFavorite, onFavorite, onEdit, onDelete, onRestore, onPermanentDelete, onDeleteComment, onUserClick, onFilter }: any) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
-  const [commentImages, setCommentImages] = useState<Array<{ url: string, type: 'image' | 'video' }>>([]);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   const images = React.useMemo(() => {
@@ -81,13 +78,13 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
 
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newComment.trim() && commentImages.length === 0) return;
+    if (!newComment.trim()) return;
     const isEmployee = user?.role === 'employee' || isAdmin;
     if (!isEmployee) {
       toast.error('عذراً، التعليقات متاحة للموظفين فقط.');
       return;
     }
-    
+
     setIsUploading(true);
     try {
       const commentData = {
@@ -96,55 +93,27 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
         user_name: user.name || user.full_name || user.email || 'مستخدم',
         user_phone: user.phone || '',
         text: newComment,
-        images: commentImages,
+        images: [],
         created_at: new Date().toISOString()
       };
 
       const { data: inserted, error } = await supabase.from('comments').insert(commentData).select().single();
       if (error) throw error;
 
-      // Optimistic update — show immediately without waiting for realtime
-      if (inserted) {
-        setComments(prev => [inserted as Comment, ...prev]);
-      }
+      // Immediate local update
+      if (inserted) setComments(prev => [inserted as Comment, ...prev]);
 
-      // Update last comment on property card
-      await supabase.from('properties').update({
-        last_comment: newComment || (commentImages.length > 0 ? 'تم إضافة صور' : '')
-      }).eq('id', property.id);
+      // Update last_comment on property (fire and forget)
+      supabase.from('properties').update({ last_comment: newComment }).eq('id', property.id);
 
       setNewComment('');
-      setCommentImages([]);
-      toast.success('تم إضافة التعليق بنجاح');
+      toast.success('تم إضافة التعليق');
     } catch (error) {
       console.error("Error adding comment:", error);
       toast.error("حدث خطأ أثناء إضافة التعليق");
     } finally {
       setIsUploading(false);
     }
-  };
-
-  const insertAtCursor = (textToInsert: string) => {
-    const textarea = document.getElementById('comment-textarea') as HTMLTextAreaElement;
-    if (!textarea) {
-      setNewComment(prev => prev + textToInsert);
-      return;
-    }
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-
-    setNewComment(prev => {
-      const before = prev.substring(0, start);
-      const after = prev.substring(end, prev.length);
-      return before + textToInsert + after;
-    });
-    
-    // Set focus back to textarea
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + textToInsert.length, start + textToInsert.length);
-    }, 0);
   };
 
   // WhatsApp for property/client owner — no pre-filled message, just open chat
@@ -166,58 +135,6 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
     const phone2 = property.phone_2 ? ` | ${property.phone_2.replace(/\s/g, '')}` : '';
     const codeStr = `🔑 كود العقار: #${code}`;
     return { title, shareUrl, text: [title, details, phone + phone2, codeStr, shareUrl].filter(Boolean).join('\n') };
-  };
-
-  const handleCommentImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []) as File[];
-    if (!files.length) return;
-
-    if (commentImages.length + files.length > 10) {
-      toast.error('لا يمكن اختيار أكثر من 10 ملفات');
-      if (e.target) e.target.value = '';
-      return;
-    }
-
-    setIsUploading(true);
-    try {
-      const newImages = [...commentImages];
-      for (const file of files) {
-        let fileToUpload: Blob;
-        let contentType: string;
-
-        if (file.type.startsWith('image/')) {
-          fileToUpload = await compressImage(file);
-          contentType = 'image/jpeg';
-        } else {
-          fileToUpload = file;
-          contentType = file.type || 'video/mp4';
-        }
-
-        // استخدام اسم عشوائي آمن بدلاً من اسم الملف الأصلي
-        const ext = file.type.startsWith('image/') ? 'jpg' : (file.name.split('.').pop() || 'mp4');
-        const safeFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${ext}`;
-        const filePath = `comments/${safeFileName}`;
-
-        const { error } = await supabase.storage
-          .from('comments')
-          .upload(filePath, fileToUpload, { contentType });
-        if (error) throw error;
-
-        const { data: { publicUrl } } = supabase.storage.from('comments').getPublicUrl(filePath);
-        newImages.push({ url: publicUrl, type: file.type.startsWith('video/') ? 'video' : 'image' });
-      }
-      setCommentImages(newImages);
-    } catch (error) {
-      console.error("Comment media upload error:", error);
-      toast.error("حدث خطأ أثناء رفع الملفات");
-    } finally {
-      setIsUploading(false);
-      if (e.target) e.target.value = '';
-    }
-  };
-
-  const removeCommentImage = (index: number) => {
-    setCommentImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleShare = async () => {
@@ -558,9 +475,23 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                             </button>
                           )}
                           {isAdmin && (
-                            <button 
-                              onClick={() => {
-                                onDeleteComment(c.id);
+                            <button
+                              onClick={async () => {
+                                // Immediate local removal
+                                setComments(prev => prev.filter(cm => cm.id !== c.id));
+                                // Persist in background
+                                supabase.from('comments').update({ is_deleted: true }).eq('id', c.id)
+                                  .then(({ error }) => {
+                                    if (error) {
+                                      // Rollback on failure
+                                      setComments(prev => [c, ...prev].sort((a, b) =>
+                                        new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+                                      ));
+                                      toast.error('فشل حذف التعليق');
+                                    } else {
+                                      toast.success('تم حذف التعليق');
+                                    }
+                                  });
                               }}
                               className="text-stone-400 hover:text-red-600 transition-colors"
                               title="حذف"
@@ -587,30 +518,19 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                           >
                             إلغاء
                           </button>
-                          <button 
+                          <button
                             onClick={async () => {
                               if (!editCommentText.trim()) return;
-                              try {
-                                await supabase.from('comments').update({
-                                  text: editCommentText
-                                }).eq('id', c.id);
-                                
-                                // Update last comment on property card if this was the latest
-                                const sorted = [...comments].sort((a, b) => {
-                                  const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
-                                  const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
-                                  return timeB - timeA;
+                              // Immediate local update
+                              setComments(prev => prev.map(cm =>
+                                cm.id === c.id ? { ...cm, text: editCommentText } : cm
+                              ));
+                              setEditingCommentId(null);
+                              // Persist in background
+                              supabase.from('comments').update({ text: editCommentText }).eq('id', c.id)
+                                .then(({ error }) => {
+                                  if (error) console.error("Error updating comment:", error);
                                 });
-                                if (c.id === sorted[0]?.id) {
-                                  await supabase.from('properties').update({
-                                    last_comment: editCommentText
-                                  }).eq('id', property.id);
-                                }
-                                
-                                setEditingCommentId(null);
-                              } catch (error) {
-                                console.error("Error updating comment:", error);
-                              }
                             }}
                             className="px-3 py-1.5 text-sm bg-emerald-600 text-white hover:bg-emerald-700 rounded-md transition-colors"
                           >
@@ -704,79 +624,18 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
             (user.email && SUPER_ADMIN_EMAILS.includes(user.email)) ||
             (user.phone && SUPER_ADMIN_PHONES.includes(user.phone))) ? (
             <form onSubmit={handleAddComment} className="space-y-2">
-              <div className="space-y-2">
-                <textarea
-                  id="comment-textarea"
-                  placeholder="أضف ملاحظة أو تعليق... (يمكنك استخدام Markdown)"
-                  rows={4}
-                  className="w-full p-4 bg-stone-50/50 border border-stone-100 rounded-xl text-base focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none"
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                />
-                {/* Media row */}
-                <div className="flex items-center gap-2 bg-stone-50 border border-stone-100 rounded-xl px-3 py-2">
-                  <input
-                    id="comment-image-upload"
-                    type="file"
-                    onChange={handleCommentImageUpload}
-                    multiple
-                    accept="image/*,video/*"
-                    className="hidden"
-                  />
-                  <label
-                    htmlFor="comment-image-upload"
-                    className={`p-2 bg-white border border-stone-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-500 transition-all shadow-sm flex items-center justify-center cursor-pointer shrink-0 ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
-                    title="إضافة صور أو فيديو (حتى 10)"
-                  >
-                    {isUploading ? (
-                      <LoadingSpinner size={20} className="border-emerald-500" />
-                    ) : (
-                      <ImageIcon size={20} />
-                    )}
-                  </label>
-                  <div className="flex items-center gap-2 flex-1">
-                    <LinkIcon size={16} className="text-stone-400 shrink-0" />
-                    <input
-                      type="text"
-                      placeholder="رابط صورة أو فيديو..."
-                      className="flex-1 bg-transparent border-none outline-none text-sm text-right placeholder:text-stone-300"
-                      onBlur={(e) => {
-                        if (e.target.value) {
-                          insertAtCursor(`[رابط](${e.target.value})`);
-                          e.target.value = '';
-                        }
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {commentImages.length > 0 && (
-                <div className="flex flex-wrap gap-2 p-2 bg-stone-50 rounded-xl border border-stone-100">
-                  {commentImages.map((img, idx) => (
-                    <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-stone-200">
-                      {img.type === 'video' ? (
-                        <video src={img.url} className="w-full h-full object-cover" />
-                      ) : (
-                        <img loading="lazy" src={img.url} alt="" className="w-full h-full object-cover" />
-                      )}
-                      {/* Always visible X on mobile */}
-                      <button
-                        type="button"
-                        onClick={() => removeCommentImage(idx)}
-                        className="absolute top-0.5 right-0.5 bg-red-500 text-white p-1 rounded-full shadow"
-                      >
-                        <X size={10} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <button 
+              <textarea
+                id="comment-textarea"
+                placeholder="أضف ملاحظة أو تعليق..."
+                rows={3}
+                className="w-full p-3 bg-stone-50/50 border border-stone-100 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none"
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+              />
+              <button
                 type="submit"
-                disabled={isUploading || (!newComment.trim() && commentImages.length === 0)}
-                className="w-full bg-emerald-500 text-white px-4 py-3 rounded-xl hover:bg-emerald-600 active:scale-[0.98] transition-all text-sm font-bold mt-2 shadow-sm disabled:opacity-50 flex items-center justify-center gap-2"
+                disabled={isUploading || !newComment.trim()}
+                className="w-full bg-emerald-500 text-white px-4 py-3 rounded-xl hover:bg-emerald-600 active:scale-[0.98] transition-all text-sm font-bold shadow-sm disabled:opacity-40 flex items-center justify-center gap-2"
               >
                 {isUploading ? (
                   <>

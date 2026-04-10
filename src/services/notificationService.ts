@@ -1,54 +1,47 @@
 import { supabase } from '../lib/supabaseClient';
 import { generatePropertyTitle } from '../utils';
 
-export async function notifyFavoriteUsers(propertyId: string, property: any, data: any) {
+// Fire-and-forget — never blocks the form save
+export function notifyFavoriteUsers(propertyId: string, property: any, data: any) {
   const priceChanged = property.price !== data.price;
-  const statusChanged = property.isSold !== data.isSold || property.statusLabel !== data.statusLabel;
-  
-  if (priceChanged || statusChanged) {
-    // Find all users who favorited this property
-    const { data: favorites, error: favError } = await supabase
-      .from('favorites')
-      .select('userId')
-      .eq('propertyId', propertyId);
+  const statusChanged = property.is_sold !== data.is_sold || property.status_label !== data.status_label;
 
-    if (favError) {
-      console.error("Error fetching favorites:", favError);
-      return;
+  if (!priceChanged && !statusChanged) return;
+
+  // Run async without blocking
+  (async () => {
+    try {
+      const { data: favorites } = await supabase
+        .from('favorites')
+        .select('user_id')
+        .eq('property_id', propertyId);
+
+      if (!favorites?.length) return;
+
+      const { data: { user } } = await supabase.auth.getUser();
+      const currentUserId = user?.id;
+
+      let type: 'price-change' | 'status-change' = priceChanged ? 'price-change' : 'status-change';
+      let message = priceChanged
+        ? `تغير السعر إلى ${data.price} للعقار: ${generatePropertyTitle(property)}`
+        : `تغيرت حالة العقار: ${generatePropertyTitle(property)}`;
+
+      const inserts = favorites
+        .filter(f => f.user_id !== currentUserId)
+        .map(f => ({
+          type,
+          title: 'تحديث في عقار يهمك',
+          message,
+          recipient_id: f.user_id,
+          user_id: currentUserId,
+          property_id: propertyId,
+          read: false,
+          created_at: new Date().toISOString()
+        }));
+
+      if (inserts.length) await supabase.from('notifications').insert(inserts);
+    } catch (err) {
+      console.error('notifyFavoriteUsers error:', err);
     }
-    
-    const { data: { user } } = await supabase.auth.getUser();
-    const currentUserId = user?.id;
-
-    const interestedUserIds = (favorites || []).map(f => f.userId);
-    
-    for (const recipientId of interestedUserIds) {
-      if (recipientId === currentUserId) continue; // Don't notify the updater
-      
-      let title = 'تحديث في عقار يهمك';
-      let message = `تم تحديث بيانات العقار: ${generatePropertyTitle(property)}`;
-      let type: 'price-change' | 'status-change' = 'status-change';
-      
-      if (priceChanged && statusChanged) {
-        message = `تم تغيير السعر والحالة للعقار: ${generatePropertyTitle(property)}`;
-      } else if (priceChanged) {
-        type = 'price-change';
-        message = `تغير السعر إلى ${data.price} للعقار: ${generatePropertyTitle(property)}`;
-      } else if (statusChanged) {
-        type = 'status-change';
-        message = `تغيرت حالة العقار: ${generatePropertyTitle(property)}`;
-      }
-
-      await supabase.from('notifications').insert({
-        type,
-        title,
-        message,
-        recipientId,
-        userId: currentUserId,
-        propertyId: propertyId,
-        read: false,
-        createdAt: new Date().toISOString()
-      });
-    }
-  }
+  })();
 }
