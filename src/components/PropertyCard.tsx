@@ -105,11 +105,11 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
               <MessageSquare size={12} className="shrink-0" />
               آخر تعليق
             </div>
-            <p className="text-[11px] text-stone-600 line-clamp-2 text-right leading-relaxed">
+            <p className="text-xs text-stone-600 line-clamp-2 text-right leading-relaxed">
               {property.last_comment}
             </p>
             {property.last_comment_at && (
-              <span className="text-[9px] text-stone-400 font-medium">
+              <span className="text-[10px] text-stone-400 font-medium">
                 {formatDateTime(property.last_comment_at)}
               </span>
             )}

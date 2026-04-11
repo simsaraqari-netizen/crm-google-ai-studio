@@ -2153,7 +2153,7 @@ export default function App() {
                         <input
                           id="main-search-input"
                           type="text"
-                          placeholder={searchTerms.length === 0 && !searchQuery ? "ابحث بالاسم، الرقم، أو المنطقة..." : ""}
+                          placeholder={searchTerms.length === 0 && !searchQuery && Object.values(filters).every(v => !v) ? "ابحث بالاسم، الرقم، أو المنطقة..." : ""}
                           className="flex-1 min-w-[80px] bg-transparent border-none outline-none text-sm py-1.5 text-stone-700"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(normalizeDigits(e.target.value))}
