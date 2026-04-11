@@ -121,17 +121,25 @@ export function cleanNameWithContext(name: any, purpose?: string, type?: string)
 
 export function searchMatch(source: string, query: string): boolean {
   if (!query) return true;
+  
+  // Normalize both source and query
   const normalizedSource = normalizeArabic(source.toLowerCase());
-  const normalizedQuery = normalizeArabic(query.toLowerCase());
+  // Strip '#' from query if present to support searching by #1234
+  const normalizedQuery = normalizeArabic(query.toLowerCase().replace(/#/g, ''));
   
-  // Split both source and query into tokens primarily by whitespace and major separators
-  const sourceTokens = normalizedSource.split(/[\s,،;؛|]+/).filter(Boolean);
+  // Split query into tokens
   const queryTokens = normalizedQuery.split(/[\s,،;؛|]+/).filter(Boolean);
-  
   if (queryTokens.length === 0) return true;
   
-  // Every word/token in the query must match one of the tokens in the source exactly
-  return queryTokens.every(qToken => sourceTokens.includes(qToken));
+  // Split source into tokens
+  const sourceTokens = normalizedSource.split(/[\s,،;؛|]+/).filter(Boolean);
+  
+  // Every word/token in the query must match part of one of the tokens in the source
+  // This allows partial matches (e.g., query "10" matches "1024")
+  return queryTokens.every(qToken => 
+    sourceTokens.some(sToken => sToken.includes(qToken)) || 
+    normalizedSource.includes(qToken)
+  );
 }
 
 export function generatePropertyTitle(property: any): string {

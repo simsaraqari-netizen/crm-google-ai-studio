@@ -2157,13 +2157,17 @@ export default function App() {
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(normalizeDigits(e.target.value))}
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
+                            if (e.key === 'Enter') {
                               if (searchQuery.trim()) {
+                                if (searchTerms.length >= 10) {
+                                  toast.error("الحد الأقصى للبحث هو 10 خيارات فقط");
+                                  return;
+                                }
                                 e.preventDefault();
                                 setSearchTerms(prev => [...prev, searchQuery.trim()]);
                                 setSearchQuery('');
                                 setHasSearched(true);
-                              } else if (e.key === 'Enter') {
+                              } else {
                                 e.preventDefault();
                                 setAppliedFilters({ ...filters, query: searchQuery });
                                 setHasSearched(true);
