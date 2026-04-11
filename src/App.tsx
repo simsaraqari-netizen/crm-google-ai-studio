@@ -37,10 +37,8 @@ import {
   MessageCircle,
   Share2,
   Leaf,
-  RefreshCw,
   Bell,
   Building2,
-  AlertTriangle,
   Download,
   Clock,
   Maximize,
@@ -1204,11 +1202,56 @@ export default function App() {
         if (signInError) throw signInError;
       } else {
         // Sign in
-        const { error: signInError } = await supabase.auth.signInWithPassword({
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
           email: emailToUse,
           password: password
         });
         if (signInError) throw signInError;
+
+        // Directly update user state after successful sign-in
+        // (don't rely solely on onAuthStateChange which may have timing issues)
+        const sbUser = signInData?.user;
+        if (sbUser) {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', sbUser.id)
+            .maybeSingle();
+
+          if (profileData) {
+            if (profileData.force_sign_out) {
+              await supabase.from('profiles').update({ force_sign_out: false }).eq('id', sbUser.id);
+              await supabase.auth.signOut();
+              throw new Error('تم تسجيل خروجك من قبل المسؤول.');
+            }
+            if (profileData.role === 'rejected') {
+              await supabase.auth.signOut();
+              throw new Error('تم رفض حسابك من قبل الإدارة.');
+            }
+            if (profileData.is_deleted) {
+              await supabase.auth.signOut();
+              throw new Error('هذا الحساب تم حذفه من قبل الإدارة.');
+            }
+
+            const mappedUser: UserProfile = {
+              uid: profileData.id,
+              email: sbUser.email || '',
+              name: profileData.name || 'User',
+              role: profileData.role,
+              companyId: profileData.company_id,
+              createdAt: profileData.created_at,
+              forceSignOut: profileData.force_sign_out,
+              phone: profileData.phone
+            };
+            setUser(mappedUser);
+            if (['super_admin', 'admin', 'employee'].includes(mappedUser.role)) {
+              setHasSearched(true);
+            }
+            if (mappedUser.companyId) {
+              setSelectedCompanyId(mappedUser.companyId);
+            }
+          }
+        }
       }
     } catch (error: any) {
       console.error("Email auth failed", error);

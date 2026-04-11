@@ -43,7 +43,7 @@ export const PropertyCard = memo(function PropertyCard({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -4 }}
-      className={`group relative flex flex-col bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl hover:shadow-stone-200/50 transition-all duration-500 cursor-pointer border border-stone-100 ${view === 'pending-properties' ? 'ring-2 ring-amber-500/20' : ''}`}
+      className={`group relative flex flex-col bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg hover:shadow-stone-200/50 transition-all duration-500 cursor-pointer border border-stone-100 ${view === 'pending-properties' ? 'ring-2 ring-amber-500/20' : ''}`}
       onClick={() => onClick && onClick(property)}
     >
       {/* ── Top Media Section ── */}
@@ -106,23 +106,22 @@ export const PropertyCard = memo(function PropertyCard({
           )}
         </div>
 
-        {/* Latest Comment Area - Premium Glassmorphism */}
+        {/* Latest Comment */}
         {property.last_comment && (
-          <div className="mt-1 p-4 bg-emerald-50/60 backdrop-blur-md rounded-2xl border border-emerald-100/40 shadow-sm relative overflow-hidden group/comment">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2 text-emerald-800 font-black text-[9px] uppercase tracking-wider">
-                <MessageSquare size={12} className="text-emerald-600" />
+          <div className="mt-1 border-r-2 border-emerald-400 pr-3">
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-1.5 text-emerald-600 text-[9px] font-black uppercase tracking-wider">
+                <MessageSquare size={11} />
                 آخر ملاحظة
               </div>
               {property.last_comment_at && (
-                <div className="flex items-center gap-1.5 text-[9px] text-emerald-600/70 font-bold bg-white/50 px-2 py-0.5 rounded-lg border border-emerald-100/20" dir="ltr">
-                  <Clock size={10} />
+                <span className="text-[9px] text-stone-400 font-medium" dir="ltr">
                   {formatDateTime(property.last_comment_at)}
-                </div>
+                </span>
               )}
             </div>
-            <p className="text-[12px] text-stone-700 line-clamp-2 leading-relaxed font-bold italic">
-              « {property.last_comment} »
+            <p className="text-[12px] text-stone-600 line-clamp-2 leading-relaxed">
+              {property.last_comment}
             </p>
           </div>
         )}
@@ -132,7 +131,7 @@ export const PropertyCard = memo(function PropertyCard({
           {property.area && (
             <button
               onClick={(e) => { e.stopPropagation(); onFilter?.('area', property.area); }}
-              className="bg-stone-50 hover:bg-stone-100 text-stone-500 text-[10px] font-black px-3 py-1.5 rounded-xl transition-all border border-stone-100"
+              className="text-stone-500 text-[10px] font-bold px-2.5 py-1 rounded-md transition-all border border-stone-200 hover:border-stone-300"
             >
               {cleanAreaName(property.area)}
             </button>
@@ -140,7 +139,7 @@ export const PropertyCard = memo(function PropertyCard({
           {property.type && (
             <button
               onClick={(e) => { e.stopPropagation(); onFilter?.('type', property.type); }}
-              className="bg-sky-50/50 hover:bg-sky-100 text-sky-700 text-[10px] font-black px-3 py-1.5 rounded-xl transition-all border border-sky-100/50"
+              className="text-sky-600 text-[10px] font-bold px-2.5 py-1 rounded-md transition-all border border-sky-200 hover:border-sky-300"
             >
               {property.type}
             </button>
@@ -149,7 +148,7 @@ export const PropertyCard = memo(function PropertyCard({
       </div>
 
       {/* ── Action Footer ── */}
-      <div className="px-5 py-4 border-t border-stone-50 bg-stone-50/30 flex items-center justify-between" dir="rtl">
+      <div className="px-5 py-4 border-t border-stone-100 flex items-center justify-between" dir="rtl">
         <div className="flex flex-col gap-0.5">
            <span className="text-[11px] font-black text-stone-400/80 tracking-widest uppercase">
             #{getPropertyCode(property)}
