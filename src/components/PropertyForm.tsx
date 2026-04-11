@@ -72,7 +72,8 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
     comments_2: '',
     comments_3: '',
     status_label: property?.status_label || '',
-    company_id: property?.company_id || (isSuperAdmin ? selectedCompanyId : user?.companyId)
+    property_code: property?.property_code || '',
+    company_id: property?.company_id || (isSuperAdmin ? selectedCompanyId : (user?.company_id || user?.companyId))
   });
 
   const [employees, setEmployees] = useState<UserProfile[]>([]);
@@ -101,7 +102,15 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
     };
     
     fetchEmployees();
-  }, [isSuperAdmin, selectedCompanyId, user?.companyId, formData.company_id]);
+  }, [isSuperAdmin, selectedCompanyId, user?.companyId, user?.company_id, formData.company_id]);
+
+  // Automated Property Code Generation for new properties
+  useEffect(() => {
+    if (!property && !formData.property_code) {
+      const newCode = generateUniqueCode(existingProperties || []);
+      setFormData(prev => ({ ...prev, property_code: newCode }));
+    }
+  }, [property, existingProperties]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []) as File[];
@@ -220,10 +229,14 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
         empName = property?.assigned_employee_name || user?.name;
       }
 
+      const companyIdToSave = (isSuperAdmin && formData.company_id) 
+        ? formData.company_id 
+        : (user?.company_id || user?.companyId);
+
       const data = {
         ...formData,
         name: unifyAbuName(formData.name),
-        company_id: (isSuperAdmin && formData.company_id) ? formData.company_id : (user?.companyId || user?.company_id),
+        company_id: companyIdToSave,
         assigned_employee_id: empId || null,
         assigned_employee_name: unifyAbuName(empName),
         images: formattedImages,
@@ -244,12 +257,12 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
         savedProperty = updated;
         await notifyFavoriteUsers(property.id, property, data);
       } else {
-        const newCode = generateUniqueCode(existingProperties || []);
         const { data: inserted, error } = await supabase
           .from('properties')
           .insert({
             ...data,
-            property_code: newCode,
+            // Use the property_code already generated in state
+            property_code: formData.property_code,
             created_at: new Date().toISOString(),
             created_by: user?.uid || user?.id,
           })
@@ -284,29 +297,40 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
       </div>
 
       <form onSubmit={handleSubmit} className="p-6 space-y-6">
-        {/* Company Selection */}
-        <div className="space-y-2">
-          <label className="text-sm font-bold text-stone-700">الشركة</label>
-          {isSuperAdmin ? (
-            <SearchableFilter
-              placeholder="اختر الشركة..."
-              options={companies.map((c: any) => c.name)}
-              value={companies.find((c: any) => c.id === (formData as any).company_id)?.name || ''}
-              onChange={(val) => {
-                const company = companies.find((c: any) => c.name === val);
-                setFormData({
-                  ...formData,
-                  company_id: company ? company.id : ''
-                });
-              }}
-            />
-          ) : (
-            <div className="p-4 bg-stone-50 rounded-lg border border-stone-200">
-              <p className="text-sm font-bold text-stone-900">
-                {companies.find((c: any) => c.id === (user?.company_id))?.name || 'غير محدد'}
+        {/* Section 0: Fixed Info (Company & Code) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-stone-50 rounded-xl border border-stone-200">
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest px-1">الشركة</label>
+            {isSuperAdmin ? (
+              <SearchableFilter
+                placeholder="اختر الشركة..."
+                options={companies.map((c: any) => c.name)}
+                value={companies.find((c: any) => c.id === (formData as any).company_id)?.name || ''}
+                onChange={(val) => {
+                  const company = companies.find((c: any) => c.name === val);
+                  setFormData({
+                    ...formData,
+                    company_id: company ? company.id : ''
+                  });
+                }}
+              />
+            ) : (
+              <div className="px-4 py-2 bg-white rounded-lg border border-stone-200">
+                <p className="text-sm font-bold text-stone-900">
+                  شركة مصادقة العقارية
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest px-1">كود العقار (تلقائي)</label>
+            <div className="px-4 py-2 bg-white rounded-lg border border-emerald-200 shadow-sm">
+              <p className="text-sm font-black text-emerald-700">
+                #{formData.property_code || '....'}
               </p>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Section 1: Client Info */}
