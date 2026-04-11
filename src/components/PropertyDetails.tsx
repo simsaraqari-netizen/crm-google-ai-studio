@@ -86,6 +86,24 @@ export const PropertyDetails = memo(function PropertyDetails({
   const [viewerImages, setViewerImages] = useState<string[]>([]);
   const [viewerIndex, setViewerIndex] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [employeePhone, setEmployeePhone] = useState<string>(property.assigned_employee_phone || '');
+
+  // Fetch employee phone from profiles if not stored on property
+  useEffect(() => {
+    if (property.assigned_employee_phone) {
+      setEmployeePhone(property.assigned_employee_phone);
+      return;
+    }
+    if (!property.assigned_employee_id) return;
+    supabase
+      .from('profiles')
+      .select('phone')
+      .eq('id', property.assigned_employee_id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.phone) setEmployeePhone(data.phone);
+      });
+  }, [property.assigned_employee_id, property.assigned_employee_phone]);
 
   useEffect(() => {
     if (!property.id) return;
@@ -420,26 +438,39 @@ export const PropertyDetails = memo(function PropertyDetails({
               <User size={11} />
               موظف الإدخال
             </p>
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex-1 min-w-0">
                 <button
                   onClick={() => onUserClick?.(property.assigned_employee_id || '')}
-                  className="text-sm font-black text-stone-900 hover:text-emerald-600 transition-colors"
+                  className="text-sm font-black text-stone-900 hover:text-emerald-600 transition-colors block"
                 >
                   {property.assigned_employee_name || '—'}
                 </button>
-                <p className="text-[11px] text-stone-400 mt-0.5" dir="ltr">{property.assigned_employee_phone || ''}</p>
+                {employeePhone ? (
+                  <p className="text-[11px] text-stone-500 mt-0.5 font-mono" dir="ltr">{employeePhone}</p>
+                ) : (
+                  <p className="text-[11px] text-stone-300 mt-0.5">بدون هاتف</p>
+                )}
+                {property.created_at && (
+                  <p className="text-[10px] text-stone-400 mt-1" dir="ltr">{formatDateTime(property.created_at)}</p>
+                )}
               </div>
-              {property.assigned_employee_phone && (
-                <div className="flex gap-2">
-                  <a href={`https://wa.me/${property.assigned_employee_phone.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer" className="p-2 text-emerald-600 border border-stone-100 rounded-lg hover:bg-emerald-50 transition-colors">
-                    <MessageCircle size={16} />
-                  </a>
-                  <a href={`tel:${property.assigned_employee_phone}`} className="p-2 text-stone-500 border border-stone-100 rounded-lg hover:bg-stone-50 transition-colors">
-                    <Phone size={16} />
-                  </a>
-                </div>
-              )}
+              <div className="flex gap-2 flex-shrink-0">
+                <a
+                  href={employeePhone ? `https://wa.me/${employeePhone.replace(/[^0-9]/g, '')}` : undefined}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`p-2 border border-stone-100 rounded-lg transition-colors ${employeePhone ? 'text-emerald-600 hover:bg-emerald-50' : 'text-stone-200 pointer-events-none'}`}
+                >
+                  <MessageCircle size={16} />
+                </a>
+                <a
+                  href={employeePhone ? `tel:${employeePhone}` : undefined}
+                  className={`p-2 border border-stone-100 rounded-lg transition-colors ${employeePhone ? 'text-stone-500 hover:bg-stone-50' : 'text-stone-200 pointer-events-none'}`}
+                >
+                  <Phone size={16} />
+                </a>
+              </div>
             </div>
           </div>
 
