@@ -65,6 +65,7 @@ import { ImageViewer } from './components/ImageViewer';
 import { ConfirmModal } from './components/ConfirmModal';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { ExportModal } from './components/ExportModal';
 
 // --- Types ---
 
@@ -358,6 +359,7 @@ export default function App() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isSyncManagementOpen, setIsSyncManagementOpen] = useState(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [spreadsheetId, setSpreadsheetId] = useState('');
   const [tempSpreadsheetId, setTempSpreadsheetId] = useState('');
@@ -1935,12 +1937,18 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#f5f5f0] text-stone-900 font-sans" dir="rtl">
-      <SyncModal 
-        isOpen={isSyncModalOpen} 
-        onClose={() => setIsSyncModalOpen(false)} 
+      <SyncModal
+        isOpen={isSyncModalOpen}
+        onClose={() => setIsSyncModalOpen(false)}
         onSyncFrom={handleSyncFrom}
         onSyncTo={handleSyncTo}
       />
+      {isExportModalOpen && isAdmin && (
+        <ExportModal
+          onClose={() => setIsExportModalOpen(false)}
+          selectedCompanyId={selectedCompanyId}
+        />
+      )}
       {/* Drawer Overlay */}
       {/* Image Preview Modal */}
       {previewImages.length > 0 && (
@@ -2090,7 +2098,7 @@ export default function App() {
                       <span className="font-bold text-md">نسخة احتياطية</span>
                     </button>
 
-                    <button 
+                    <button
                       onClick={() => {
                         if (!spreadsheetId) {
                           toast.error('يرجى حفظ رابط الشيت أولاً');
@@ -2103,6 +2111,14 @@ export default function App() {
                     >
                       <RefreshCw size={20} className="text-stone-500" />
                       <span className="font-bold text-md">مزامنة البيانات</span>
+                    </button>
+
+                    <button
+                      onClick={() => { setIsExportModalOpen(true); setIsDrawerOpen(false); }}
+                      className="w-full flex items-center gap-4 p-3 rounded-lg transition-colors hover:bg-emerald-50 text-emerald-700"
+                    >
+                      <Download size={20} />
+                      <span className="font-bold text-md">تصدير البيانات</span>
                     </button>
                   </>
                 )}

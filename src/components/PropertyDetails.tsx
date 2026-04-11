@@ -160,7 +160,7 @@ export const PropertyDetails = memo(function PropertyDetails({
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="max-w-4xl mx-auto px-3 sm:px-6 py-4"
+      className="max-w-4xl mx-auto px-3 sm:px-6 py-2"
       dir="rtl"
     >
       {showViewer && (
@@ -173,7 +173,7 @@ export const PropertyDetails = memo(function PropertyDetails({
       )}
 
       {/* ── Top Bar ── */}
-      <div className="flex items-center justify-between gap-3 mb-4">
+      <div className="flex items-center justify-between gap-3 mb-2">
         <button
           onClick={onBack}
           className="flex items-center gap-1.5 text-stone-500 hover:text-emerald-700 transition-colors text-sm font-bold"
@@ -204,10 +204,10 @@ export const PropertyDetails = memo(function PropertyDetails({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
 
         {/* ── Left: Media + Info ── */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="lg:col-span-2 space-y-2">
 
           {/* Media */}
           <div className="bg-white rounded-xl overflow-hidden border border-stone-100">
@@ -267,10 +267,10 @@ export const PropertyDetails = memo(function PropertyDetails({
           </div>
 
           {/* Title & Details */}
-          <div className="bg-white rounded-xl border border-stone-100 p-5 space-y-5">
+          <div className="bg-white rounded-xl border border-stone-100 p-3 space-y-3">
             {/* Title row */}
             <div>
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start justify-between gap-2">
                 <h1 className="text-xl sm:text-2xl font-black text-stone-900 leading-snug flex-1">
                   {property.name || 'عقار بدون اسم'}
                 </h1>
@@ -278,7 +278,7 @@ export const PropertyDetails = memo(function PropertyDetails({
                   <span className="text-xl font-black text-emerald-600 whitespace-nowrap">{property.price}</span>
                 )}
               </div>
-              <div className="flex items-center gap-3 mt-2 flex-wrap">
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
                 {(property.governorate || property.area) && (
                   <span className="flex items-center gap-1 text-xs text-stone-500 font-bold">
                     <MapPin size={12} className="text-emerald-500" />
@@ -292,7 +292,7 @@ export const PropertyDetails = memo(function PropertyDetails({
             </div>
 
             {/* Specs row */}
-            <div className="flex flex-wrap gap-x-6 gap-y-2 border-t border-stone-100 pt-4">
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5 border-t border-stone-100 pt-2">
               {property.purpose && (
                 <div><span className="text-[10px] text-stone-400 block">الغرض</span><span className="text-sm font-black text-stone-800">{property.purpose}</span></div>
               )}
@@ -306,13 +306,13 @@ export const PropertyDetails = memo(function PropertyDetails({
 
             {/* Details text */}
             {property.details && (
-              <div className="border-t border-stone-100 pt-4">
+              <div className="border-t border-stone-100 pt-2">
                 <p className="text-sm text-stone-700 leading-relaxed whitespace-pre-wrap">{property.details}</p>
               </div>
             )}
 
             {(property.comments_2 || property.comments_3) && (
-              <div className="space-y-2 border-t border-stone-100 pt-4">
+              <div className="space-y-1 border-t border-stone-100 pt-2">
                 {property.comments_2 && <p className="text-sm text-stone-600 italic">{property.comments_2}</p>}
                 {property.comments_3 && <p className="text-sm text-stone-600 italic">{property.comments_3}</p>}
               </div>
@@ -321,12 +321,12 @@ export const PropertyDetails = memo(function PropertyDetails({
 
           {/* Location specs */}
           {(property.block || property.plot_number || property.street || property.avenue || property.house_number || property.distribution || property.location_link) && (
-            <div className="bg-white rounded-xl border border-stone-100 p-5">
-              <h3 className="text-xs font-black text-stone-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+            <div className="bg-white rounded-xl border border-stone-100 p-3">
+              <h3 className="text-xs font-black text-stone-400 uppercase tracking-widest mb-2 flex items-center gap-2">
                 <MapPin size={13} className="text-emerald-500" />
                 تفاصيل الموقع والمواصفات
               </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {[
                   { label: 'القطعة', value: property.block },
                   { label: 'القسيمة', value: property.plot_number },
@@ -346,7 +346,7 @@ export const PropertyDetails = memo(function PropertyDetails({
                   href={property.location_link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-4 flex items-center justify-center gap-2 border border-emerald-200 text-emerald-700 py-3 rounded-lg font-bold text-sm hover:bg-emerald-50 transition-colors"
+                  className="mt-2 flex items-center justify-center gap-2 border border-emerald-200 text-emerald-700 py-2 rounded-lg font-bold text-sm hover:bg-emerald-50 transition-colors"
                 >
                   <ExternalLink size={16} />
                   عرض على الخرائط
@@ -357,19 +357,19 @@ export const PropertyDetails = memo(function PropertyDetails({
         </div>
 
         {/* ── Right: Contact + Employee + Comments ── */}
-        <div className="space-y-4">
+        <div className="space-y-2">
 
           {/* Contact */}
-          <div className="bg-white rounded-xl border border-stone-100 p-4 space-y-3">
+          <div className="bg-white rounded-xl border border-stone-100 p-3 space-y-2">
             <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">هاتف العقار المسجل</p>
             {property.phone ? (
               <>
-                <a href={`tel:${property.phone}`} className="w-full flex items-center justify-between border border-stone-200 p-3.5 rounded-lg hover:border-stone-300 transition-colors">
+                <a href={`tel:${property.phone}`} className="w-full flex items-center justify-between border border-stone-200 p-2.5 rounded-lg hover:border-stone-300 transition-colors">
                   <span className="text-base font-black text-stone-800 font-mono" dir="ltr">{property.phone}</span>
                   <Phone size={16} className="text-emerald-600" />
                 </a>
                 {property.phone_2 && (
-                  <a href={`tel:${property.phone_2}`} className="w-full flex items-center justify-between border border-stone-200 p-3.5 rounded-lg hover:border-stone-300 transition-colors">
+                  <a href={`tel:${property.phone_2}`} className="w-full flex items-center justify-between border border-stone-200 p-2.5 rounded-lg hover:border-stone-300 transition-colors">
                     <span className="text-base font-black text-stone-800 font-mono" dir="ltr">{property.phone_2}</span>
                     <Phone size={16} className="text-stone-400" />
                   </a>
@@ -378,19 +378,19 @@ export const PropertyDetails = memo(function PropertyDetails({
                   href={propertyWhatsappUrl || '#'}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full flex items-center justify-center gap-2 border border-emerald-200 text-emerald-700 p-3.5 rounded-lg font-bold hover:bg-emerald-50 transition-colors"
+                  className="w-full flex items-center justify-center gap-2 border border-emerald-200 text-emerald-700 p-2.5 rounded-lg font-bold hover:bg-emerald-50 transition-colors"
                 >
                   <MessageCircle size={18} />
                   واتساب العقار
                 </a>
               </>
             ) : (
-              <p className="text-center py-3 text-xs text-stone-400">لا توجد أرقام هواتف مسجلة</p>
+              <p className="text-center py-2 text-xs text-stone-400">لا توجد أرقام هواتف مسجلة</p>
             )}
           </div>
 
           {/* Comments */}
-          <div className="bg-white rounded-xl border border-stone-100 p-4 space-y-3">
+          <div className="bg-white rounded-xl border border-stone-100 p-3 space-y-2">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-black text-stone-800 flex items-center gap-2">
                 <MessageSquare size={16} className="text-emerald-600" />
@@ -426,24 +426,22 @@ export const PropertyDetails = memo(function PropertyDetails({
             )}
 
             {/* Add comment form */}
-            <form onSubmit={handleAddComment} className="space-y-2 border-t border-stone-100 pt-3">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-black text-stone-700 flex items-center gap-1.5">
-                  <Plus size={14} className="text-emerald-600" />
-                  إضافة ملاحظة
-                </span>
-              </div>
+            <form onSubmit={handleAddComment} className="space-y-1.5 border-t border-stone-100 pt-2">
+              <span className="text-xs font-black text-stone-700 flex items-center gap-1.5">
+                <Plus size={13} className="text-emerald-600" />
+                إضافة ملاحظة
+              </span>
               <textarea
-                placeholder="أضف ملاحظة أو تعليق... (يمكنك استخدام Markdown)"
-                rows={3}
-                className="w-full p-3 border border-stone-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all resize-none"
+                placeholder="أضف ملاحظة أو تعليق..."
+                rows={2}
+                className="w-full p-2.5 border border-stone-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all resize-none"
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
               />
               <button
                 type="submit"
                 disabled={isUploading || !newComment.trim()}
-                className="w-full bg-emerald-600 text-white py-2.5 rounded-lg font-bold text-sm hover:bg-emerald-700 transition-colors disabled:opacity-40"
+                className="w-full bg-emerald-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-emerald-700 transition-colors disabled:opacity-40"
               >
                 {isUploading ? <LoadingSpinner size={16} className="border-white mx-auto" /> : 'إرسال التعليق'}
               </button>
@@ -451,7 +449,7 @@ export const PropertyDetails = memo(function PropertyDetails({
           </div>
 
           {/* Assigned Employee */}
-          <div className="bg-white rounded-xl border border-stone-100 p-4">
+          <div className="bg-white rounded-xl border border-stone-100 p-3">
             <div className="flex items-center justify-between">
               <div className="text-right">
                 <button

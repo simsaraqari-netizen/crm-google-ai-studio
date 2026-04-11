@@ -14,7 +14,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabaseClient';
-import { compressImage, generateUniqueCode, unifyAbuName } from '../utils';
+import { compressImage, unifyAbuName } from '../utils';
 import { notifyFavoriteUsers } from '../services/notificationService';
 import { SearchableFilter } from './SearchableFilter';
 import { LoadingSpinner } from './LoadingSpinner';
@@ -104,13 +104,16 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
     fetchEmployees();
   }, [isSuperAdmin, selectedCompanyId, user?.companyId, user?.company_id, formData.company_id]);
 
-  // Automated Property Code Generation for new properties
+  // Generate unique property code from DB (atomic, no race conditions)
   useEffect(() => {
     if (!property && !formData.property_code) {
-      const newCode = generateUniqueCode(existingProperties || []);
-      setFormData(prev => ({ ...prev, property_code: newCode }));
+      supabase.rpc('next_property_code').then(({ data, error }) => {
+        if (!error && data) {
+          setFormData(prev => ({ ...prev, property_code: String(data) }));
+        }
+      });
     }
-  }, [property, existingProperties]);
+  }, [property]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []) as File[];
@@ -184,15 +187,6 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
     if (e) e.preventDefault();
     
     if (!force) {
-      // 1. Strict Uniqueness Check for Property Code
-      const isDuplicate = existingProperties?.some(p => 
-        String(p.property_code) === String(formData.property_code) && p.id !== property?.id
-      );
-      if (isDuplicate) {
-        toast.error(`كود العقار #${formData.property_code} مستخدم مسبقاً لعقار آخر! يرجى استخدام كود فريد.`);
-        setIsSaving(false);
-        return;
-      }
 
       const missing: string[] = [];
       if (!formData.name) missing.push('اسم العميل');
@@ -267,19 +261,41 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
         savedProperty = updated;
         await notifyFavoriteUsers(property.id, property, data);
       } else {
-        const { data: inserted, error } = await supabase
-          .from('properties')
-          .insert({
-            ...data,
-            // Use the property_code already generated in state
-            property_code: formData.property_code,
-            created_at: new Date().toISOString(),
-            created_by: user?.uid || user?.id,
-          })
-          .select()
-          .single();
-        if (error) throw error;
-        savedProperty = inserted;
+        // Insert with automatic retry on duplicate code (unique constraint violation)
+        let insertError: any = null;
+        let currentCode = formData.property_code;
+
+        for (let attempt = 0; attempt < 5; attempt++) {
+          const { data: inserted, error } = await supabase
+            .from('properties')
+            .insert({
+              ...data,
+              property_code: currentCode,
+              created_at: new Date().toISOString(),
+              created_by: user?.uid || user?.id,
+            })
+            .select()
+            .single();
+
+          if (!error) {
+            savedProperty = inserted;
+            insertError = null;
+            break;
+          }
+
+          // 23505 = unique_violation in PostgreSQL
+          if (error.code === '23505') {
+            const { data: nextCode } = await supabase.rpc('next_property_code');
+            currentCode = nextCode ? String(nextCode) : String(Date.now()).slice(-5);
+            insertError = error;
+            continue;
+          }
+
+          // Any other error — throw immediately
+          throw error;
+        }
+
+        if (insertError) throw insertError;
       }
 
       toast.success(property ? 'تم تحديث العقار بنجاح' : 'تمت إضافة العقار بنجاح');
