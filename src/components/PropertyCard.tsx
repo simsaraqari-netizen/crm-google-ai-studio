@@ -6,10 +6,11 @@ import {
   RefreshCw,
   Trash2,
   Share2,
-  Tag
+  Tag,
+  MessageSquare
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { cleanAreaName, formatRelativeDate, getPropertyCode } from '../utils';
+import { cleanAreaName, formatRelativeDate, getPropertyCode, formatDateTime } from '../utils';
 
 export const PropertyCard = memo(function PropertyCard({ property, isFavorite, onFavorite, onClick, onImageClick, isAdmin, onFilter, onUserClick, onApprove, onReject, onEdit, onDelete, onRestore, onPermanentDelete, view }: any) {
   const images = React.useMemo(() => {
@@ -97,11 +98,22 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
           <span className="text-emerald-600 font-black text-sm text-right">{property.price}</span>
         )}
 
-        {/* Details snippet */}
-        {(property.details || property.last_comment) && (
-          <p className="text-xs text-stone-400 line-clamp-2 text-right leading-relaxed mt-0.5">
-            {property.details || property.last_comment}
-          </p>
+        {/* Latest Comment — Shown even if identical to details, to provide the timestamp */}
+        {property.last_comment && (
+          <div className="flex flex-col gap-1 mt-1 border-r-2 border-emerald-500/20 pr-2">
+            <div className="flex items-center gap-1.5 text-emerald-700 font-bold text-[10px]">
+              <MessageSquare size={12} className="shrink-0" />
+              آخر تعليق
+            </div>
+            <p className="text-[11px] text-stone-600 line-clamp-2 text-right leading-relaxed">
+              {property.last_comment}
+            </p>
+            {property.last_comment_at && (
+              <span className="text-[9px] text-stone-400 font-medium">
+                {formatDateTime(property.last_comment_at)}
+              </span>
+            )}
+          </div>
         )}
 
         {/* ── Tags: Area · Purpose · Type ── */}

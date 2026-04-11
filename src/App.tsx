@@ -104,6 +104,7 @@ interface Property {
   assignedEmployeeName?: string;
   created_at: any;
   property_code?: string;
+  last_comment_at?: string | any;
 }
 
 interface Company {
