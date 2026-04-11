@@ -74,19 +74,24 @@ export interface Comment {
 }
 
 export interface UserProfile {
-  uid: string;
-  id?: string;
+  id: string; // The primary ID (mapped from uid)
+  uid?: string; // Legacy support
   email: string;
   name: string;
   full_name?: string;
-  role: 'super_admin' | 'admin' | 'employee' | 'pending' | 'rejected';
-  companyId?: string;
-  createdAt?: string;
-  forceSignOut?: boolean;
+  role: 'super_admin' | 'admin' | 'employee' | 'pending' | 'rejected' | 'rejected';
+  companyId?: string; // Legacy support
+  company_id?: string;
+  createdAt?: string; // Legacy support
+  created_at?: string;
+  forceSignOut?: boolean; // Legacy support
+  force_sign_out?: boolean;
   phone?: string;
   employeeId?: string;
-  isDeleted?: boolean;
-  deletedAt?: any;
+  isDeleted?: boolean; // Legacy support
+  is_deleted?: boolean;
+  deletedAt?: any; // Legacy support
+  deleted_at?: any;
 }
 
 export interface Notification {

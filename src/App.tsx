@@ -133,11 +133,15 @@ interface PropertyComment {
 
 interface UserProfile {
   uid: string;
+  id?: string;
   email: string;
   name: string;
+  full_name?: string;
   role: 'super_admin' | 'admin' | 'employee' | 'pending' | 'rejected';
   companyId?: string;
+  company_id?: string;
   createdAt?: string;
+  created_at?: string;
   forceSignOut?: boolean;
   phone?: string;
 }
@@ -1045,8 +1049,24 @@ export default function App() {
     setAuthError('');
     setIsAuthenticating(true);
     try {
-      const generatedEmail = usernameToEmail(username);
+      let emailToUse = usernameToEmail(username);
+      
+      // If it's not a password reset and they entered something that's not clearly an email,
+      // try to find the profile by name or phone to get the correct email.
+      if (authMode !== 'register' && !username.includes('@')) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('email')
+          .or(`name.eq."${username}",full_name.eq."${username}",phone.eq."${username}"`)
+          .maybeSingle();
+        
+        if (profile?.email) {
+          emailToUse = profile.email;
+        }
+      }
+
       if (authMode === 'register') {
+        const generatedEmail = emailToUse;
         // Call server endpoint to create user with service role
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token || '';
@@ -1100,7 +1120,7 @@ export default function App() {
             email: generatedEmail,
             name: username,
             role: role,
-            created_at: new Date().toISOString()
+            createdAt: new Date().toISOString()
           };
           setUser(userData);
         }
@@ -1114,7 +1134,7 @@ export default function App() {
       } else {
         // Sign in
         const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: generatedEmail,
+          email: emailToUse,
           password: password
         });
         if (signInError) throw signInError;

@@ -46,7 +46,7 @@ async function startServer() {
     if (!caller) return { ok: false as const, status: 401, message: 'Unauthorized', userId: '' };
 
     const { data: profile } = await supabaseAdmin
-      .from('user_profiles')
+      .from('profiles')
       .select('role')
       .eq('id', caller.id)
       .maybeSingle();
@@ -227,10 +227,11 @@ async function startServer() {
     });
     if (error) return res.status(500).json({ error: error.message });
     
-    await supabaseAdmin.from('users').insert({
-      uid: newUser.user.id, email, full_name,
-      role: role || 'employee', companyId,
-      phone: phone || '', createdAt: new Date().toISOString()
+    await supabaseAdmin.from('profiles').insert({
+      id: newUser.user.id, email, full_name,
+      name: full_name, // Mapping full_name to name for consistency
+      role: role || 'employee', company_id: companyId,
+      phone: phone || '', created_at: new Date().toISOString()
     });
     
     res.json({ success: true, uid: newUser.user.id });

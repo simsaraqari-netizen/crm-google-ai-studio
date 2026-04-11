@@ -110,7 +110,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                 const generatedEmail = email || usernameToEmail(username);
                 
                 // Check if user already exists
-                const { data } = await supabase.from('users').select('*').eq('email', generatedEmail);
+                const { data } = await supabase.from('profiles').select('*').eq('email', generatedEmail);
                 
                 if (data && data.length > 0) {
                   toast.error('هذا الاسم مستخدم بالفعل في النظام (سواء في شركتك، أو شركة أخرى، أو في سلة المحذوفات). الرجاء إضافة رقم أو تغيير الاسم قليلاً.');
@@ -186,7 +186,12 @@ export const UserManagement: React.FC<UserManagementProps> = ({
             </div>
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider px-1">رقم الهاتف (اختياري)</label>
-              <input name="phone" placeholder="99xxxxxx" className="w-full p-3 rounded-xl bg-stone-50/50 border border-stone-200 outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-sm" />
+              <input 
+                name="phone" 
+                placeholder="99xxxxxx" 
+                className="w-full p-3 rounded-xl bg-stone-50/50 border border-stone-200 outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-sm disabled:opacity-50" 
+                disabled={!isAdmin}
+              />
             </div>
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider px-1">البريد الإلكتروني (اختياري)</label>
@@ -224,13 +229,13 @@ export const UserManagement: React.FC<UserManagementProps> = ({
           
           <div className="grid grid-cols-1 gap-3">
             {employees.map(emp => (
-              <div key={emp.uid} className="ios-glass p-4 rounded-2xl border border-white/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm group hover:shadow-md transition-all">
+              <div key={emp.id || emp.uid} className="ios-glass p-4 rounded-2xl border border-white/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm group hover:shadow-md transition-all">
                 <div className="flex items-center gap-4 flex-1">
                   <div className="w-10 h-10 bg-stone-100 rounded-xl flex items-center justify-center text-stone-400 group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-colors shrink-0">
                     <UserIcon size={20} />
                   </div>
                   
-                  {editingUser?.uid === emp.uid ? (
+                  {editingUser?.id === emp.id || editingUser?.uid === emp.uid ? (
                     <div className="flex flex-col gap-3 flex-1 bg-white/30 p-3 rounded-xl border border-white/40">
                       <div className="space-y-2">
                         <div className="flex flex-col gap-1">
@@ -249,8 +254,9 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                             type="text"
                             value={editUserPhone}
                             onChange={(e) => setEditUserPhone(e.target.value)}
-                            className="w-full p-2 text-sm border border-stone-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 bg-white/80 shadow-sm"
+                            className="w-full p-2 text-sm border border-stone-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 bg-white/80 shadow-sm disabled:opacity-50"
                             placeholder="رقم الهاتف"
+                            disabled={!isAdmin}
                           />
                         </div>
                         <div className="flex flex-col gap-1">
@@ -285,11 +291,11 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                             if (!editUserName.trim()) return;
                             try {
                               // Update Supabase data
-                              await supabase.from('users').update({ 
+                              await supabase.from('profiles').update({ 
                                 full_name: editUserName.trim(),
                                 phone: editUserPhone.trim(),
                                 email: editUserEmail.trim()
-                              }).eq('uid', emp.uid);
+                              }).eq('id', emp.id || emp.uid);
 
                               // Update Password if provided
                               if (editUserPassword.trim()) {
@@ -349,13 +355,13 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                   {emp.role === 'pending' && (
                     <div className="flex items-center gap-1.5">
                       <button 
-                        onClick={() => setUserActionConfirm({ isOpen: true, userId: emp.uid, action: 'approve', extraData: { full_name: emp.full_name } })}
+                        onClick={() => setUserActionConfirm({ isOpen: true, userId: emp.id || emp.uid, action: 'approve', extraData: { full_name: emp.full_name } })}
                         className="px-3 py-1.5 bg-emerald-600 text-white text-[10px] font-bold rounded-lg hover:bg-emerald-700 transition-all shadow-sm"
                       >
                         موافقة
                       </button>
                       <button 
-                        onClick={() => setUserActionConfirm({ isOpen: true, userId: emp.uid, action: 'reject', extraData: { full_name: emp.full_name } })}
+                        onClick={() => setUserActionConfirm({ isOpen: true, userId: emp.id || emp.uid, action: 'reject', extraData: { full_name: emp.full_name } })}
                         className="px-3 py-1.5 bg-red-50 text-red-600 text-[10px] font-bold rounded-lg hover:bg-red-100 transition-all"
                       >
                         رفض
@@ -363,11 +369,11 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                     </div>
                   )}
                   
-                  {emp.role !== 'pending' && emp.uid !== user?.uid && (
+                  {emp.role !== 'pending' && (emp.id || emp.uid) !== (user?.id || user?.uid) && (
                     <div className="relative">
                       <select
                         value={emp.role}
-                        onChange={(e) => setUserActionConfirm({ isOpen: true, userId: emp.uid, action: 'change-role', extraData: { newRole: e.target.value, full_name: emp.full_name } })}
+                        onChange={(e) => setUserActionConfirm({ isOpen: true, userId: emp.id || emp.uid, action: 'change-role', extraData: { newRole: e.target.value, full_name: emp.full_name } })}
                         className="text-[10px] p-1.5 pr-6 rounded-lg border border-stone-200 bg-stone-50/50 outline-none focus:ring-2 focus:ring-emerald-500 appearance-none font-bold text-stone-600"
                       >
                         <option value="employee">موظف (إضافة وعرض العقارات)</option>
@@ -378,7 +384,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                   )}
                 </div>
               
-              {emp.uid !== user?.uid && (
+              {(emp.id || emp.uid) !== (user?.id || user?.uid) && (
                 <div className="flex items-center justify-end gap-2 mt-2 pt-2 border-t border-stone-100">
                   <button 
                     onClick={() => {
@@ -394,7 +400,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                     تعديل
                   </button>
                   <button 
-                    onClick={() => setUserActionConfirm({ isOpen: true, userId: emp.uid, action: 'delete', extraData: { full_name: emp.full_name } })}
+                    onClick={() => setUserActionConfirm({ isOpen: true, userId: emp.id || emp.uid, action: 'delete', extraData: { full_name: emp.full_name } })}
                     className="flex items-center gap-1 px-3 py-1.5 text-stone-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all text-xs font-bold"
                   >
                     <Trash2 size={14} />

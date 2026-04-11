@@ -458,7 +458,7 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                           {formatDateTime(c.created_at) || 'جاري التحميل...'}
                         </p>
                         <div className="flex items-center gap-2">
-                          {(c.user_id === user.uid || isAdmin) && (
+                          {isAdmin && (
                             <button 
                               onClick={() => {
                                 setEditingCommentId(c.id);

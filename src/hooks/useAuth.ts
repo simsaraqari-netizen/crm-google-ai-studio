@@ -16,18 +16,18 @@ export const useAuth = () => {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
           const supabaseUser = session.user;
-          const { data: userDoc, error } = await supabase.from('users').select('*').eq('uid', supabaseUser.id).maybeSingle();
+          const { data: userDoc, error } = await supabase.from('profiles').select('*').eq('id', supabaseUser.id).maybeSingle();
           
           let userData: UserProfile;
           if (userDoc) {
             userData = userDoc as UserProfile;
-            if (userData.isDeleted) {
+            if (userData.is_deleted || (userData as any).isDeleted) {
               setAuthError('هذا الحساب تم حذفه من قبل الإدارة.');
               await supabase.auth.signOut();
               return;
             }
-            if (userData.forceSignOut) {
-              await supabase.from('users').update({ forceSignOut: false }).eq('uid', supabaseUser.id);
+            if (userData.force_sign_out || (userData as any).forceSignOut) {
+              await supabase.from('profiles').update({ force_sign_out: false }).eq('id', supabaseUser.id);
               setAuthError('تم تسجيل خروجك من قبل المسؤول.');
               await supabase.auth.signOut();
               return;
@@ -41,25 +41,27 @@ export const useAuth = () => {
                           (userData.phone && SUPER_ADMIN_PHONES.includes(userData.phone));
             if (isSuper && userData.role !== 'super_admin') {
               userData.role = 'super_admin';
-              await supabase.from('users').update({ role: 'super_admin' }).eq('uid', supabaseUser.id);
+              await supabase.from('profiles').update({ role: 'super_admin' }).eq('id', supabaseUser.id);
             }
           } else {
-            const { data: userByEmail } = await supabase.from('users').select('*').eq('email', supabaseUser.email).maybeSingle();
+            const { data: userByEmail } = await supabase.from('profiles').select('*').eq('email', supabaseUser.email).maybeSingle();
             if (userByEmail) {
-              await supabase.from('users').update({ uid: supabaseUser.id }).eq('id', userByEmail.id);
-              userData = { ...userByEmail, uid: supabaseUser.id } as UserProfile;
+              await supabase.from('profiles').update({ id: supabaseUser.id }).eq('id', userByEmail.id);
+              userData = { ...userByEmail, id: supabaseUser.id } as UserProfile;
             } else {
               const isSuper = (supabaseUser.email && SUPER_ADMIN_EMAILS.includes(supabaseUser.email)) || 
                             (supabaseUser.user_metadata?.phone && SUPER_ADMIN_PHONES.includes(supabaseUser.user_metadata.phone));
               const role = isSuper ? 'super_admin' : 'pending';
               userData = {
+                id: supabaseUser.id,
                 uid: supabaseUser.id,
                 email: supabaseUser.email || '',
+                name: supabaseUser.user_metadata?.full_name || 'User',
                 full_name: supabaseUser.user_metadata?.full_name || 'User',
                 role: role,
-                createdAt: new Date().toISOString()
+                created_at: new Date().toISOString()
               };
-              const { data: insertedData } = await supabase.from('users').insert(userData).select().single();
+              const { data: insertedData } = await supabase.from('profiles').insert(userData).select().single();
               if (insertedData) userData = insertedData as UserProfile;
             }
           }

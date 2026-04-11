@@ -45,9 +45,9 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
     phone_2: property?.phone_2 || '',
     type: property?.type || '',
     purpose: property?.purpose || '',
-    assigned_employee_id: property?.assigned_employee_id || '',
-    assigned_employee_name: property?.assigned_employee_name || '',
-    assigned_employee_phone: property?.assigned_employee_phone || '',
+    assigned_employee_id: property?.assigned_employee_id || (!isAdmin ? user?.uid : ''),
+    assigned_employee_name: property?.assigned_employee_name || (!isAdmin ? user?.name : ''),
+    assigned_employee_phone: property?.assigned_employee_phone || (!isAdmin ? user?.phone : ''),
     images: (property?.images && Array.isArray(property.images) ? property.images : []).map((img: any) => 
       typeof img === 'string' ? { url: img, type: img.includes('.mp4') || img.includes('.mov') ? 'video' : 'image' } : img
     ),
@@ -202,7 +202,7 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
       let empName = formData.assigned_employee_name;
 
       // Handle marketer logic similar to App.tsx
-      if (empName && !empId) {
+      if (empName && !empId && isAdmin) {
         const { data: matchedEmp } = await supabase
           .from('profiles')
           .select('id')
@@ -212,6 +212,12 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
         if (matchedEmp) {
           empId = matchedEmp.id;
         }
+      }
+
+      // Final enforcement for non-admins
+      if (!isAdmin) {
+        empId = property?.assigned_employee_id || user?.uid;
+        empName = property?.assigned_employee_name || user?.name;
       }
 
       const data = {
@@ -448,11 +454,17 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
 
         {/* Section 4: Company and Marketer */}
         <div className="space-y-6">
+          <div className="flex items-center gap-2 text-stone-900 border-b border-stone-100 pb-2">
+            <UserIcon size={18} className="text-emerald-600" />
+            <h3 className="font-bold text-sm">موظفو الإدخال</h3>
+          </div>
+          
           <SearchableFilter 
-            placeholder="المستخدم / الموظف المسؤول"
+            placeholder="اختر موظف الإدخال..."
             options={employees.map(emp => emp.name)}
             value={formData.assigned_employee_name}
-            creatable={true}
+            creatable={isAdmin}
+            disabled={!isAdmin}
             onChange={(val) => {
               const emp = employees.find(e => e.name === val);
               setFormData({
@@ -463,27 +475,34 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
             }}
           />
           
-          <button
-            type="button"
-            onClick={() => {
-              setFormData({
-                ...formData,
-                assigned_employee_id: user?.uid || '',
-                assigned_employee_name: user?.name || ''
-              });
-            }}
-            className="text-xs text-emerald-600 hover:underline mt-1"
-          >
-            تعيين نفسي كمسؤول عن الإدخال
-          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => {
+                setFormData({
+                  ...formData,
+                  assigned_employee_id: user?.uid || '',
+                  assigned_employee_name: user?.name || '',
+                  assigned_employee_phone: user?.phone || ''
+                });
+              }}
+              className="text-xs text-emerald-600 hover:underline mt-1"
+            >
+              تعيين نفسي كمسؤول عن الإدخال
+            </button>
+          )}
 
-          <input 
-            type="tel"
-            placeholder="رقم هاتف الموظف المسؤول..."
-            className="w-full px-4 py-2 bg-stone-50 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm mt-2 font-bold text-emerald-700"
-            value={formData.assigned_employee_phone || ''}
-            onChange={(e) => setFormData({...formData, assigned_employee_phone: e.target.value})}
-          />
+          <div className="space-y-1 mt-2">
+            <label className="text-[10px] font-bold text-stone-400 px-1 uppercase tracking-wider">هاتف موظف الإدخال</label>
+            <input 
+              type="tel"
+              placeholder="رقم هاتف الموظف المسؤول..."
+              className="w-full px-4 py-2 bg-stone-50 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm font-bold text-emerald-700 disabled:opacity-60"
+              value={formData.assigned_employee_phone || ''}
+              onChange={(e) => setFormData({...formData, assigned_employee_phone: e.target.value})}
+              disabled={!isAdmin}
+            />
+          </div>
         </div>
 
         {/* Section 5: Media */}
