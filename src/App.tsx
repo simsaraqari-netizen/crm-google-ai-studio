@@ -1354,7 +1354,7 @@ export default function App() {
         searchMatch(p.block || '', q) ||
         searchMatch(p.plot_number || '', q) ||
         searchMatch(p.house_number || '', q) ||
-        searchMatch(String(p.property_code || ''), q) ||
+        searchMatch(getPropertyCode(p), q) ||
         searchMatch(p.id, q) ||
         searchMatch(p.assigned_employee_name || '', q);
 
