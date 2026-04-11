@@ -1345,18 +1345,26 @@ export default function App() {
       
       const { query, governorate, area, type, purpose, location, marketer, status } = appliedFilters;
       
-      const matchesSingle = (q: string) =>
-        searchMatch(p.name, q) ||
-        searchMatch(p.phone, q) ||
-        searchMatch(p.phone_2 || '', q) ||
-        searchMatch(p.area, q) ||
-        searchMatch(p.sector || '', q) ||
-        searchMatch(p.block || '', q) ||
-        searchMatch(p.plot_number || '', q) ||
-        searchMatch(p.house_number || '', q) ||
-        searchMatch(getPropertyCode(p), q) ||
-        searchMatch(p.id, q) ||
-        searchMatch(p.assigned_employee_name || '', q);
+      const matchesSingle = (q: string) => {
+        const is8Digit = /^\d{8}$/.test(q);
+        const nameCodeMatches = 
+          searchMatch(p.name, q) ||
+          searchMatch(p.area, q) ||
+          searchMatch(p.sector || '', q) ||
+          searchMatch(p.block || '', q) ||
+          searchMatch(p.plot_number || '', q) ||
+          searchMatch(p.house_number || '', q) ||
+          searchMatch(getPropertyCode(p), q) ||
+          searchMatch(p.id, q) ||
+          searchMatch(p.assigned_employee_name || '', q);
+        
+        const phoneMatch = is8Digit && (
+          searchMatch(p.phone, q) || 
+          searchMatch(p.phone_2 || '', q)
+        );
+
+        return nameCodeMatches || phoneMatch;
+      };
 
       // Must match query AND all extra searchTerms
       const matchesSearch = (!query || matchesSingle(query)) &&

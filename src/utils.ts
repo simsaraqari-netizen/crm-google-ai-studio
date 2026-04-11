@@ -274,13 +274,16 @@ export const formatDateTime = (date: any) => {
 export function getPropertyCode(property: any): string {
   if (property?.property_code) return String(property.property_code).padStart(4, '0');
   if (!property?.id) return '----';
-  // Deterministic fallback from UUID bytes
+  
+  // Use a better mixing function (FNV-1a like) to reduce collisions
   const hex = (property.id as string).replace(/-/g, '');
-  const a = parseInt(hex.slice(0, 2), 16);
-  const b = parseInt(hex.slice(8, 10), 16);
-  const c = parseInt(hex.slice(16, 18), 16);
-  const d = parseInt(hex.slice(24, 26), 16);
-  const code = (((a ^ c) * 97 + (b ^ d) * 31) % 9000) + 1000;
+  let hash = 2166136261;
+  for (let i = 0; i < hex.length; i += 2) {
+    const byte = parseInt(hex.slice(i, i + 2), 16) || 0;
+    hash ^= byte;
+    hash = Math.imul(hash, 16777619);
+  }
+  const code = (Math.abs(hash) % 9000) + 1000;
   return String(code);
 }
 

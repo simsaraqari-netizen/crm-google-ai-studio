@@ -98,21 +98,23 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
           <span className="text-emerald-600 font-black text-sm text-right">{property.price}</span>
         )}
 
-        {/* Latest Comment — Shown even if identical to details, to provide the timestamp */}
+        {/* Latest Comment Box */}
         {property.last_comment && (
-          <div className="flex flex-col gap-1 mt-1 border-r-2 border-emerald-500/20 pr-2">
-            <div className="flex items-center gap-1.5 text-emerald-700 font-bold text-[10px]">
-              <MessageSquare size={12} className="shrink-0" />
-              آخر تعليق
+          <div className="mt-2 p-2.5 bg-emerald-50/50 rounded-xl border border-emerald-100/50 relative overflow-hidden">
+            <div className="flex items-center justify-between mb-1.5 border-b border-emerald-100/30 pb-1">
+              <div className="flex items-center gap-1.5 text-emerald-700 font-black text-[10px] uppercase tracking-wider">
+                <MessageSquare size={12} className="shrink-0" />
+                آخر تعليق
+              </div>
+              {property.last_comment_at && (
+                <span className="text-[10px] text-emerald-600/70 font-bold" dir="ltr">
+                  {formatDateTime(property.last_comment_at)}
+                </span>
+              )}
             </div>
-            <p className="text-xs text-stone-600 line-clamp-2 text-right leading-relaxed">
+            <p className="text-xs text-stone-600 line-clamp-2 text-right leading-relaxed font-medium">
               {property.last_comment}
             </p>
-            {property.last_comment_at && (
-              <span className="text-[10px] text-stone-400 font-medium">
-                {formatDateTime(property.last_comment_at)}
-              </span>
-            )}
           </div>
         )}
 
