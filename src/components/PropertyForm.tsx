@@ -184,6 +184,16 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
     if (e) e.preventDefault();
     
     if (!force) {
+      // 1. Strict Uniqueness Check for Property Code
+      const isDuplicate = existingProperties?.some(p => 
+        String(p.property_code) === String(formData.property_code) && p.id !== property?.id
+      );
+      if (isDuplicate) {
+        toast.error(`كود العقار #${formData.property_code} مستخدم مسبقاً لعقار آخر! يرجى استخدام كود فريد.`);
+        setIsSaving(false);
+        return;
+      }
+
       const missing: string[] = [];
       if (!formData.name) missing.push('اسم العميل');
       if (!formData.governorate) missing.push('المحافظة');

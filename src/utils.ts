@@ -119,23 +119,34 @@ export function cleanNameWithContext(name: any, purpose?: string, type?: string)
   return [p, t].filter(Boolean).join(' ').trim();
 }
 
-export function searchMatch(source: string, query: string): boolean {
+export function searchMatch(source: string, query: string, property?: any): boolean {
   if (!query) return true;
   
-  // Normalize both source and query
-  const normalizedSource = normalizeArabic(source.toLowerCase());
-  // Strip '#' from query if present to support searching by #1234
   const normalizedQuery = normalizeArabic(query.toLowerCase().replace(/#/g, ''));
-  
-  // Split query into tokens
   const queryTokens = normalizedQuery.split(/[\s,،;؛|]+/).filter(Boolean);
   if (queryTokens.length === 0) return true;
-  
-  // Split source into tokens
+
+  // 1. Check for exact property code match (High Priority)
+  // If the query is a 4-digit number and matches the property code exactly, it's a direct hit.
+  if (property && property.property_code) {
+    const code = String(property.property_code);
+    if (queryTokens.some(t => t === code)) return true;
+  }
+
+  // 2. Normalize source for general search
+  const normalizedSource = normalizeArabic(source.toLowerCase());
   const sourceTokens = normalizedSource.split(/[\s,،;؛|]+/).filter(Boolean);
   
-  // Every word/token in the query must match part of one of the tokens in the source
-  // This allows partial matches (e.g., query "10" matches "1024")
+  // 3. Strict Phone Search
+  // If a token is 8 digits, it's very likely a phone number. Check for exact match in phone fields.
+  const isPhoneSearch = queryTokens.some(t => /^\d{8}$/.test(t));
+  if (isPhoneSearch && property) {
+    const p1 = String(property.phone || '').replace(/\s/g, '');
+    const p2 = String(property.phone_2 || '').replace(/\s/g, '');
+    return queryTokens.some(t => t === p1 || t === p2);
+  }
+
+  // 4. Default partial matching for other cases
   return queryTokens.every(qToken => 
     sourceTokens.some(sToken => sToken.includes(qToken)) || 
     normalizedSource.includes(qToken)
@@ -259,6 +270,7 @@ export const formatDateTime = (date: any) => {
     const hours = String(d.getHours()).padStart(2, '0');
     const minutes = String(d.getMinutes()).padStart(2, '0');
     
+    // Requested format: 13:15 3-3-2026
     return `${hours}:${minutes} ${day}-${month}-${year}`;
   } catch (e) {
     return '';

@@ -103,8 +103,12 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
       // Immediate local update
       if (inserted) setComments(prev => [inserted as Comment, ...prev]);
 
-      // Update last_comment on property (fire and forget)
-      supabase.from('properties').update({ last_comment: newComment }).eq('id', property.id);
+      // Update last_comment and its timestamp on property (fire and forget)
+      const now = new Date().toISOString();
+      supabase.from('properties').update({ 
+        last_comment: newComment,
+        last_comment_at: now
+      }).eq('id', property.id);
 
       setNewComment('');
       toast.success('تم إضافة التعليق');
@@ -477,15 +481,21 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                                 setComments(prev => prev.filter(cm => cm.id !== c.id));
                                 // Persist in background
                                 supabase.from('comments').update({ is_deleted: true }).eq('id', c.id)
-                                  .then(({ error }) => {
-                                    if (error) {
-                                      // Rollback on failure
+                                  .then(async ({ error }) => {
+                                    if (!error) {
+                                      toast.success('تم حذف التعليق');
+                                      // If this was the latest comment, update property preview from next latest
+                                      const remaining = comments.filter(cm => cm.id !== c.id);
+                                      const nextLatest = remaining[0];
+                                      await supabase.from('properties').update({
+                                        last_comment: nextLatest ? nextLatest.text : null,
+                                        last_comment_at: nextLatest ? nextLatest.created_at : null
+                                      }).eq('id', property.id);
+                                    } else {
                                       setComments(prev => [c, ...prev].sort((a, b) =>
                                         new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
                                       ));
                                       toast.error('فشل حذف التعليق');
-                                    } else {
-                                      toast.success('تم حذف التعليق');
                                     }
                                   });
                               }}

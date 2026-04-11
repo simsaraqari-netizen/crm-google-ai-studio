@@ -98,21 +98,21 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
           <span className="text-emerald-600 font-black text-sm text-right">{property.price}</span>
         )}
 
-        {/* Latest Comment Box */}
+        {/* Latest Comment Box with Premium Glassmorphism Feel */}
         {property.last_comment && (
-          <div className="mt-2 p-2.5 bg-emerald-50/50 rounded-xl border border-emerald-100/50 relative overflow-hidden">
-            <div className="flex items-center justify-between mb-1.5 border-b border-emerald-100/30 pb-1">
-              <div className="flex items-center gap-1.5 text-emerald-700 font-black text-[10px] uppercase tracking-wider">
-                <MessageSquare size={12} className="shrink-0" />
+          <div className="mt-2.5 p-3 bg-emerald-50/40 backdrop-blur-sm rounded-xl border border-emerald-100/40 shadow-sm relative overflow-hidden group/comment">
+            <div className="flex items-center justify-between mb-2 border-b border-emerald-200/20 pb-1.5">
+              <div className="flex items-center gap-2 text-emerald-800 font-black text-[10px] uppercase tracking-tighter">
+                <MessageSquare size={13} className="shrink-0 text-emerald-600" />
                 آخر تعليق
               </div>
               {property.last_comment_at && (
-                <span className="text-[10px] text-emerald-600/70 font-bold" dir="ltr">
+                <span className="text-[10px] text-emerald-600/80 font-bold bg-emerald-100/50 px-1.5 py-0.5 rounded-md" dir="ltr">
                   {formatDateTime(property.last_comment_at)}
                 </span>
               )}
             </div>
-            <p className="text-xs text-stone-600 line-clamp-2 text-right leading-relaxed font-medium">
+            <p className="text-[13px] text-stone-700 line-clamp-2 text-right leading-relaxed font-semibold italic">
               {property.last_comment}
             </p>
           </div>
