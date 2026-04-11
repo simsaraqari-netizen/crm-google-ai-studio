@@ -160,7 +160,7 @@ export const PropertyDetails = memo(function PropertyDetails({
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="max-w-4xl mx-auto px-3 sm:px-6 py-2"
+      className="max-w-7xl mx-auto px-3 sm:px-6 py-2"
       dir="rtl"
     >
       {showViewer && (
@@ -207,7 +207,7 @@ export const PropertyDetails = memo(function PropertyDetails({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
 
         {/* ── Left: Media + Info ── */}
-        <div className="lg:col-span-2 space-y-2">
+        <div className="lg:col-span-2 space-y-1.5">
 
           {/* Media */}
           <div className="bg-white rounded-xl overflow-hidden border border-stone-100">
@@ -357,37 +357,7 @@ export const PropertyDetails = memo(function PropertyDetails({
         </div>
 
         {/* ── Right: Contact + Employee + Comments ── */}
-        <div className="space-y-2">
-
-          {/* Contact */}
-          <div className="bg-white rounded-xl border border-stone-100 p-3 space-y-2">
-            <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">هاتف العقار المسجل</p>
-            {property.phone ? (
-              <>
-                <a href={`tel:${property.phone}`} className="w-full flex items-center justify-between border border-stone-200 p-2.5 rounded-lg hover:border-stone-300 transition-colors">
-                  <span className="text-base font-black text-stone-800 font-mono" dir="ltr">{property.phone}</span>
-                  <Phone size={16} className="text-emerald-600" />
-                </a>
-                {property.phone_2 && (
-                  <a href={`tel:${property.phone_2}`} className="w-full flex items-center justify-between border border-stone-200 p-2.5 rounded-lg hover:border-stone-300 transition-colors">
-                    <span className="text-base font-black text-stone-800 font-mono" dir="ltr">{property.phone_2}</span>
-                    <Phone size={16} className="text-stone-400" />
-                  </a>
-                )}
-                <a
-                  href={propertyWhatsappUrl || '#'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full flex items-center justify-center gap-2 border border-emerald-200 text-emerald-700 p-2.5 rounded-lg font-bold hover:bg-emerald-50 transition-colors"
-                >
-                  <MessageCircle size={18} />
-                  واتساب العقار
-                </a>
-              </>
-            ) : (
-              <p className="text-center py-2 text-xs text-stone-400">لا توجد أرقام هواتف مسجلة</p>
-            )}
-          </div>
+        <div className="space-y-1.5">
 
           {/* Comments */}
           <div className="bg-white rounded-xl border border-stone-100 p-3 space-y-2">
@@ -446,6 +416,36 @@ export const PropertyDetails = memo(function PropertyDetails({
                 {isUploading ? <LoadingSpinner size={16} className="border-white mx-auto" /> : 'إرسال التعليق'}
               </button>
             </form>
+          </div>
+
+          {/* Contact */}
+          <div className="bg-white rounded-xl border border-stone-100 p-3 space-y-2">
+            <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">هاتف العقار المسجل</p>
+            {property.phone ? (
+              <>
+                <a href={`tel:${property.phone}`} className="w-full flex items-center justify-between border border-stone-200 p-2.5 rounded-lg hover:border-stone-300 transition-colors">
+                  <span className="text-base font-black text-stone-800 font-mono" dir="ltr">{property.phone}</span>
+                  <Phone size={16} className="text-emerald-600" />
+                </a>
+                {property.phone_2 && (
+                  <a href={`tel:${property.phone_2}`} className="w-full flex items-center justify-between border border-stone-200 p-2.5 rounded-lg hover:border-stone-300 transition-colors">
+                    <span className="text-base font-black text-stone-800 font-mono" dir="ltr">{property.phone_2}</span>
+                    <Phone size={16} className="text-stone-400" />
+                  </a>
+                )}
+                <a
+                  href={propertyWhatsappUrl || '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full flex items-center justify-center gap-2 border border-emerald-200 text-emerald-700 p-2.5 rounded-lg font-bold hover:bg-emerald-50 transition-colors"
+                >
+                  <MessageCircle size={18} />
+                  واتساب العقار
+                </a>
+              </>
+            ) : (
+              <p className="text-center py-2 text-xs text-stone-400">لا توجد أرقام هواتف مسجلة</p>
+            )}
           </div>
 
           {/* Assigned Employee */}
