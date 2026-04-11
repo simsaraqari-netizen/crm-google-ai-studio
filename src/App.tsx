@@ -559,12 +559,9 @@ export default function App() {
 
   // Auth Listener
   useEffect(() => {
-    console.log("Setting up Auth Listener...");
-
     const setupAuth = async () => {
       // Force loading to end after 5 seconds regardless of what happens
       const timeoutId = setTimeout(() => {
-        console.log("Auth setup timed out, forcing UI to load...");
         setLoading(false);
       }, 5000);
 
@@ -575,7 +572,6 @@ export default function App() {
 
         if (initialSession?.user) {
           const sbUser = initialSession.user;
-          console.log("Auth State Changed:", `User: ${sbUser.email}`);
 
           // Fetch user profile
           const { data: userData, error: profileError } = await supabase
@@ -587,8 +583,6 @@ export default function App() {
           if (profileError) throw profileError;
 
           if (userData) {
-            console.log("User profile found:", userData.role);
-
             // Check force sign out
             if (userData.force_sign_out) {
               await supabase.from('profiles').update({ force_sign_out: false }).eq('id', sbUser.id);
@@ -623,7 +617,6 @@ export default function App() {
             // Check for super admin email
             let profileData = userData;
             if (SUPER_ADMIN_EMAILS.includes(sbUser.email || '') && userData.role !== 'super_admin') {
-              console.log("Super Admin email detected, updating role to super_admin...");
               await supabase.from('profiles').update({ role: 'super_admin' }).eq('id', sbUser.id);
               profileData = { ...userData, role: 'super_admin' };
             }
@@ -649,7 +642,6 @@ export default function App() {
               setSelectedCompanyId(mappedUser.companyId);
             }
           } else {
-            console.log("User profile not found, creating new profile...");
             const isSuper = SUPER_ADMIN_EMAILS.includes(sbUser.email || '');
             const role = isSuper ? 'super_admin' : 'pending';
 
@@ -672,7 +664,6 @@ export default function App() {
               createdAt: newProfile.created_at
             };
 
-            console.log("New user profile created successfully");
             if (role === 'pending') {
               await supabase.from('notifications').insert({
                 type: 'new-user',
@@ -687,7 +678,6 @@ export default function App() {
             setUser(mappedUser);
           }
         } else {
-          console.log("Auth State Changed: No User");
           setUser(null);
           setSelectedCompanyId(null);
         }
@@ -788,6 +778,7 @@ export default function App() {
     }
 
     let channel: any;
+    let destroyed = false;
     (async () => {
       try {
         const { data: companiesData, error } = await supabase
@@ -795,6 +786,7 @@ export default function App() {
           .select('*')
           .order('created_at', { ascending: false });
 
+        if (destroyed) return;
         if (error) throw error;
 
         const companiesList = (companiesData || []).map(doc => ({
@@ -803,18 +795,17 @@ export default function App() {
         })) as Company[];
         setCompanies(companiesList);
 
-        // Subscribe to changes
         channel = supabase.channel('companies-changes');
         channel.on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'companies' },
           () => {
-            // Re-fetch on any change
             supabase
               .from('companies')
               .select('*')
               .order('created_at', { ascending: false })
               .then(({ data: updated }) => {
+                if (destroyed) return;
                 const updated_companies = (updated || []).map(doc => ({
                   id: doc.id,
                   ...doc
@@ -824,11 +815,10 @@ export default function App() {
           }
         ).subscribe();
       } catch (err) {
-        console.error('Companies fetch error:', err);
-        handleSupabaseError(err, OperationType.GET, 'companies');
+        if (!destroyed) handleSupabaseError(err, OperationType.GET, 'companies');
       }
     })();
-    return () => { if (channel) channel.unsubscribe(); };
+    return () => { destroyed = true; if (channel) channel.unsubscribe(); };
   }, [isSuperAdmin]);
   useEffect(() => {
     if (!user) return;
@@ -1026,23 +1016,22 @@ export default function App() {
     if (!user) return;
 
     let channel: any;
+    let destroyed = false;
     (async () => {
       try {
         let query = supabase.from('notifications').select('*');
 
         if (isSuperAdmin) {
-          // Super admin sees all
           query = query.order('created_at', { ascending: false }).limit(50);
         } else if (user.role === 'admin') {
-          // Company admins see notifications for their company
           query = query.eq('company_id', user.companyId).order('created_at', { ascending: false }).limit(50);
         } else {
-          // Regular users see notifications where they are the recipient
           query = query.eq('recipient_id', user.uid).order('created_at', { ascending: false }).limit(50);
         }
 
         const { data: notificationsData, error } = await query;
 
+        if (destroyed) return;
         if (error) throw error;
 
         const allNotifications = (notificationsData || []).map(doc => ({
@@ -1051,14 +1040,13 @@ export default function App() {
         })) as Notification[];
         setNotifications(allNotifications);
 
-        // Subscribe to changes
         channel = supabase.channel('notifications-changes');
         channel.on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'notifications' },
           () => {
-            // Re-fetch on any change
             query.then(({ data: updated }) => {
+              if (destroyed) return;
               const updated_notifs = (updated || []).map(doc => ({
                 id: doc.id,
                 ...doc
@@ -1068,11 +1056,10 @@ export default function App() {
           }
         ).subscribe();
       } catch (err) {
-        console.error('Notifications fetch error:', err);
-        handleSupabaseError(err, OperationType.GET, 'notifications');
+        if (!destroyed) handleSupabaseError(err, OperationType.GET, 'notifications');
       }
     })();
-    return () => { if (channel) channel.unsubscribe(); };
+    return () => { destroyed = true; if (channel) channel.unsubscribe(); };
   }, [user]);
 
   // Favorites Listener
@@ -1080,6 +1067,7 @@ export default function App() {
     if (!user) return;
 
     let channel: any;
+    let destroyed = false;
     (async () => {
       try {
         const { data: favoritesData, error } = await supabase
@@ -1087,11 +1075,11 @@ export default function App() {
           .select('property_id')
           .eq('user_id', user.uid);
 
+        if (destroyed) return;
         if (error) throw error;
 
         setFavorites((favoritesData || []).map(doc => doc.property_id));
 
-        // Subscribe to changes
         channel = supabase.channel('favorites-changes');
         channel.on(
           'postgres_changes',
@@ -1102,15 +1090,16 @@ export default function App() {
               .select('property_id')
               .eq('user_id', user.uid)
               .then(({ data: updated }) => {
+                if (destroyed) return;
                 setFavorites((updated || []).map(doc => doc.property_id));
               });
           }
         ).subscribe();
       } catch (error) {
-        console.error("Favorites listener error:", error);
+        // silent - non-critical
       }
     })();
-    return () => { if (channel) channel.unsubscribe(); };
+    return () => { destroyed = true; if (channel) channel.unsubscribe(); };
   }, [user]);
 
   // All Users Listener (for Admin Management) - REMOVED, consolidated above

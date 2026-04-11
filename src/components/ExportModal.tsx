@@ -148,13 +148,19 @@ export function ExportModal({ onClose, selectedCompanyId }: ExportModalProps) {
     // Fetch all comments for these properties
     let comments: any[] = [];
     if (ids.length > 0) {
-      const { data: cData, error: cErr } = await supabase
-        .from('comments')
-        .select('*')
-        .in('property_id', ids)
-        .eq('is_deleted', false)
-        .order('created_at', { ascending: true });
-      if (!cErr) comments = cData || [];
+      // Batch in chunks of 200 to avoid large IN clauses
+      const CHUNK = 200;
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const chunk = ids.slice(i, i + CHUNK);
+        const { data: cData, error: cErr } = await supabase
+          .from('comments')
+          .select('*')
+          .in('property_id', chunk)
+          .eq('is_deleted', false)
+          .order('created_at', { ascending: true });
+        if (cErr) throw cErr;
+        comments = comments.concat(cData || []);
+      }
     }
 
     return { properties: properties || [], comments };
