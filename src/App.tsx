@@ -23,11 +23,14 @@ import {
   Tag,
   Info,
   ClipboardCheck,
-  Eye,
+  Eye, 
   EyeOff,
   Menu,
   X,
   LayoutList,
+  ShieldCheck,
+  AlertTriangle,
+  RefreshCw,
   Upload,
   UserPlus,
   ExternalLink,
@@ -1391,6 +1394,81 @@ export default function App() {
       return dateB - dateA;
     });
   }, [properties, deletedProperties, appliedFilters, searchTerms, favorites, user, view, selectedMarketerId]);
+
+  // ── Code Uniqueness Monitoring & Repair ──
+  const [duplicateCodesCount, setDuplicateCodesCount] = useState(0);
+  const [isRepairingCodes, setIsRepairingCodes] = useState(false);
+
+  useEffect(() => {
+    if (!isAdmin || properties.length === 0) return;
+    
+    const codes = new Map<string, number>();
+    properties.forEach(p => {
+      const code = getPropertyCode(p);
+      codes.set(code, (codes.get(code) || 0) + 1);
+    });
+    
+    const dups = Array.from(codes.values()).filter(count => count > 1).length;
+    setDuplicateCodesCount(dups);
+    
+    if (dups > 0) {
+      toast.error(`تنبيه: تم اكتشاف ${dups} أكواد مكررة. يرجى استخدام أداة الإصلاح في لوحة الإدارة.`, {
+        id: 'code-collision-alert',
+        duration: 5000
+      });
+    }
+  }, [properties, isAdmin]);
+
+  const repairPropertyCodes = async () => {
+    if (!isAdmin || isRepairingCodes) return;
+    
+    const toFix = properties.filter(p => !p.property_code);
+    if (toFix.length === 0) {
+      toast.success("كافة العقارات تمتلك أكواداً دائمة وفريدة.");
+      return;
+    }
+
+    setIsRepairingCodes(true);
+    const loadingToast = toast.loading(`جاري إصلاح وتثبيت ${toFix.length} كود...`);
+    
+    try {
+      const usedCodes = new Set(properties.map(p => p.property_code).filter(Boolean).map(String));
+      let fixedCount = 0;
+
+      for (const p of toFix) {
+        let attempts = 0;
+        let newCode = '';
+        while (attempts < 5000) {
+          const candidate = String(Math.floor(Math.random() * 9000) + 1000);
+          if (!usedCodes.has(candidate)) {
+            newCode = candidate;
+            break;
+          }
+          attempts++;
+        }
+        
+        if (newCode) {
+          const { error } = await supabase
+            .from('properties')
+            .update({ property_code: newCode })
+            .eq('id', p.id);
+          
+          if (!error) {
+            usedCodes.add(newCode);
+            fixedCount++;
+          }
+        }
+      }
+      
+      toast.success(`تم بنجاح تثبيت ${fixedCount} كود فريد في قاعدة البيانات.`, { id: loadingToast });
+      // Properties will reload via subscription/refetch
+    } catch (err) {
+      console.error("Repair codes error:", err);
+      toast.error("فشل في تحديث بعض الأكواد. يرجى المحاولة لاحقاً.", { id: loadingToast });
+    } finally {
+      setIsRepairingCodes(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -2967,14 +3045,25 @@ export default function App() {
                     </div>
                   </div>
                   {isAdmin && (
-                    <button
-                      onClick={handleNormalizeAllNames}
-                      className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 text-xs font-bold rounded-xl hover:bg-amber-100 transition-all border border-amber-200"
-                      title="توحيد الأسماء (إزالة الهمزات والفراغات)"
-                    >
-                      <RefreshCw size={14} className="hover:rotate-180 transition-transform duration-500" />
-                      توحيد الأسماء
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                       <button
+                        onClick={repairPropertyCodes}
+                        disabled={isRepairingCodes}
+                        className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-xl hover:bg-emerald-100 transition-all border border-emerald-200"
+                        title="تأمين وتثبيت الأكواد الفريدة لجميع العقارات"
+                      >
+                        <RefreshCw size={14} className={isRepairingCodes ? "animate-spin" : ""} />
+                        <span>{isRepairingCodes ? "جاري التثبيت..." : "تأمين الأكواد"}</span>
+                      </button>
+                      <button
+                        onClick={handleNormalizeAllNames}
+                        className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 text-xs font-bold rounded-xl hover:bg-amber-100 transition-all border border-amber-200"
+                        title="توحيد الأسماء (إزالة الهمزات والفراغات)"
+                      >
+                        <RefreshCw size={14} className="hover:rotate-180 transition-transform duration-500" />
+                        توحيد الأسماء
+                      </button>
+                    </div>
                   )}
                 </div>
 
