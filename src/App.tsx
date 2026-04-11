@@ -344,6 +344,7 @@ export default function App() {
   const [propertiesOffset, setPropertiesOffset] = useState(0);
   const [hasMoreProperties, setHasMoreProperties] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const loadingRef = useRef<HTMLDivElement>(null);
   const PAGE_SIZE = 50;
 
   const [deletedProperties, setDeletedProperties] = useState<Property[]>([]);
@@ -864,8 +865,18 @@ export default function App() {
 
         // 3. Search Query / Terms
         if (appliedFilters.query) {
-          const q = appliedFilters.query;
-          queryBuilder = queryBuilder.or(`name.ilike.%${q}%,property_code.ilike.%${q}%,phone.ilike.%${q}%,phone_2.ilike.%${q}%,area.ilike.%${q}%,details.ilike.%${q}%`);
+          const q = appliedFilters.query.trim();
+          const isDigitOnly = /^\d+$/.test(q);
+          
+          // Base terms: name, code, area, details
+          let orTerms = `name.ilike.%${q}%,property_code.ilike.%${q}%,area.ilike.%${q}%,details.ilike.%${q}%`;
+          
+          // Strict phone match: only if query is 8 digits
+          if (isDigitOnly && q.length === 8) {
+            orTerms += `,phone.eq.${q},phone_2.eq.${q}`;
+          }
+          
+          queryBuilder = queryBuilder.or(orTerms);
         }
 
         // 4. View Context
@@ -929,11 +940,25 @@ export default function App() {
     }
   };
 
-  // Reset pagination on filter change
   useEffect(() => {
     setPropertiesOffset(0);
     setHasMoreProperties(true);
   }, [appliedFilters, view, selectedCompanyId]);
+
+  // Infinite Scroll Observer
+  useEffect(() => {
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && hasMoreProperties && !isFetchingMore && !loading) {
+        loadMoreProperties();
+      }
+    }, { threshold: 0.1 });
+
+    if (loadingRef.current) {
+      observer.observe(loadingRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasMoreProperties, isFetchingMore, loading, appliedFilters]);
 
   // Real-time Properties Listener
   useEffect(() => {
@@ -2467,8 +2492,8 @@ export default function App() {
               {/* Grid - Always show results */}
               {filteredProperties.length > 0 ? (
                 <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
-                    {filteredProperties.slice(0, visibleCount).map((p) => (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {filteredProperties.map((p) => (
                       <PropertyCard 
                         key={p.id} 
                         property={p} 
@@ -2517,16 +2542,21 @@ export default function App() {
                     ))}
                   </div>
 
-                  {visibleCount < filteredProperties.length && (
-                    <div className="flex justify-center pt-8">
-                      <button 
-                        onClick={() => setVisibleCount(prev => prev + 50)}
-                        className="bg-white text-emerald-600 border-2 border-emerald-600 px-12 py-3 rounded-xl hover:bg-emerald-50 transition-all font-bold"
-                      >
-                        عرض المزيد من العقارات
-                      </button>
-                    </div>
-                  )}
+                  {/* Infinite Scroll Sentinel & "No more" message */}
+                  <div ref={loadingRef} className="py-12 flex flex-col items-center justify-center gap-4">
+                    {isFetchingMore ? (
+                      <div className="flex flex-col items-center gap-3">
+                        <LoadingSpinner size={32} />
+                        <p className="text-sm font-bold text-stone-400">جاري تحميل المزيد...</p>
+                      </div>
+                    ) : (!hasMoreProperties && filteredProperties.length > 0) ? (
+                      <div className="flex flex-col items-center gap-2 opacity-60">
+                        <div className="h-px w-24 bg-stone-200 mb-2" />
+                        <p className="text-sm font-black text-stone-400 font-serif">لا يوجد مزيد من العقارات</p>
+                        <p className="text-[10px] text-stone-300">لقد وصلت لنهاية القائمة</p>
+                      </div>
+                    ) : null}
+                  </div>
                 </>
               ) : (
                 <div className="bg-white/60 backdrop-blur-md p-16 rounded-2xl border border-white/40 text-center space-y-6 shadow-xl shadow-stone-200/50">

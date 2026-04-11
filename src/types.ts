@@ -8,13 +8,18 @@ export interface Property {
   purpose: string;
   phone: string;
   phone_2?: string;
-  companyId: string;
+  companyId?: string;
+  company_id?: string;
   assignedEmployeeId?: string;
+  assigned_employee_id?: string;
   assignedEmployeeName?: string;
-  images: any[]; // Changed to any[] to support object-based media if needed
+  assigned_employee_name?: string;
+  assigned_employee_phone?: string;
+  images: any[];
   locationLink?: string;
-  location_link?: string; // Support both naming conventions
+  location_link?: string;
   isSold?: boolean;
+  is_sold?: boolean;
   sector?: string;
   distribution?: string;
   block?: string;
@@ -28,17 +33,22 @@ export interface Property {
   price?: string;
   details?: string;
   lastComment?: string;
+  last_comment?: string;
+  last_comment_at?: string;
   comments_2?: string;
   comments_3?: string;
   statusLabel?: string;
   status_label?: string;
   status: 'pending' | 'approved' | 'rejected' | 'deleted';
   isDeleted?: boolean;
+  is_deleted?: boolean;
   deletedAt?: any;
-  createdBy: string;
+  deleted_at?: any;
+  createdBy?: string;
   created_by?: string;
   created_by_name?: string;
-  createdAt: any;
+  createdAt?: any;
+  created_at?: any;
 }
 
 export interface Company {
@@ -74,23 +84,23 @@ export interface Comment {
 }
 
 export interface UserProfile {
-  id: string; // The primary ID (mapped from uid)
-  uid?: string; // Legacy support
+  id: string; 
+  uid?: string;
   email: string;
   name: string;
   full_name?: string;
-  role: 'super_admin' | 'admin' | 'employee' | 'pending' | 'rejected' | 'rejected';
-  companyId?: string; // Legacy support
+  role: 'super_admin' | 'admin' | 'employee' | 'pending' | 'rejected';
+  companyId?: string;
   company_id?: string;
-  createdAt?: string; // Legacy support
+  createdAt?: string;
   created_at?: string;
-  forceSignOut?: boolean; // Legacy support
+  forceSignOut?: boolean;
   force_sign_out?: boolean;
   phone?: string;
   employeeId?: string;
-  isDeleted?: boolean; // Legacy support
+  isDeleted?: boolean;
   is_deleted?: boolean;
-  deletedAt?: any; // Legacy support
+  deletedAt?: any;
   deleted_at?: any;
 }
 
@@ -99,8 +109,8 @@ export interface Notification {
   type: 'new-user' | 'property-update' | 'price-change' | 'status-change' | 'new-comment';
   title: string;
   message: string;
-  userId?: string; // Triggering user
-  recipientId?: string; // Target user (if null, it's for admins)
+  userId?: string;
+  recipientId?: string;
   propertyId?: string;
   read: boolean;
   createdAt: any;
