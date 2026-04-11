@@ -14,7 +14,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabaseClient';
-import { compressImage, generateUniqueCode } from '../utils';
+import { compressImage, generateUniqueCode, unifyAbuName } from '../utils';
 import { notifyFavoriteUsers } from '../services/notificationService';
 import { SearchableFilter } from './SearchableFilter';
 import { LoadingSpinner } from './LoadingSpinner';
@@ -222,9 +222,10 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
 
       const data = {
         ...formData,
+        name: unifyAbuName(formData.name),
         company_id: (isSuperAdmin && formData.company_id) ? formData.company_id : (user?.companyId || user?.company_id),
         assigned_employee_id: empId || null,
-        assigned_employee_name: empName,
+        assigned_employee_name: unifyAbuName(empName),
         images: formattedImages,
         price: formData.price || null,
         status: isAdmin ? (property?.status || 'approved') : 'pending'

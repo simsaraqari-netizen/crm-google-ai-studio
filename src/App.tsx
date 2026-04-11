@@ -51,7 +51,7 @@ import { API_BASE } from './lib/apiBase';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { GOVERNORATES, AREAS, PROPERTY_TYPES, PURPOSES, LOCATIONS, SUPER_ADMIN_EMAILS, SUPER_ADMIN_PHONES } from './constants';
-import { normalizeArabic, cleanAreaName, searchMatch, normalizeDigits, generatePropertyTitle, usernameToEmail, extractSpreadsheetId, formatRelativeDate, formatDateTime, getPropertyCode } from './utils';
+import { normalizeArabic, unifyAbuName, cleanAreaName, searchMatch, normalizeDigits, generatePropertyTitle, usernameToEmail, extractSpreadsheetId, formatRelativeDate, formatDateTime, getPropertyCode } from './utils';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -100,6 +100,8 @@ interface Property {
   is_deleted?: boolean;
   deleted_at?: any;
   created_by: string;
+  created_by_name?: string;
+  assignedEmployeeName?: string;
   created_at: any;
 }
 
@@ -1164,6 +1166,60 @@ export default function App() {
     }
   };
 
+  const handleNormalizeAllNames = async () => {
+    const loadingToast = toast.loading('جاري توحيد الأسماء في قاعدة البيانات...');
+    try {
+      // 1. Normalize Profiles
+      const { data: profiles } = await supabase.from('profiles').select('id, name, full_name');
+      for (const p of profiles || []) {
+        const newName = unifyAbuName(p.name);
+        const newFullName = p.full_name ? unifyAbuName(p.full_name) : null;
+        if (newName !== p.name || (newFullName && newFullName !== p.full_name)) {
+          await supabase.from('profiles').update({ name: newName, full_name: newFullName }).eq('id', p.id);
+        }
+      }
+
+      // 2. Normalize Properties (including property name/owner)
+      const { data: props } = await supabase.from('properties').select('id, name, created_by_name, assigned_employee_name, assignedEmployeeName');
+      for (const p of props || []) {
+        const updates: any = {};
+        const newName = p.name ? unifyAbuName(p.name) : null;
+        const newCreatedBy = p.created_by_name ? unifyAbuName(p.created_by_name) : null;
+        const newAssignedSnake = p.assigned_employee_name ? unifyAbuName(p.assigned_employee_name) : null;
+        const newAssignedCamel = p.assignedEmployeeName ? unifyAbuName(p.assignedEmployeeName) : null;
+
+        if (newName && newName !== p.name) updates.name = newName;
+        if (newCreatedBy && newCreatedBy !== p.created_by_name) updates.created_by_name = newCreatedBy;
+        if (newAssignedSnake && newAssignedSnake !== p.assigned_employee_name) updates.assigned_employee_name = newAssignedSnake;
+        if (newAssignedCamel && newAssignedCamel !== p.assignedEmployeeName) updates.assignedEmployeeName = newAssignedCamel;
+
+        if (Object.keys(updates).length > 0) {
+          await supabase.from('properties').update(updates).eq('id', p.id);
+        }
+      }
+
+      // 3. Normalize Comments
+      const { data: comments } = await supabase.from('comments').select('id, user_name, userName');
+      for (const c of comments || []) {
+        const updates: any = {};
+        const newSnake = c.user_name ? unifyAbuName(c.user_name) : null;
+        const newCamel = c.userName ? unifyAbuName(c.userName) : null;
+
+        if (newSnake && newSnake !== c.user_name) updates.user_name = newSnake;
+        if (newCamel && newCamel !== c.userName) updates.userName = newCamel;
+
+        if (Object.keys(updates).length > 0) {
+          await supabase.from('comments').update(updates).eq('id', c.id);
+        }
+      }
+
+      toast.success('تم توحيد كافة الأسماء بنجاح', { id: loadingToast });
+      window.location.reload();
+    } catch (error: any) {
+      toast.error('فشل توحيد الأسماء: ' + error.message, { id: loadingToast });
+    }
+  };
+
   const handleDeleteAccount = () => {
     setAccountDeleteConfirm(true);
   };
@@ -1227,7 +1283,19 @@ export default function App() {
       if (p.type) types.add(p.type);
       if (p.purpose) purposes.add(p.purpose);
       if (p.location) locations.add(p.location);
-      if (p.assignedEmployeeName) marketers.add(p.assignedEmployeeName);
+    });
+
+    // Add all active employees to the filter list for "Search by Entry Employee"
+    employees.forEach(emp => {
+      if (emp.name) marketers.add(unifyAbuName(emp.name));
+    });
+    // Add current user too
+    if (user?.name) marketers.add(unifyAbuName(user.name));
+    
+    // Also add names found in existing properties that might not be in the current employee list
+    properties.forEach(p => {
+      if (p.assignedEmployeeName) marketers.add(unifyAbuName(p.assignedEmployeeName));
+      if (p.created_by_name) marketers.add(unifyAbuName(p.created_by_name));
     });
 
     return {
@@ -2213,7 +2281,7 @@ export default function App() {
                         )}
 
                         <SearchableFilter 
-                          placeholder="ابحث بالمستخدم..."
+                          placeholder="ابحث بموظف الادخال..."
                           options={availableFilterOptions.marketers}
                           value={filters.marketer}
                           onChange={(val) => setFilters({...filters, marketer: val})}
@@ -2862,17 +2930,29 @@ export default function App() {
               className="space-y-6 w-full px-4 py-8"
             >
               <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-6">
-                <div className="flex items-center gap-4 mb-8">
-                  <button 
-                    onClick={() => window.history.back()}
-                    className="p-2 hover:bg-stone-100/50 rounded-full transition-all text-stone-500 ios-glass"
-                  >
-                    <ChevronRight size={24} />
-                  </button>
-                  <div>
-                    <h2 className="text-2xl font-bold tracking-tight">إدارة المستخدمين</h2>
-                    <p className="text-sm text-stone-500">إدارة جميع الحسابات والصلحيات في النظام</p>
+                <div className="flex items-center justify-between gap-4 mb-8">
+                  <div className="flex items-center gap-4">
+                    <button 
+                      onClick={() => window.history.back()}
+                      className="p-2 hover:bg-stone-100/50 rounded-full transition-all text-stone-500 ios-glass"
+                    >
+                      <ChevronRight size={24} />
+                    </button>
+                    <div>
+                      <h2 className="text-2xl font-bold tracking-tight">إدارة المستخدمين</h2>
+                      <p className="text-sm text-stone-500">إدارة جميع الحسابات والصلحيات في النظام</p>
+                    </div>
                   </div>
+                  {isAdmin && (
+                    <button
+                      onClick={handleNormalizeAllNames}
+                      className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 text-xs font-bold rounded-xl hover:bg-amber-100 transition-all border border-amber-200"
+                      title="توحيد الأسماء (إزالة الهمزات والفراغات)"
+                    >
+                      <RefreshCw size={14} className="hover:rotate-180 transition-transform duration-500" />
+                      توحيد الأسماء
+                    </button>
+                  )}
                 </div>
 
                 <div className="ios-glass p-6 rounded-2xl mb-8 border border-white/20 shadow-sm">

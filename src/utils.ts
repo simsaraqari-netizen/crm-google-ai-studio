@@ -44,6 +44,15 @@ export function normalizeArabic(text: string): string {
   return normalized;
 }
 
+export function unifyAbuName(name: string): string {
+  if (!name) return "";
+  // 1. Basic Arabic normalization (normalize digits, hamzas, etc.)
+  const normalized = normalizeArabic(name.trim());
+  // 2. Targeted "Abu" normalization:
+  // If it starts with "ابو " (normalized from "أبو " or "ابو "), remove the space.
+  return normalized.replace(/^ابو\s+/g, "ابو");
+}
+
 export function cleanAreaName(name: string): string {
   if (!name) return "";
   return name.replace(/مدينة\s+/g, "").trim();
@@ -143,6 +152,9 @@ export function usernameToEmail(username: string): string {
     return normalized;
   }
 
+  // Normalize Abu name format for email generation
+  const nameOnly = unifyAbuName(normalized);
+
   if (
     normalized === 'simsaraqari@gmail.com' || 
     normalized === 'ادمن' || 
@@ -161,12 +173,12 @@ export function usernameToEmail(username: string): string {
   }
   
   // For other usernames, use a simple format if possible, or fallback to hex if it has non-ascii
-  if (/^[a-zA-Z0-9._-]+$/.test(normalized)) {
-    return `${normalized}@realestate.com`;
+  if (/^[a-zA-Z0-9._-]+$/.test(nameOnly)) {
+    return `${nameOnly}@realestate.com`;
   }
 
   // Convert username to a valid email prefix using hex encoding
-  const hex = Array.from(new TextEncoder().encode(normalized))
+  const hex = Array.from(new TextEncoder().encode(nameOnly))
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
     
