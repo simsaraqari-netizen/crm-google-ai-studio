@@ -340,7 +340,7 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                     property.comments_3,
                   ].filter(Boolean).join('\n');
                   return combined ? (
-                    <div className="text-base text-stone-700 leading-relaxed whitespace-pre-wrap text-right bg-stone-50 p-4 rounded-xl border border-stone-100">
+                    <div className="text-base text-stone-700 leading-relaxed whitespace-pre-wrap text-right p-4 rounded-xl border border-stone-100/60 shadow-sm">
                       <p className="font-bold text-xs text-stone-400 mb-1">التفاصيل:</p>
                       {combined}
                     </div>
@@ -355,27 +355,27 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
                   <div className="flex flex-col md:flex-row gap-2">
                     <a
                       href={`tel:${property.phone}`}
-                      className="flex-1 flex items-center justify-center gap-2 bg-stone-100 text-stone-800 px-6 py-3 rounded-xl hover:bg-stone-200 transition-all font-bold text-sm shadow-sm"
+                      className="flex-1 flex items-center justify-center gap-2 bg-stone-50/50 text-stone-800 px-4 py-2.5 rounded-xl hover:bg-stone-100 transition-all font-bold text-xs border border-stone-100 shadow-sm"
                     >
                       <span>{String(property.phone).replace(/\s/g, '')}</span>
-                      <Phone size={16} />
+                      <Phone size={14} />
                     </a>
                     {property.phone_2 && (
                       <a
                         href={`tel:${property.phone_2}`}
-                        className="flex-1 flex items-center justify-center gap-2 bg-stone-50 text-stone-600 px-6 py-3 rounded-xl hover:bg-stone-100 transition-all font-bold text-sm shadow-sm border border-stone-100"
+                        className="flex-1 flex items-center justify-center gap-2 bg-stone-50/30 text-stone-600 px-4 py-2.5 rounded-xl hover:bg-stone-100 transition-all font-bold text-xs border border-stone-100 shadow-sm"
                       >
                         <span>{String(property.phone_2).replace(/\s/g, '')}</span>
-                        <Phone size={16} />
+                        <Phone size={14} />
                       </a>
                     )}
                     <a
                       href={propertyWhatsappUrl || '#'}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-1 flex items-center justify-center gap-2 bg-white text-green-600 border border-green-200 px-6 py-3 rounded-xl hover:bg-green-50 transition-all font-bold text-sm shadow-sm"
+                      className="flex-1 flex items-center justify-center gap-2 bg-white text-green-600 border border-green-200 px-4 py-2.5 rounded-xl hover:bg-green-50 transition-all font-bold text-xs shadow-sm"
                     >
-                      <MessageCircle size={16} />
+                      <MessageCircle size={14} />
                       واتساب العقار
                     </a>
                   </div>
@@ -706,83 +706,83 @@ export const PropertyDetails = memo(function PropertyDetails({ property, user, o
           </h3>
           <div className="grid grid-cols-2 gap-2">
             {/* Governorate */}
-            <button onClick={() => onFilter('governorate', property.governorate)} className="flex items-center justify-center p-2 bg-stone-50/50 rounded-lg border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98]">
-              <span className="text-xs font-bold text-stone-800">{property.governorate}</span>
+            <button onClick={() => onFilter('governorate', property.governorate)} className="flex items-center justify-center p-2 bg-white rounded-lg border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] shadow-sm">
+              <span className="text-[11px] font-bold text-stone-800">{property.governorate}</span>
             </button>
             {/* Area */}
-            <button onClick={() => onFilter('area', property.area)} className="flex items-center justify-center p-2 bg-stone-50/50 rounded-lg border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98]">
-              <span className="text-xs font-bold text-stone-800">{cleanAreaName(property.area)}</span>
+            <button onClick={() => onFilter('area', property.area)} className="flex items-center justify-center p-2 bg-white rounded-lg border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] shadow-sm">
+              <span className="text-[11px] font-bold text-stone-800">{cleanAreaName(property.area)}</span>
             </button>
             {/* Type */}
-            <button onClick={() => onFilter('type', property.type)} className="flex items-center justify-center p-2 bg-stone-50/50 rounded-lg border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98]">
-              <span className="text-xs font-bold text-stone-800">{property.type}</span>
+            <button onClick={() => onFilter('type', property.type)} className="flex items-center justify-center p-2 bg-white rounded-lg border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] shadow-sm">
+              <span className="text-[11px] font-bold text-stone-800">{property.type}</span>
             </button>
             {/* Purpose */}
             {property.purpose !== 'بيع' && (
-              <button onClick={() => onFilter('purpose', property.purpose)} className="flex items-center justify-center p-2 bg-stone-50/50 rounded-lg border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98]">
-                <span className="text-xs font-bold text-stone-800">{property.purpose}</span>
+              <button onClick={() => onFilter('purpose', property.purpose)} className="flex items-center justify-center p-2 bg-white rounded-lg border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] shadow-sm">
+                <span className="text-[11px] font-bold text-stone-800">{property.purpose}</span>
               </button>
             )}
             {/* Sector */}
             {property.sector && (
-              <div className="flex items-center justify-center p-2 bg-stone-50/50 rounded-lg border border-stone-100">
-                <span className="text-xs font-bold text-stone-800">{property.sector}</span>
+              <div className="flex items-center justify-center p-2 bg-white rounded-lg border border-stone-100 shadow-sm">
+                <span className="text-[11px] font-bold text-stone-800">{property.sector}</span>
               </div>
             )}
             {/* Block */}
             {property.block && (
-              <button onClick={() => onFilter('block', property.block)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
-                <span className="text-[10px] text-stone-500 mb-1">القطعة</span>
-                <span className="text-xs font-bold text-stone-800">{property.block}</span>
+              <button onClick={() => onFilter('block', property.block)} className="flex flex-col items-start px-3 py-2 bg-white rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right shadow-sm">
+                <span className="text-[9px] text-stone-500 mb-0.5">القطعة</span>
+                <span className="text-[11px] font-bold text-stone-800">{property.block}</span>
               </button>
             )}
             {/* Plot Number */}
             {property.plot_number && (
-              <button onClick={() => onFilter('plotNumber', property.plot_number)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
-                <span className="text-[10px] text-stone-500 mb-1">القسيمة</span>
-                <span className="text-xs font-bold text-stone-800">{property.plot_number}</span>
+              <button onClick={() => onFilter('plotNumber', property.plot_number)} className="flex flex-col items-start px-3 py-2 bg-white rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right shadow-sm">
+                <span className="text-[9px] text-stone-500 mb-0.5">القسيمة</span>
+                <span className="text-[11px] font-bold text-stone-800">{property.plot_number}</span>
               </button>
             )}
             {/* Street */}
             {property.street && (
-              <button onClick={() => onFilter('street', property.street)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
-                <span className="text-[10px] text-stone-500 mb-1">الموقع</span>
-                <span className="text-xs font-bold text-stone-800">{property.street}</span>
+              <button onClick={() => onFilter('street', property.street)} className="flex flex-col items-start px-3 py-2 bg-white rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right shadow-sm">
+                <span className="text-[9px] text-stone-500 mb-0.5">الموقع</span>
+                <span className="text-[11px] font-bold text-stone-800">{property.street}</span>
               </button>
             )}
             {/* Avenue */}
             {property.avenue && (
-              <button onClick={() => onFilter('avenue', property.avenue)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
-                <span className="text-[10px] text-stone-500 mb-1">الجادة</span>
-                <span className="text-xs font-bold text-stone-800">{property.avenue}</span>
+              <button onClick={() => onFilter('avenue', property.avenue)} className="flex flex-col items-start px-3 py-2 bg-white rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right shadow-sm">
+                <span className="text-[9px] text-stone-500 mb-0.5">الجادة</span>
+                <span className="text-[11px] font-bold text-stone-800">{property.avenue}</span>
               </button>
             )}
             {/* House Number */}
             {property.house_number && (
-              <button onClick={() => onFilter('houseNumber', property.house_number)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right">
-                <span className="text-[10px] text-stone-500 mb-1">المنزل</span>
-                <span className="text-xs font-bold text-stone-800">{property.house_number}</span>
+              <button onClick={() => onFilter('houseNumber', property.house_number)} className="flex flex-col items-start px-3 py-2 bg-white rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right shadow-sm">
+                <span className="text-[9px] text-stone-500 mb-0.5">المنزل</span>
+                <span className="text-[11px] font-bold text-stone-800">{property.house_number}</span>
               </button>
             )}
             {/* Location */}
             {property.location && (
-              <button onClick={() => onFilter('location', property.location)} className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right col-span-2">
-                <span className="text-[10px] text-stone-500 mb-1">الموقع العام</span>
-                <span className="text-xs font-bold text-stone-800">{property.location}</span>
+              <button onClick={() => onFilter('location', property.location)} className="flex flex-col items-start px-3 py-2 bg-white rounded-xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50 transition-all active:scale-[0.98] text-right col-span-2 shadow-sm">
+                <span className="text-[9px] text-stone-500 mb-0.5">الموقع العام</span>
+                <span className="text-[11px] font-bold text-stone-800">{property.location}</span>
               </button>
             )}
             {/* Distribution */}
             {property.distribution && (
-              <div className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 text-right col-span-2">
-                <span className="text-[10px] text-stone-500 mb-1">التوزيعة</span>
-                <span className="text-xs font-bold text-stone-800">{property.distribution}</span>
+              <div className="flex flex-col items-start px-3 py-2 bg-white rounded-xl border border-stone-100 text-right col-span-2 shadow-sm">
+                <span className="text-[9px] text-stone-500 mb-0.5">التوزيعة</span>
+                <span className="text-[11px] font-bold text-stone-800">{property.distribution}</span>
               </div>
             )}
             {/* Location Link */}
             {property.location_link && (
-              <div className="flex flex-col items-start p-3 bg-stone-50/50 rounded-xl border border-stone-100 text-right col-span-2">
-                <span className="text-[10px] text-stone-500 mb-1">رابط العنوان</span>
-                <a href={property.location_link} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-blue-600 hover:underline truncate w-full" dir="ltr">
+              <div className="flex flex-col items-start px-3 py-2 bg-white rounded-xl border border-stone-100 text-right col-span-2 shadow-sm">
+                <span className="text-[9px] text-stone-500 mb-0.5">رابط العنوان</span>
+                <a href={property.location_link} target="_blank" rel="noopener noreferrer" className="text-[11px] font-bold text-blue-600 hover:underline truncate w-full" dir="ltr">
                   عرض على الخريطة
                 </a>
               </div>
