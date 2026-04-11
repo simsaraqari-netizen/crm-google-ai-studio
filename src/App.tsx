@@ -386,6 +386,7 @@ export default function App() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   
   useEffect(() => {
+    let channel: any;
     if (isAdmin) {
       (async () => {
         try {
@@ -410,7 +411,7 @@ export default function App() {
           setEmployees(mappedUsers.filter(u => u.uid !== user?.uid));
 
           // Subscribe to changes
-          const channel = supabase.channel('users-changes');
+          channel = supabase.channel('users-changes');
           channel.on(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'profiles' },
@@ -425,13 +426,12 @@ export default function App() {
               });
             }
           ).subscribe();
-
-          return () => { channel.unsubscribe(); };
         } catch (error) {
           console.error('Users fetch error:', error);
         }
       })();
     }
+    return () => { if (channel) channel.unsubscribe(); };
   }, [isAdmin, isSuperAdmin, selectedCompanyId, user?.companyId, user?.uid]);
 
   const [visibleCount, setVisibleCount] = useState(50);
@@ -759,13 +759,13 @@ export default function App() {
     return () => subscription?.unsubscribe();
   }, []);
 
-  // Companies Listener (for Super Admin)
   useEffect(() => {
     if (!isSuperAdmin) {
       setCompanies([]);
       return;
     }
 
+    let channel: any;
     (async () => {
       try {
         const { data: companiesData, error } = await supabase
@@ -775,14 +775,14 @@ export default function App() {
 
         if (error) throw error;
 
-        const companies = (companiesData || []).map(doc => ({
+        const companiesList = (companiesData || []).map(doc => ({
           id: doc.id,
           ...doc
         })) as Company[];
-        setCompanies(companies);
+        setCompanies(companiesList);
 
         // Subscribe to changes
-        const channel = supabase.channel('companies-changes');
+        channel = supabase.channel('companies-changes');
         channel.on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'companies' },
@@ -801,13 +801,12 @@ export default function App() {
               });
           }
         ).subscribe();
-
-        return () => { channel.unsubscribe(); };
       } catch (err) {
         console.error('Companies fetch error:', err);
         handleSupabaseError(err, OperationType.GET, 'companies');
       }
     })();
+    return () => { if (channel) channel.unsubscribe(); };
   }, [isSuperAdmin]);
 
   // Properties Listener
@@ -889,15 +888,17 @@ export default function App() {
       }
     };
 
+    let channel: any;
     (async () => {
       await fetchAllProperties();
 
       // Subscribe to changes
-      const channel = supabase.channel('properties-changes');
+      channel = supabase.channel('properties-changes');
       channel.on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'properties' },
         (payload: any) => {
+          // ... cleanup logic ...
           if (payload.eventType === 'INSERT') {
             const newProp = {
               id: payload.new.id,
@@ -905,7 +906,6 @@ export default function App() {
               location: payload.new.location === 'شارع واحد | سد' ? 'شارع واحد' : payload.new.location
             } as Property;
 
-            // Check if it belongs to current filter (company)
             const matchesCompany = isSuperAdmin ? (!selectedCompanyId || newProp.company_id === selectedCompanyId) : (newProp.company_id === user.companyId);
             
             if (matchesCompany) {
@@ -922,7 +922,6 @@ export default function App() {
               location: payload.new.location === 'شارع واحد | سد' ? 'شارع واحد' : payload.new.location
             } as Property;
 
-            // Update in properties or deletedProperties
             if (updatedProp.status === 'deleted') {
               setProperties(prev => prev.filter(p => p.id !== updatedProp.id));
               setDeletedProperties(prev => {
@@ -945,15 +944,15 @@ export default function App() {
           }
         }
       ).subscribe();
-
-      return () => { channel.unsubscribe(); };
     })();
+    return () => { if (channel) channel.unsubscribe(); };
   }, [user, isSuperAdmin, selectedCompanyId]);
 
   // Notifications Listener
   useEffect(() => {
     if (!user) return;
 
+    let channel: any;
     (async () => {
       try {
         let query = supabase.from('notifications').select('*');
@@ -980,7 +979,7 @@ export default function App() {
         setNotifications(allNotifications);
 
         // Subscribe to changes
-        const channel = supabase.channel('notifications-changes');
+        channel = supabase.channel('notifications-changes');
         channel.on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'notifications' },
@@ -995,19 +994,19 @@ export default function App() {
             });
           }
         ).subscribe();
-
-        return () => { channel.unsubscribe(); };
       } catch (err) {
         console.error('Notifications fetch error:', err);
         handleSupabaseError(err, OperationType.GET, 'notifications');
       }
     })();
+    return () => { if (channel) channel.unsubscribe(); };
   }, [user]);
 
   // Favorites Listener
   useEffect(() => {
     if (!user) return;
 
+    let channel: any;
     (async () => {
       try {
         const { data: favoritesData, error } = await supabase
@@ -1020,7 +1019,7 @@ export default function App() {
         setFavorites((favoritesData || []).map(doc => doc.property_id));
 
         // Subscribe to changes
-        const channel = supabase.channel('favorites-changes');
+        channel = supabase.channel('favorites-changes');
         channel.on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'favorites' },
@@ -1034,12 +1033,11 @@ export default function App() {
               });
           }
         ).subscribe();
-
-        return () => { channel.unsubscribe(); };
       } catch (error) {
         console.error("Favorites listener error:", error);
       }
     })();
+    return () => { if (channel) channel.unsubscribe(); };
   }, [user]);
 
   // All Users Listener (for Admin Management) - REMOVED, consolidated above
@@ -1157,7 +1155,13 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+      window.location.href = window.location.origin + window.location.pathname;
+    } catch (error) {
+      console.error("Logout error:", error);
+      window.location.reload();
+    }
   };
 
   const handleDeleteAccount = () => {
