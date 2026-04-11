@@ -14,25 +14,24 @@ import {
   Plus,
   MapPin,
   X,
-  ExternalLink
+  ExternalLink,
+  User,
+  Tag,
+  Home,
+  Clock
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabaseClient';
 import { toast } from 'react-hot-toast';
 import {
-  generatePropertyTitle,
   formatRelativeDate,
   cleanAreaName,
   formatDateTime,
-  formatPropertyDate,
   getPropertyCode
 } from '../utils';
-import Markdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { Comment, Property } from '../types';
 import { ImageViewer } from './ImageViewer';
 import { LoadingSpinner } from './LoadingSpinner';
-import { SUPER_ADMIN_EMAILS, SUPER_ADMIN_PHONES } from '../constants';
 
 interface PropertyDetailsProps {
   property: Property;
@@ -71,13 +70,13 @@ export const PropertyDetails = memo(function PropertyDetails({
 
   const images = React.useMemo(() => {
     const raw = property.images && Array.isArray(property.images) ? property.images : [];
-    const fallback = property.image_url || property.imageUrl || property.image || property.photo || '';
+    const fallback = (property as any).image_url || (property as any).imageUrl || (property as any).image || (property as any).photo || '';
     const unified = raw.map((img: any) => {
       const url = typeof img === 'string' ? img : (img?.url || '');
       const type = typeof img === 'string' ? (img.includes('.mp4') || img.includes('.mov') ? 'video' : 'image') : (img?.type || 'image');
       return { url, type };
-    }).filter(img => img.url);
-    if (fallback && !unified.some(img => img.url === fallback)) {
+    }).filter((img: any) => img.url);
+    if (fallback && !unified.some((img: any) => img.url === fallback)) {
       unified.push({ url: fallback, type: 'image' });
     }
     return unified;
@@ -131,7 +130,6 @@ export const PropertyDetails = memo(function PropertyDetails({
       setNewComment('');
       toast.success('تم إضافة التعليق');
     } catch (error) {
-      console.error("Error adding comment:", error);
       toast.error("حدث خطأ أثناء إضافة التعليق");
     } finally {
       setIsUploading(false);
@@ -156,6 +154,17 @@ export const PropertyDetails = memo(function PropertyDetails({
     }
   };
 
+  // All spec fields — shown even if empty
+  const locationSpecs = [
+    { label: 'القطعة', value: property.block },
+    { label: 'القسيمة', value: property.plot_number },
+    { label: 'الشارع', value: property.street },
+    { label: 'الجادة', value: property.avenue },
+    { label: 'المنزل', value: property.house_number },
+    { label: 'التوزيعة', value: property.distribution },
+  ];
+  const hasLocationSpecs = locationSpecs.some(s => s.value) || property.location_link;
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -173,7 +182,7 @@ export const PropertyDetails = memo(function PropertyDetails({
       )}
 
       {/* ── Top Bar ── */}
-      <div className="flex items-center justify-between gap-3 mb-2">
+      <div className="flex items-center justify-between gap-3 mb-3">
         <button
           onClick={onBack}
           className="flex items-center gap-1.5 text-stone-500 hover:text-emerald-700 transition-colors text-sm font-bold"
@@ -204,13 +213,13 @@ export const PropertyDetails = memo(function PropertyDetails({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
 
         {/* ── Left: Media + Info ── */}
-        <div className="lg:col-span-2 space-y-1.5">
+        <div className="lg:col-span-2 space-y-3">
 
           {/* Media */}
-          <div className="bg-white rounded-xl overflow-hidden border border-stone-100">
+          <div className="rounded-xl overflow-hidden border border-stone-100">
             {images.length > 0 ? (
               <div className="relative aspect-[16/10] bg-stone-900 group">
                 {images[activeImageIndex].type === 'video' ? (
@@ -250,7 +259,7 @@ export const PropertyDetails = memo(function PropertyDetails({
               </div>
             )}
             {images.length > 1 && (
-              <div className="p-3 border-t border-stone-100 overflow-x-auto">
+              <div className="p-3 border-t border-stone-100 overflow-x-auto bg-white">
                 <div className="flex gap-2">
                   {images.map((img, i) => (
                     <button key={i} onClick={() => setActiveImageIndex(i)} className={`relative w-16 h-16 rounded-lg overflow-hidden border-2 flex-shrink-0 transition-all ${i === activeImageIndex ? 'border-emerald-500' : 'border-stone-100'}`}>
@@ -266,78 +275,94 @@ export const PropertyDetails = memo(function PropertyDetails({
             )}
           </div>
 
-          {/* Title & Details */}
-          <div className="bg-white rounded-xl border border-stone-100 p-3 space-y-3">
-            {/* Title row */}
-            <div>
-              <div className="flex items-start justify-between gap-2">
-                <h1 className="text-xl sm:text-2xl font-black text-stone-900 leading-snug flex-1">
-                  {property.name || 'عقار بدون اسم'}
-                </h1>
-                {property.price && (
-                  <span className="text-xl font-black text-emerald-600 whitespace-nowrap">{property.price}</span>
-                )}
-              </div>
-              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                {(property.governorate || property.area) && (
-                  <span className="flex items-center gap-1 text-xs text-stone-500 font-bold">
-                    <MapPin size={12} className="text-emerald-500" />
-                    {property.governorate}{property.area ? ` — ${cleanAreaName(property.area)}` : ''}
-                  </span>
-                )}
-                {property.created_at && (
-                  <span className="text-xs text-stone-400">تم الإضافة {formatRelativeDate(property.created_at)}</span>
-                )}
-              </div>
+          {/* Title & Main Info */}
+          <div className="rounded-xl border border-stone-100 bg-white p-4 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <h1 className="text-xl sm:text-2xl font-black text-stone-900 leading-snug flex-1">
+                {property.name || 'عقار بدون اسم'}
+              </h1>
+              {property.price && (
+                <span className="text-xl font-black text-emerald-600 whitespace-nowrap">{property.price}</span>
+              )}
             </div>
 
-            {/* Specs row */}
-            <div className="flex flex-wrap gap-x-4 gap-y-1.5 border-t border-stone-100 pt-2">
-              {property.purpose && (
-                <div><span className="text-[10px] text-stone-400 block">الغرض</span><span className="text-sm font-black text-stone-800">{property.purpose}</span></div>
+            {/* Location & date */}
+            <div className="flex flex-wrap items-center gap-3 text-xs text-stone-500">
+              {(property.governorate || property.area) && (
+                <span className="flex items-center gap-1 font-bold">
+                  <MapPin size={12} className="text-emerald-500" />
+                  {property.governorate}{property.area ? ` — ${cleanAreaName(property.area)}` : ''}
+                </span>
               )}
+              {property.created_at && (
+                <span className="flex items-center gap-1">
+                  <Clock size={12} />
+                  {formatRelativeDate(property.created_at)}
+                </span>
+              )}
+            </div>
+
+            {/* Chips */}
+            <div className="flex flex-wrap gap-2 pt-1">
               {property.type && (
-                <div><span className="text-[10px] text-stone-400 block">النوع</span><span className="text-sm font-black text-stone-800">{property.type}</span></div>
+                <span className="border border-sky-200 text-sky-700 text-xs font-bold px-2.5 py-1 rounded-md">{property.type}</span>
+              )}
+              {property.purpose && (
+                <span className="border border-emerald-200 text-emerald-700 text-xs font-bold px-2.5 py-1 rounded-md">{property.purpose}</span>
               )}
               {property.location && (
-                <div><span className="text-[10px] text-stone-400 block">الموقع</span><span className="text-sm font-black text-stone-800">{property.location}</span></div>
+                <span className="border border-stone-200 text-stone-600 text-xs font-bold px-2.5 py-1 rounded-md">{property.location}</span>
+              )}
+              {property.status_label && (
+                <span className="border border-amber-200 text-amber-700 text-xs font-bold px-2.5 py-1 rounded-md flex items-center gap-1">
+                  <Tag size={11} />{property.status_label}
+                </span>
+              )}
+              {property.is_sold && (
+                <span className="border border-stone-300 text-stone-500 text-xs font-bold px-2.5 py-1 rounded-md">مباع</span>
               )}
             </div>
 
             {/* Details text */}
             {property.details && (
-              <div className="border-t border-stone-100 pt-2">
+              <div className="border-t border-stone-100 pt-3">
+                <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">التفاصيل</p>
                 <p className="text-sm text-stone-700 leading-relaxed whitespace-pre-wrap">{property.details}</p>
               </div>
             )}
 
             {(property.comments_2 || property.comments_3) && (
-              <div className="space-y-1 border-t border-stone-100 pt-2">
-                {property.comments_2 && <p className="text-sm text-stone-600 italic">{property.comments_2}</p>}
-                {property.comments_3 && <p className="text-sm text-stone-600 italic">{property.comments_3}</p>}
+              <div className="space-y-1.5 border-t border-stone-100 pt-3">
+                {property.comments_2 && (
+                  <div>
+                    <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-0.5">ملاحظة 2</p>
+                    <p className="text-sm text-stone-600">{property.comments_2}</p>
+                  </div>
+                )}
+                {property.comments_3 && (
+                  <div>
+                    <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-0.5">ملاحظة 3</p>
+                    <p className="text-sm text-stone-600">{property.comments_3}</p>
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {/* Location specs */}
-          {(property.block || property.plot_number || property.street || property.avenue || property.house_number || property.distribution || property.location_link) && (
-            <div className="bg-white rounded-xl border border-stone-100 p-3">
-              <h3 className="text-xs font-black text-stone-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                <MapPin size={13} className="text-emerald-500" />
+          {/* Location Specs — always show if any field exists */}
+          {hasLocationSpecs && (
+            <div className="rounded-xl border border-stone-100 bg-white p-4">
+              <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                <MapPin size={12} className="text-emerald-500" />
                 تفاصيل الموقع والمواصفات
-              </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {[
-                  { label: 'القطعة', value: property.block },
-                  { label: 'القسيمة', value: property.plot_number },
-                  { label: 'الشارع', value: property.street },
-                  { label: 'الجادة', value: property.avenue },
-                  { label: 'المنزل', value: property.house_number },
-                  { label: 'التوزيعة', value: property.distribution }
-                ].filter(s => s.value).map((spec, idx) => (
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {locationSpecs.map((spec, idx) => (
                   <div key={idx}>
                     <span className="text-[10px] text-stone-400 block">{spec.label}</span>
-                    <span className="text-sm font-black text-stone-800">{spec.value}</span>
+                    <span className={`text-sm font-black ${spec.value ? 'text-stone-800' : 'text-stone-300'}`}>
+                      {spec.value || '—'}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -346,7 +371,7 @@ export const PropertyDetails = memo(function PropertyDetails({
                   href={property.location_link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-2 flex items-center justify-center gap-2 border border-emerald-200 text-emerald-700 py-2 rounded-lg font-bold text-sm hover:bg-emerald-50 transition-colors"
+                  className="mt-3 flex items-center justify-center gap-2 border border-emerald-200 text-emerald-700 py-2 rounded-lg font-bold text-sm hover:bg-emerald-50 transition-colors"
                 >
                   <ExternalLink size={16} />
                   عرض على الخرائط
@@ -357,69 +382,10 @@ export const PropertyDetails = memo(function PropertyDetails({
         </div>
 
         {/* ── Right: Contact + Employee + Comments ── */}
-        <div className="space-y-1.5">
-
-          {/* Comments */}
-          <div className="bg-white rounded-xl border border-stone-100 p-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-black text-stone-800 flex items-center gap-2">
-                <MessageSquare size={16} className="text-emerald-600" />
-                الملاحظات والتعليقات
-              </h3>
-              {comments.length > 0 && (
-                <span className="text-[10px] font-black text-stone-400">{comments.length}</span>
-              )}
-            </div>
-
-            {/* Existing comments */}
-            {comments.length === 0 ? (
-              <p className="text-center py-4 text-xs text-stone-300">لا توجد ملاحظات حالياً</p>
-            ) : (
-              <div className="space-y-2 max-h-72 overflow-y-auto">
-                {comments.map((c) => (
-                  <div key={c.id} className="group">
-                    <div className="flex items-center justify-between mb-0.5">
-                      <span className="text-[11px] font-black text-stone-700">{c.user_name}</span>
-                      <div className="flex items-center gap-1">
-                        <span className="text-[9px] text-stone-400" dir="ltr">{formatDateTime(c.created_at)}</span>
-                        {(isAdmin || (user && c.user_id === user.uid)) && (
-                          <button onClick={() => onDeleteComment?.(c.id)} className="p-1 text-stone-300 hover:text-red-500 rounded transition-all opacity-0 group-hover:opacity-100" title="حذف">
-                            <X size={12} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    <p className="text-sm text-stone-700 leading-relaxed whitespace-pre-wrap border-r-2 border-stone-200 pr-2.5">{c.text}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Add comment form */}
-            <form onSubmit={handleAddComment} className="space-y-1.5 border-t border-stone-100 pt-2">
-              <span className="text-xs font-black text-stone-700 flex items-center gap-1.5">
-                <Plus size={13} className="text-emerald-600" />
-                إضافة ملاحظة
-              </span>
-              <textarea
-                placeholder="أضف ملاحظة أو تعليق..."
-                rows={2}
-                className="w-full p-2.5 border border-stone-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all resize-none"
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-              />
-              <button
-                type="submit"
-                disabled={isUploading || !newComment.trim()}
-                className="w-full bg-emerald-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-emerald-700 transition-colors disabled:opacity-40"
-              >
-                {isUploading ? <LoadingSpinner size={16} className="border-white mx-auto" /> : 'إرسال التعليق'}
-              </button>
-            </form>
-          </div>
+        <div className="space-y-3">
 
           {/* Contact */}
-          <div className="bg-white rounded-xl border border-stone-100 p-3 space-y-2">
+          <div className="rounded-xl border border-stone-100 bg-white p-4 space-y-2">
             <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">هاتف العقار المسجل</p>
             {property.phone ? (
               <>
@@ -444,22 +410,25 @@ export const PropertyDetails = memo(function PropertyDetails({
                 </a>
               </>
             ) : (
-              <p className="text-center py-2 text-xs text-stone-400">لا توجد أرقام هواتف مسجلة</p>
+              <p className="text-center py-2 text-xs text-stone-300">لا توجد أرقام هواتف</p>
             )}
           </div>
 
           {/* Assigned Employee */}
-          <div className="bg-white rounded-xl border border-stone-100 p-3">
+          <div className="rounded-xl border border-stone-100 bg-white p-4">
+            <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+              <User size={11} />
+              موظف الإدخال
+            </p>
             <div className="flex items-center justify-between">
-              <div className="text-right">
+              <div>
                 <button
                   onClick={() => onUserClick?.(property.assigned_employee_id || '')}
                   className="text-sm font-black text-stone-900 hover:text-emerald-600 transition-colors"
                 >
-                  {property.assigned_employee_name || 'غير محدد'}
+                  {property.assigned_employee_name || '—'}
                 </button>
-                <p className="text-[10px] text-stone-400">مستخدم معتمد</p>
-                <p className="text-[10px] text-stone-400">{property.assigned_employee_phone || 'بدون هاتف'}</p>
+                <p className="text-[11px] text-stone-400 mt-0.5" dir="ltr">{property.assigned_employee_phone || ''}</p>
               </div>
               {property.assigned_employee_phone && (
                 <div className="flex gap-2">
@@ -472,6 +441,59 @@ export const PropertyDetails = memo(function PropertyDetails({
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Comments */}
+          <div className="rounded-xl border border-stone-100 bg-white p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-black text-stone-800 flex items-center gap-2">
+                <MessageSquare size={16} className="text-emerald-600" />
+                التعليقات والملاحظات
+              </h3>
+              {comments.length > 0 && (
+                <span className="text-[10px] font-black text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">{comments.length}</span>
+              )}
+            </div>
+
+            {comments.length === 0 ? (
+              <p className="text-center py-4 text-xs text-stone-300">لا توجد تعليقات بعد</p>
+            ) : (
+              <div className="space-y-3 max-h-80 overflow-y-auto">
+                {comments.map((c) => (
+                  <div key={c.id} className="group">
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-[11px] font-black text-stone-700">{c.user_name}</span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-[9px] text-stone-400" dir="ltr">{formatDateTime(c.created_at)}</span>
+                        {(isAdmin || (user && c.user_id === user.uid)) && (
+                          <button onClick={() => onDeleteComment?.(c.id)} className="p-1 text-stone-300 hover:text-red-500 rounded transition-all opacity-0 group-hover:opacity-100">
+                            <X size={12} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-sm text-stone-700 leading-relaxed whitespace-pre-wrap border-r-2 border-stone-200 pr-2.5">{c.text}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <form onSubmit={handleAddComment} className="space-y-2 border-t border-stone-100 pt-3">
+              <textarea
+                placeholder="أضف تعليقاً أو ملاحظة..."
+                rows={2}
+                className="w-full p-2.5 border border-stone-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all resize-none"
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+              />
+              <button
+                type="submit"
+                disabled={isUploading || !newComment.trim()}
+                className="w-full bg-emerald-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-emerald-700 transition-colors disabled:opacity-40"
+              >
+                {isUploading ? <LoadingSpinner size={16} className="border-white mx-auto" /> : 'إرسال'}
+              </button>
+            </form>
           </div>
 
         </div>

@@ -344,7 +344,7 @@ export default function App() {
   const [hasMoreProperties, setHasMoreProperties] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const loadingRef = useRef<HTMLDivElement>(null);
-  const PAGE_SIZE = 50;
+  const PAGE_SIZE = 20;
 
   const [deletedProperties, setDeletedProperties] = useState<Property[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -1103,6 +1103,18 @@ export default function App() {
   }, [user]);
 
   // All Users Listener (for Admin Management) - REMOVED, consolidated above
+
+  const emptyFiltersObj = { governorate: '', area: '', type: '', purpose: '', location: '', marketer: '', status: '' };
+  const handleResetAll = () => {
+    setView('list');
+    setSearchQuery('');
+    setSearchTerms([]);
+    setFilters(emptyFiltersObj);
+    setAppliedFilters({ ...emptyFiltersObj, query: '' });
+    setSelectedProperty(null);
+    setPropertiesOffset(0);
+    setIsDrawerOpen(false);
+  };
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1993,8 +2005,8 @@ export default function App() {
 
               <div className="flex-1 overflow-y-auto p-4 space-y-1">
 
-                <button 
-                  onClick={() => { setView('list'); setIsDrawerOpen(false); }}
+                <button
+                  onClick={handleResetAll}
                   className={`w-full flex items-center gap-4 p-3 rounded-lg transition-colors ${view === 'list' ? 'bg-emerald-50 text-emerald-700' : 'hover:bg-stone-50 text-stone-600'}`}
                 >
                   <Home size={20} />
@@ -2250,8 +2262,8 @@ export default function App() {
                 <line x1="3" y1="20" x2="21" y2="20" />
               </svg>
             </button>
-            <div 
-              onClick={() => setView('list')}
+            <div
+              onClick={handleResetAll}
               className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
             >
               <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center text-white shadow-lg shadow-emerald-100">
