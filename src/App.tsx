@@ -103,6 +103,7 @@ interface Property {
   created_by_name?: string;
   assignedEmployeeName?: string;
   created_at: any;
+  property_code?: string;
 }
 
 interface Company {

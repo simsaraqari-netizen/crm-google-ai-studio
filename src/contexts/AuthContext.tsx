@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient';
 import { SUPER_ADMIN_EMAILS } from '../constants';
 import { UserProfile } from '../types';
 import { toast } from 'react-hot-toast';
+import { unifyAbuName } from '../utils';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -97,8 +98,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const newProfile = {
           id: sbUser.id,
           email: sbUser.email || '',
-          full_name: sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'User',
-          name: sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'User',
+          full_name: unifyAbuName(sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'User'),
+          name: unifyAbuName(sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'User'),
           role: isSuper ? 'super_admin' : 'pending',
           created_at: new Date().toISOString()
         };
