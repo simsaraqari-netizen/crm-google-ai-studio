@@ -106,17 +106,19 @@ export const PropertyCard = memo(function PropertyCard({
           )}
         </div>
 
-        {/* Latest Comment */}
+        {/* Latest Comment — show regardless of images */}
         {property.last_comment && (
-          <div className="mt-1 border-r-2 border-emerald-400 pr-3">
+          <div className="border-r-2 border-emerald-400 pr-3">
             <div className="flex items-center justify-between mb-1 flex-wrap gap-1">
               <div className="flex items-center gap-1.5 text-emerald-600 text-[9px] font-black uppercase tracking-wider">
                 <MessageSquare size={11} />
                 آخر تعليق
               </div>
-              <span className="text-[9px] text-stone-400 font-medium" dir="ltr">
-                {formatDateTime(property.last_comment_at || '')}
-              </span>
+              {property.last_comment_at && (
+                <span className="text-[9px] text-stone-400 font-medium" dir="ltr">
+                  {formatDateTime(property.last_comment_at)}
+                </span>
+              )}
             </div>
             <p className="text-[12px] text-stone-600 line-clamp-2 leading-relaxed">
               {property.last_comment}
