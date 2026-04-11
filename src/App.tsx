@@ -341,6 +341,11 @@ export default function App() {
   const [authError, setAuthError] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [properties, setProperties] = useState<Property[]>([]);
+  const [propertiesOffset, setPropertiesOffset] = useState(0);
+  const [hasMoreProperties, setHasMoreProperties] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const PAGE_SIZE = 50;
+
   const [deletedProperties, setDeletedProperties] = useState<Property[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [employees, setEmployees] = useState<UserProfile[]>([]);
@@ -824,145 +829,172 @@ export default function App() {
     })();
     return () => { if (channel) channel.unsubscribe(); };
   }, [isSuperAdmin]);
-
-  // Properties Listener
   useEffect(() => {
     if (!user) return;
 
-    const fetchAllProperties = async () => {
+    const fetchPropertiesBatch = async () => {
+      if (propertiesOffset === 0) setLoading(true);
+      else setIsFetchingMore(true);
+
       try {
-        let allPropsData: any[] = [];
-        let from = 0;
-        // For super_admin with no company filter, limit initial load to 500 to prevent mobile freeze
-        // For company-scoped queries (admin/employee), load all records in batches
-        const isSuperAdminAllCompanies = isSuperAdmin && !selectedCompanyId;
-        const step = isSuperAdminAllCompanies ? 500 : 1000;
-        const maxRecords = isSuperAdminAllCompanies ? 500 : Infinity;
-        let fetchMore = true;
+        let queryBuilder = supabase.from('properties').select('*', { count: 'exact' });
 
-        while (fetchMore) {
-          let query = supabase.from('properties').select('*');
+        // 1. Company scope
+        if (isSuperAdmin) {
+          if (selectedCompanyId) {
+            queryBuilder = queryBuilder.eq('company_id', selectedCompanyId);
+          }
+        } else if (user.companyId) {
+          queryBuilder = queryBuilder.eq('company_id', user.companyId);
+        } else {
+          setProperties([]);
+          setLoading(false);
+          return;
+        }
 
-          if (isSuperAdmin) {
-            if (selectedCompanyId) {
-              query = query.eq('company_id', selectedCompanyId);
-            }
-          } else if (user.companyId) {
-            query = query.eq('company_id', user.companyId);
+        // 2. Dashboard Filters (Server-side)
+        if (appliedFilters.governorate) queryBuilder = queryBuilder.eq('governorate', appliedFilters.governorate);
+        if (appliedFilters.area) queryBuilder = queryBuilder.eq('area', appliedFilters.area);
+        if (appliedFilters.type) queryBuilder = queryBuilder.eq('type', appliedFilters.type);
+        if (appliedFilters.purpose) queryBuilder = queryBuilder.eq('purpose', appliedFilters.purpose);
+        if (appliedFilters.location) queryBuilder = queryBuilder.eq('location', appliedFilters.location);
+        
+        if (appliedFilters.status === 'sold') queryBuilder = queryBuilder.eq('is_sold', true);
+        else if (appliedFilters.status === 'available') queryBuilder = queryBuilder.eq('is_sold', false);
+
+        // 3. Search Query / Terms
+        if (appliedFilters.query) {
+          const q = appliedFilters.query;
+          queryBuilder = queryBuilder.or(`name.ilike.%${q}%,property_code.ilike.%${q}%,phone.ilike.%${q}%,phone_2.ilike.%${q}%,area.ilike.%${q}%,details.ilike.%${q}%`);
+        }
+
+        // 4. View Context
+        if (view === 'pending-properties') {
+          queryBuilder = queryBuilder.eq('status', 'pending');
+        } else if (view === 'trash') {
+          queryBuilder = queryBuilder.eq('status', 'deleted');
+        } else if (view === 'my-favorites') {
+          if (favorites.length > 0) {
+            queryBuilder = queryBuilder.in('id', favorites);
           } else {
             setProperties([]);
+            setLoading(false);
             return;
           }
-
-          const { data, error } = await query
-            .order('created_at', { ascending: false })
-            .range(from, from + step - 1);
-
-          if (error) throw error;
-
-          if (data && data.length > 0) {
-            allPropsData = [...allPropsData, ...data];
-            from += step;
-            if (data.length < step || allPropsData.length >= maxRecords) fetchMore = false;
-          } else {
-            fetchMore = false;
+        } else {
+          queryBuilder = queryBuilder.neq('status', 'deleted');
+          if (view === 'my-listings') {
+            queryBuilder = queryBuilder.eq('created_by', user.uid);
           }
         }
 
-        const allProps = allPropsData.map(data => ({
-          id: data.id,
-          ...data,
-          location: data.location === 'شارع واحد | سد' ? 'شارع واحد' : data.location
-        } as Property));
+        // 5. Pagination & Order
+        const { data, count, error } = await queryBuilder
+          .order('created_at', { ascending: false })
+          .range(propertiesOffset, propertiesOffset + PAGE_SIZE - 1);
 
-        const now = Date.now();
-        const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+        if (error) throw error;
 
-        const deleted = allProps.filter(p => p.status === 'deleted');
-        const active = allProps.filter(p => p.status !== 'deleted');
+        if (data) {
+          const formatted = data.map(d => ({
+            ...d,
+            location: d.location === 'شارع واحد | سد' ? 'شارع واحد' : d.location
+          } as Property));
 
-        setProperties(active);
-        setDeletedProperties(deleted);
-
-        if (isAdmin) {
-          deleted.forEach(async (p) => {
-            const deletedAtField = (p as any).deleted_at || p.deletedAt;
-            if (deletedAtField) {
-              const deletedTime = new Date(deletedAtField).getTime();
-              if (now - deletedTime > thirtyDaysMs) {
-                try {
-                  await supabase.from('properties').delete().eq('id', p.id);
-                } catch (e) {
-                  console.error("Failed to auto-delete old property", e);
-                }
-              }
-            }
-          });
+          if (propertiesOffset === 0) {
+            if (view === 'trash') setDeletedProperties(formatted);
+            else setProperties(formatted);
+          } else {
+            if (view === 'trash') setDeletedProperties(prev => [...prev, ...formatted]);
+            else setProperties(prev => [...prev, ...formatted]);
+          }
+          
+          setHasMoreProperties(count ? (propertiesOffset + data.length < count) : data.length === PAGE_SIZE);
         }
       } catch (error) {
         console.error("Properties fetch error:", error);
+      } finally {
+        setIsFetchingMore(false);
+        setLoading(false);
       }
     };
 
+    fetchPropertiesBatch();
+  }, [user, isAdmin, isSuperAdmin, selectedCompanyId, appliedFilters, propertiesOffset, view, favorites]);
+
+  // Handle Loading More
+  const loadMoreProperties = () => {
+    if (hasMoreProperties && !isFetchingMore) {
+      setPropertiesOffset(prev => prev + PAGE_SIZE);
+    }
+  };
+
+  // Reset pagination on filter change
+  useEffect(() => {
+    setPropertiesOffset(0);
+    setHasMoreProperties(true);
+  }, [appliedFilters, view, selectedCompanyId]);
+
+  // Real-time Properties Listener
+  useEffect(() => {
+    if (!user) return;
     let channel: any;
-    (async () => {
-      await fetchAllProperties();
 
-      // Subscribe to changes
-      channel = supabase.channel('properties-changes');
-      channel.on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'properties' },
-        (payload: any) => {
-          // ... cleanup logic ...
-          if (payload.eventType === 'INSERT') {
-            const newProp = {
-              id: payload.new.id,
-              ...payload.new,
-              location: payload.new.location === 'شارع واحد | سد' ? 'شارع واحد' : payload.new.location
-            } as Property;
+    // Subscribe to changes
+    channel = supabase.channel('properties-changes');
+    channel.on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'properties' },
+      (payload: any) => {
+        if (payload.eventType === 'INSERT') {
+          const newProp = {
+            id: payload.new.id,
+            ...payload.new,
+            location: payload.new.location === 'شارع واحد | سد' ? 'شارع واحد' : payload.new.location
+          } as Property;
 
-            const matchesCompany = isSuperAdmin ? (!selectedCompanyId || newProp.company_id === selectedCompanyId) : (newProp.company_id === user.companyId);
-            
-            if (matchesCompany) {
-              if (newProp.status === 'deleted') {
-                setDeletedProperties(prev => [newProp, ...prev]);
-              } else {
+          const matchesCompany = isSuperAdmin ? (!selectedCompanyId || newProp.company_id === selectedCompanyId) : (newProp.company_id === user.companyId);
+          
+          if (matchesCompany) {
+            if (newProp.status === 'deleted') {
+              setDeletedProperties(prev => [newProp, ...prev]);
+            } else if (newProp.status === 'pending' && view === 'pending-properties') {
+              setProperties(prev => [newProp, ...prev]);
+            } else if (newProp.status !== 'deleted' && view !== 'pending-properties' && view !== 'trash') {
+              if (propertiesOffset === 0) {
                 setProperties(prev => [newProp, ...prev]);
               }
             }
-          } else if (payload.eventType === 'UPDATE') {
-            const updatedProp = {
-              id: payload.new.id,
-              ...payload.new,
-              location: payload.new.location === 'شارع واحد | سد' ? 'شارع واحد' : payload.new.location
-            } as Property;
-
-            if (updatedProp.status === 'deleted') {
-              setProperties(prev => prev.filter(p => p.id !== updatedProp.id));
-              setDeletedProperties(prev => {
-                const exists = prev.find(p => p.id === updatedProp.id);
-                if (exists) return prev.map(p => p.id === updatedProp.id ? updatedProp : p);
-                return [updatedProp, ...prev];
-              });
-            } else {
-              setDeletedProperties(prev => prev.filter(p => p.id !== updatedProp.id));
-              setProperties(prev => {
-                const exists = prev.find(p => p.id === updatedProp.id);
-                if (exists) return prev.map(p => p.id === updatedProp.id ? updatedProp : p);
-                return [updatedProp, ...prev];
-              });
-            }
-          } else if (payload.eventType === 'DELETE') {
-            const deletedId = payload.old.id;
-            setProperties(prev => prev.filter(p => p.id !== deletedId));
-            setDeletedProperties(prev => prev.filter(p => p.id !== deletedId));
           }
+        } else if (payload.eventType === 'UPDATE') {
+          const updatedProp = {
+            id: payload.new.id,
+            ...payload.new,
+            location: payload.new.location === 'شارع واحد | سد' ? 'شارع واحد' : payload.new.location
+          } as Property;
+
+          setProperties(prev => prev.map(p => p.id === updatedProp.id ? updatedProp : p));
+          setDeletedProperties(prev => prev.map(p => p.id === updatedProp.id ? updatedProp : p));
+
+          if (updatedProp.status === 'deleted') {
+            setProperties(prev => prev.filter(p => p.id !== updatedProp.id));
+            setDeletedProperties(prev => {
+              if (prev.find(p => p.id === updatedProp.id)) return prev;
+              return [updatedProp, ...prev];
+            });
+          } else {
+            setDeletedProperties(prev => prev.filter(p => p.id !== updatedProp.id));
+          }
+        } else if (payload.eventType === 'DELETE') {
+          const deletedId = payload.old.id;
+          setProperties(prev => prev.filter(p => p.id !== deletedId));
+          setDeletedProperties(prev => prev.filter(p => p.id !== deletedId));
         }
-      ).subscribe();
-    })();
+      }
+    ).subscribe();
+
     return () => { if (channel) channel.unsubscribe(); };
-  }, [user, isSuperAdmin, selectedCompanyId]);
+  }, [user, isSuperAdmin, selectedCompanyId, view, propertiesOffset]);
 
   // Notifications Listener
   useEffect(() => {
