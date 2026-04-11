@@ -563,7 +563,7 @@ export default function App() {
       // Force loading to end after 5 seconds regardless of what happens
       const timeoutId = setTimeout(() => {
         setLoading(false);
-      }, 5000);
+      }, 3000);
 
       try {
         // Get initial session
@@ -1203,11 +1203,17 @@ export default function App() {
         // (don't rely solely on onAuthStateChange which may have timing issues)
         const sbUser = signInData?.user;
         if (sbUser) {
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', sbUser.id)
-            .maybeSingle();
+          // Retry up to 3 times in case of RLS/timing delay
+          let profileData: any = null;
+          for (let attempt = 0; attempt < 3; attempt++) {
+            const { data } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', sbUser.id)
+              .maybeSingle();
+            if (data) { profileData = data; break; }
+            if (attempt < 2) await new Promise(r => setTimeout(r, 500));
+          }
 
           if (profileData) {
             if (profileData.force_sign_out) {
