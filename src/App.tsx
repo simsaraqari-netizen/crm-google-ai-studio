@@ -486,7 +486,7 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Handle URL search query on load
+  // Handle URL search query and hash on load
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const q = params.get('q');
@@ -494,20 +494,29 @@ export default function App() {
       setSearchQuery(q);
     }
     
-    // Support both ?propertyId=UUID (legacy) and ?p=CODE (short link)
+    // Support ?propertyId=UUID (legacy), ?p=CODE (search param), and #pCODE (concise hash)
     const propertyId = params.get('propertyId');
-    const shortCode = params.get('p');
+    const shortCodeParam = params.get('p');
+    
+    // Extract code from hash (e.g., #p1024 -> 1024)
+    const hash = window.location.hash;
+    const hashMatch = hash.match(/^#p(\d+)/);
+    const shortCodeHash = hashMatch ? hashMatch[1] : null;
+    
+    const shortCode = shortCodeHash || shortCodeParam;
+
     if (properties.length > 0) {
       let property = null;
       if (propertyId) property = properties.find(p => p.id === propertyId) || null;
       if (!property && shortCode) property = properties.find(p => String(p.property_code) === shortCode) || null;
+      
       if (property) {
         setSelectedProperty(property);
         setView('details');
         setPrevView('list');
       }
     }
-  }, [properties]);
+  }, [properties, window.location.hash]);
 
   useEffect(() => {
     if (view === 'details' && selectedProperty && properties.length > 0) {

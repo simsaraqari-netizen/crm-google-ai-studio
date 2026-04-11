@@ -48,8 +48,8 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
             />
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover/img:opacity-100 transition-opacity flex items-end p-2">
-            <span className="text-white text-[10px] bg-black/40 backdrop-blur-md px-2 py-0.5 rounded-full flex items-center gap-1 font-bold">
-              <ImageIcon size={11} />
+            <span className="text-white text-[11px] bg-black/40 backdrop-blur-md px-2.5 py-1 rounded-full flex items-center gap-1.5 font-bold">
+              <ImageIcon size={13} />
               {images.length} {images.length === 1 ? 'صورة' : 'صور'}
             </span>
           </div>
@@ -61,8 +61,8 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
           )}
           {property.status_label && (
             <div className="absolute top-2 left-2 z-30">
-              <span className="bg-amber-500 text-white px-2 py-0.5 rounded-md text-[10px] font-black shadow flex items-center gap-1">
-                <Tag size={9} />
+              <span className="bg-amber-500 text-white px-2.5 py-1 rounded-md text-[11px] font-black shadow flex items-center gap-1.5">
+                <Tag size={11} />
                 {property.status_label}
               </span>
             </div>
@@ -76,8 +76,8 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
               <span className="text-red-600 font-black text-[10px] border border-red-200 bg-red-50 px-2 py-0.5 rounded-md">مباع</span>
             )}
             {property.status_label && (
-              <span className="bg-amber-500 text-white px-2 py-0.5 rounded-md text-[10px] font-black flex items-center gap-1">
-                <Tag size={9} />
+              <span className="bg-amber-500 text-white px-2.5 py-1 rounded-md text-[11px] font-black flex items-center gap-1.5">
+                <Tag size={11} />
                 {property.status_label}
               </span>
             )}
@@ -88,18 +88,18 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
       {/* ── Body ── */}
       <div className="px-3 pt-2.5 pb-1 flex-1 flex flex-col gap-1">
         {/* Title */}
-        <h3 className="text-[15px] font-bold text-stone-900 leading-snug text-right w-full">
+        <h3 className="text-[17px] font-bold text-stone-900 leading-snug text-right w-full">
           {property.name || 'عقار بدون اسم'}
         </h3>
 
         {/* Price — only if set */}
         {property.price && (
-          <span className="text-emerald-600 font-black text-xs text-right">{property.price}</span>
+          <span className="text-emerald-600 font-black text-sm text-right">{property.price}</span>
         )}
 
         {/* Details snippet */}
         {(property.details || property.last_comment) && (
-          <p className="text-[11px] text-stone-400 line-clamp-2 text-right leading-relaxed">
+          <p className="text-xs text-stone-400 line-clamp-2 text-right leading-relaxed mt-0.5">
             {property.details || property.last_comment}
           </p>
         )}
@@ -136,14 +136,14 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
       {/* ── Footer ── */}
       <div className="flex items-center justify-between px-3 py-2 border-t border-stone-50">
         {/* Left: timestamp */}
-        <span className="text-[9px] text-stone-400">
+        <span className="text-[10px] text-stone-400">
           {property.created_at ? formatRelativeDate(property.created_at) : ''}
         </span>
 
         {/* Right: code + actions */}
         <div className="flex items-center gap-1">
           {/* Property code — always visible on the right */}
-          <span className="text-[10px] font-black text-stone-400 tracking-widest ml-1">
+          <span className="text-[11px] font-black text-stone-400 tracking-widest ml-1">
             #{getPropertyCode(property)}
           </span>
 
@@ -163,69 +163,66 @@ export const PropertyCard = memo(function PropertyCard({ property, isFavorite, o
             <>
               <button
                 onClick={(e) => { e.stopPropagation(); if (onRestore) onRestore(property.id); }}
-                className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
                 title="استعادة"
               >
-                <RefreshCw size={15} />
+                <RefreshCw size={21} />
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); if (onPermanentDelete) onPermanentDelete(property.id); }}
-                className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all"
                 title="حذف نهائي"
               >
-                <Trash2 size={15} />
+                <Trash2 size={21} />
               </button>
             </>
           ) : (
             <>
-              {/* Share — rich message with title + details + image */}
               <button
                 onClick={async (e) => {
                   e.stopPropagation();
                   const code = getPropertyCode(property);
                   const base = window.location.origin + window.location.pathname;
-                  const shareUrl = `${base}?p=${code}`;
+                  const shareUrl = `${base}#p${code}`;
                   const title = property.name || 'عقار';
-                  const details = property.details ? property.details.slice(0, 200) : '';
-                  const text = [title, details, shareUrl].filter(Boolean).join('\n');
+                  const text = `${title}\n${shareUrl}`;
 
                   if (navigator.share) {
                     try {
-                      // Try sharing with image if available
                       if (images.length > 0 && (navigator as any).canShare) {
                         const resp = await fetch(images[0]).catch(() => null);
                         if (resp?.ok) {
                           const blob = await resp.blob();
                           const file = new File([blob], 'property.jpg', { type: blob.type });
                           if ((navigator as any).canShare({ files: [file] })) {
-                            await navigator.share({ title, text: details || title, files: [file], url: shareUrl });
+                            await navigator.share({ title, text: title, files: [file], url: shareUrl });
                             return;
                           }
                         }
                       }
-                      await navigator.share({ title, text, url: shareUrl });
+                      await navigator.share({ title, text: title, url: shareUrl });
                     } catch (err: any) {
                       if (err?.name !== 'AbortError') {
                         navigator.clipboard.writeText(text).catch(() => {});
-                        toast.success('تم نسخ تفاصيل العقار');
+                        toast.success('تم نسخ رابط العقار');
                       }
                     }
                   } else {
                     navigator.clipboard.writeText(text).catch(() => {});
-                    toast.success('تم نسخ تفاصيل العقار');
+                    toast.success('تم نسخ رابط العقار');
                   }
                 }}
-                className="p-1.5 text-stone-400 hover:bg-stone-100 rounded-lg transition-all"
+                className="p-2 text-stone-400 hover:bg-stone-100 rounded-lg transition-all"
                 title="مشاركة"
               >
-                <Share2 size={15} />
+                <Share2 size={21} />
               </button>
               {/* Favorite */}
               <button
                 onClick={(e) => { e.stopPropagation(); if (onFavorite) onFavorite(property.id); }}
-                className={`p-1.5 rounded-lg transition-all ${isFavorite ? 'text-red-500' : 'text-stone-400 hover:bg-stone-100'}`}
+                className={`p-2 rounded-lg transition-all ${isFavorite ? 'text-red-500' : 'text-stone-400 hover:bg-stone-100'}`}
               >
-                <Heart size={15} fill={isFavorite ? 'currentColor' : 'none'} />
+                <Heart size={21} fill={isFavorite ? 'currentColor' : 'none'} />
               </button>
             </>
           )}
