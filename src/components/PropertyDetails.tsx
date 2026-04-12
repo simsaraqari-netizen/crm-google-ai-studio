@@ -94,16 +94,27 @@ export const PropertyDetails = memo(function PropertyDetails({
       setEmployeePhone(property.assigned_employee_phone);
       return;
     }
-    if (!property.assigned_employee_id) return;
-    supabase
-      .from('profiles')
-      .select('phone')
-      .eq('id', property.assigned_employee_id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data?.phone) setEmployeePhone(data.phone);
-      });
-  }, [property.assigned_employee_id, property.assigned_employee_phone]);
+    // Try by ID first, then fall back to name match
+    if (property.assigned_employee_id) {
+      supabase
+        .from('profiles')
+        .select('phone')
+        .eq('id', property.assigned_employee_id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data?.phone) setEmployeePhone(data.phone);
+        });
+    } else if (property.assigned_employee_name) {
+      supabase
+        .from('profiles')
+        .select('phone')
+        .eq('name', property.assigned_employee_name)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data?.phone) setEmployeePhone(data.phone);
+        });
+    }
+  }, [property.assigned_employee_id, property.assigned_employee_name, property.assigned_employee_phone]);
 
   useEffect(() => {
     if (!property.id) return;
