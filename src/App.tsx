@@ -362,6 +362,7 @@ export default function App() {
   const [isSyncManagementOpen, setIsSyncManagementOpen] = useState(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [spreadsheetId, setSpreadsheetId] = useState('');
   const [tempSpreadsheetId, setTempSpreadsheetId] = useState('');
@@ -1795,31 +1796,62 @@ export default function App() {
     }
   }
 
-  async function handleBackup() {
+  async function handleBackup(format: 'json' | 'csv' | 'xlsx') {
     if (!isAdmin) {
       toast.error("ليس لديك صلاحية لعمل نسخة احتياطية");
       return;
     }
-
+    setIsBackupModalOpen(false);
     toast.loading("جاري تجهيز النسخة الاحتياطية...", { id: 'backup' });
     try {
-      const backupData: any = {};
-
       const tablesToBackup = ['properties', 'profiles', 'comments', 'companies', 'notifications'];
-
+      const backupData: any = {};
       for (const tableName of tablesToBackup) {
         const { data: tableData } = await supabase.from(tableName).select('*');
         backupData[tableName] = tableData || [];
       }
-      
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
-      const downloadAnchorNode = document.createElement('a');
-      downloadAnchorNode.setAttribute("href",     dataStr);
-      downloadAnchorNode.setAttribute("download", `backup_${new Date().toISOString().split('T')[0]}.json`);
-      document.body.appendChild(downloadAnchorNode);
-      downloadAnchorNode.click();
-      downloadAnchorNode.remove();
-      
+
+      const dateStr = new Date().toISOString().split('T')[0];
+
+      const downloadBlob = (blob: Blob, filename: string) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      };
+
+      if (format === 'json') {
+        const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+        downloadBlob(blob, `backup_${dateStr}.json`);
+      } else if (format === 'csv') {
+        for (const [table, rows] of Object.entries(backupData) as [string, any[]][]) {
+          if (!rows.length) continue;
+          const headers = Object.keys(rows[0]);
+          const csvLines = [
+            headers.join(','),
+            ...rows.map(row => headers.map(h => {
+              const v = row[h] == null ? '' : String(row[h]);
+              return `"${v.replace(/"/g, '""')}"`;
+            }).join(','))
+          ];
+          const blob = new Blob(['\uFEFF' + csvLines.join('\n')], { type: 'text/csv;charset=utf-8' });
+          downloadBlob(blob, `backup_${table}_${dateStr}.csv`);
+        }
+      } else if (format === 'xlsx') {
+        const XLSX = await import('xlsx');
+        const wb = XLSX.utils.book_new();
+        for (const [table, rows] of Object.entries(backupData) as [string, any[]][]) {
+          if (!rows.length) continue;
+          const ws = XLSX.utils.json_to_sheet(rows);
+          XLSX.utils.book_append_sheet(wb, ws, table.slice(0, 31));
+        }
+        XLSX.writeFile(wb, `backup_${dateStr}.xlsx`);
+      }
+
       toast.success("تم تحميل النسخة الاحتياطية بنجاح", { id: 'backup' });
     } catch (error) {
       console.error("Backup error:", error);
@@ -1959,6 +1991,49 @@ export default function App() {
           onClose={() => setIsExportModalOpen(false)}
           selectedCompanyId={selectedCompanyId}
         />
+      )}
+
+      {/* Backup Format Modal */}
+      {isBackupModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setIsBackupModalOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" dir="rtl" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-black text-stone-900 mb-1">نسخة احتياطية</h2>
+            <p className="text-xs text-stone-400 mb-5">اختر صيغة الملف للتحميل</p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => handleBackup('xlsx')}
+                className="flex items-center gap-3 p-4 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 transition-all text-right"
+              >
+                <span className="text-2xl">📊</span>
+                <div>
+                  <div className="font-black text-stone-800 text-sm">Excel (.xlsx)</div>
+                  <div className="text-[11px] text-stone-500">جميع الجداول في ملف واحد — مناسب للعرض والتحرير</div>
+                </div>
+              </button>
+              <button
+                onClick={() => handleBackup('csv')}
+                className="flex items-center gap-3 p-4 rounded-xl border border-sky-200 bg-sky-50 hover:bg-sky-100 transition-all text-right"
+              >
+                <span className="text-2xl">📄</span>
+                <div>
+                  <div className="font-black text-stone-800 text-sm">CSV (ملفات منفصلة)</div>
+                  <div className="text-[11px] text-stone-500">ملف منفصل لكل جدول — مناسب للاستيراد في أنظمة أخرى</div>
+                </div>
+              </button>
+              <button
+                onClick={() => handleBackup('json')}
+                className="flex items-center gap-3 p-4 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 transition-all text-right"
+              >
+                <span className="text-2xl">🗄️</span>
+                <div>
+                  <div className="font-black text-stone-800 text-sm">JSON</div>
+                  <div className="text-[11px] text-stone-500">نسخة كاملة لاستعادة البيانات — مناسب للنسخ الاحتياطي</div>
+                </div>
+              </button>
+            </div>
+            <button onClick={() => setIsBackupModalOpen(false)} className="mt-4 w-full py-2 text-sm text-stone-400 hover:text-stone-600 font-bold transition-colors">إلغاء</button>
+          </div>
+        </div>
       )}
       {/* Drawer Overlay */}
       {/* Image Preview Modal */}
@@ -2101,8 +2176,8 @@ export default function App() {
                       )}
                     </button>
 
-                    <button 
-                      onClick={handleBackup}
+                    <button
+                      onClick={() => { setIsDrawerOpen(false); setIsBackupModalOpen(true); }}
                       className="w-full flex items-center gap-4 p-3 rounded-lg transition-colors hover:bg-stone-50 text-stone-600"
                     >
                       <Download size={20} />
