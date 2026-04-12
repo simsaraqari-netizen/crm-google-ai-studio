@@ -165,8 +165,23 @@ export const PropertyDetails = memo(function PropertyDetails({
     }
   };
 
+  const buildPropertyWaMessage = () => {
+    const code = getPropertyCode(property);
+    const base = window.location.origin + window.location.pathname;
+    const shareUrl = `${base}?p=${code}`;
+    const firstImage = images[0]?.url || '';
+    return encodeURIComponent(
+      `🏠 ${property.name || 'عقار'}\n` +
+      (property.details ? `📋 ${property.details}\n` : '') +
+      (property.price ? `💰 ${property.price}\n` : '') +
+      `🔑 كود العقار: #${code}\n` +
+      `🔗 ${shareUrl}` +
+      (firstImage && !firstImage.startsWith('data:') ? `\n🖼️ ${firstImage}` : '')
+    );
+  };
+
   const propertyWhatsappUrl = property.phone
-    ? `https://wa.me/${property.phone.replace(/[^0-9]/g, '')}`
+    ? `https://wa.me/${property.phone.replace(/[^0-9]/g, '')}?text=${buildPropertyWaMessage()}`
     : null;
 
   const handleShare = async () => {
@@ -450,17 +465,8 @@ export const PropertyDetails = memo(function PropertyDetails({
 
         {/* 6. Employee Info */}
         {(() => {
-          const code = getPropertyCode(property);
-          const base = window.location.origin + window.location.pathname;
-          const shareUrl = `${base}?p=${code}`;
-          const waMsg = encodeURIComponent(
-            `🏠 ${property.name || 'عقار'}\n` +
-            (property.details ? `📋 ${property.details}\n` : '') +
-            `🔑 كود العقار: #${code}\n` +
-            `🔗 ${shareUrl}`
-          );
           const employeeWaUrl = employeePhone
-            ? `https://wa.me/${employeePhone.replace(/[^0-9]/g, '')}?text=${waMsg}`
+            ? `https://wa.me/${employeePhone.replace(/[^0-9]/g, '')}?text=${buildPropertyWaMessage()}`
             : undefined;
           return (
             <div className="rounded-xl border border-stone-100 bg-white p-4">
