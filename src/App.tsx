@@ -343,6 +343,7 @@ export default function App() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [propertiesOffset, setPropertiesOffset] = useState(0);
   const [hasMoreProperties, setHasMoreProperties] = useState(true);
+  const [totalPropertiesCount, setTotalPropertiesCount] = useState<number | null>(null);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const loadingRef = useRef<HTMLDivElement>(null);
   const PAGE_SIZE = 50;
@@ -912,6 +913,7 @@ export default function App() {
           }
           
           setHasMoreProperties(count ? (propertiesOffset + data.length < count) : data.length === PAGE_SIZE);
+          if (propertiesOffset === 0 && count !== null) setTotalPropertiesCount(count);
         }
       } catch (error) {
         console.error("Properties fetch error:", error);
@@ -934,6 +936,7 @@ export default function App() {
   useEffect(() => {
     setPropertiesOffset(0);
     setHasMoreProperties(true);
+    setTotalPropertiesCount(null);
   }, [appliedFilters, view, selectedCompanyId]);
 
   // Infinite Scroll Observer
@@ -2547,12 +2550,12 @@ export default function App() {
               {/* Actions & Results Header */}
               <div className="flex justify-center items-center">
                 <h2 className="text-2xl font-bold serif text-center">
-                  {view === 'pending-properties' ? `عقارات قيد المراجعة (${filteredProperties.length})` : 
-                   view === 'trash' ? `سلة المحذوفات (${filteredProperties.length})` : 
+                  {view === 'pending-properties' ? `عقارات قيد المراجعة (${filteredProperties.length})` :
+                   view === 'trash' ? `سلة المحذوفات (${filteredProperties.length})` :
                    !hasSearched ? 'ابحث عن عقار...' :
                    (appliedFilters.query || appliedFilters.governorate || appliedFilters.area || appliedFilters.type || appliedFilters.purpose || appliedFilters.location || appliedFilters.marketer || appliedFilters.status
-                    ? `نتائج البحث (${filteredProperties.length})` 
-                    : `${view === 'list' ? 'كل العقارات' : view === 'my-listings' ? 'عقاراتي' : view === 'my-favorites' ? 'عقاراتي المفضلة' : `عقارات ${employees.find(emp => emp.uid === selectedMarketerId)?.name || 'المستخدم'}`} (${filteredProperties.length})`)}
+                    ? `نتائج البحث (${filteredProperties.length}${totalPropertiesCount !== null && totalPropertiesCount > filteredProperties.length ? ` من ${totalPropertiesCount}` : ''})`
+                    : `${view === 'list' ? 'كل العقارات' : view === 'my-listings' ? 'عقاراتي' : view === 'my-favorites' ? 'عقاراتي المفضلة' : `عقارات ${employees.find(emp => emp.uid === selectedMarketerId)?.name || 'المستخدم'}`} (${totalPropertiesCount !== null ? totalPropertiesCount : filteredProperties.length})`)}
                 </h2>
               </div>
 
