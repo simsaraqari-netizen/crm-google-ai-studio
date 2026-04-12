@@ -345,7 +345,7 @@ export default function App() {
   const [hasMoreProperties, setHasMoreProperties] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const loadingRef = useRef<HTMLDivElement>(null);
-  const PAGE_SIZE = 20;
+  const PAGE_SIZE = 50;
 
   const [deletedProperties, setDeletedProperties] = useState<Property[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
