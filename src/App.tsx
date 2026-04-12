@@ -345,7 +345,6 @@ export default function App() {
   const [hasMoreProperties, setHasMoreProperties] = useState(true);
   const [totalPropertiesCount, setTotalPropertiesCount] = useState<number | null>(null);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
-  const loadingRef = useRef<HTMLDivElement>(null);
   const PAGE_SIZE = 50;
 
   const [deletedProperties, setDeletedProperties] = useState<Property[]>([]);
@@ -940,20 +939,6 @@ export default function App() {
     setTotalPropertiesCount(null);
   }, [appliedFilters, view, selectedCompanyId]);
 
-  // Infinite Scroll Observer
-  useEffect(() => {
-    const observer = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting && hasMoreProperties && !isFetchingMore && !loading) {
-        loadMoreProperties();
-      }
-    }, { threshold: 0.1 });
-
-    if (loadingRef.current) {
-      observer.observe(loadingRef.current);
-    }
-
-    return () => observer.disconnect();
-  }, [hasMoreProperties, isFetchingMore, loading, appliedFilters]);
 
   // Real-time Properties Listener
   useEffect(() => {
@@ -2687,18 +2672,24 @@ export default function App() {
                     ))}
                   </div>
 
-                  {/* Infinite Scroll Sentinel & "No more" message */}
-                  <div ref={loadingRef} className="py-12 flex flex-col items-center justify-center gap-4">
+                  {/* Load More Button */}
+                  <div className="py-6 flex flex-col items-center gap-3">
                     {isFetchingMore ? (
-                      <div className="flex flex-col items-center gap-3">
-                        <LoadingSpinner size={32} />
-                        <p className="text-sm font-bold text-stone-400">جاري تحميل المزيد...</p>
+                      <div className="flex items-center gap-2 text-stone-400">
+                        <LoadingSpinner size={20} />
+                        <span className="text-sm font-bold">جاري التحميل...</span>
                       </div>
-                    ) : (!hasMoreProperties && filteredProperties.length > 0) ? (
-                      <div className="flex flex-col items-center gap-2 opacity-60">
-                        <div className="h-px w-24 bg-stone-200 mb-2" />
-                        <p className="text-sm font-black text-stone-400 font-serif">لا يوجد مزيد من العقارات</p>
-                        <p className="text-[10px] text-stone-300">لقد وصلت لنهاية القائمة</p>
+                    ) : hasMoreProperties ? (
+                      <button
+                        onClick={loadMoreProperties}
+                        className="px-8 py-2.5 bg-white border border-stone-200 hover:border-emerald-400 hover:text-emerald-600 text-stone-500 font-black text-sm rounded-xl transition-all shadow-sm hover:shadow-md"
+                      >
+                        تحميل المزيد
+                      </button>
+                    ) : filteredProperties.length > 0 ? (
+                      <div className="flex flex-col items-center gap-1 opacity-50">
+                        <div className="h-px w-16 bg-stone-200" />
+                        <p className="text-xs font-black text-stone-400">لا يوجد مزيد</p>
                       </div>
                     ) : null}
                   </div>
