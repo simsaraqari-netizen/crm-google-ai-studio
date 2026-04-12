@@ -304,7 +304,7 @@ export const PropertyDetails = memo(function PropertyDetails({
         {/* 2. Title & Details */}
         <div className="rounded-xl border border-stone-100 bg-white p-4 space-y-3">
           <div className="flex items-start justify-between gap-3">
-            <h1 className="text-xl sm:text-2xl font-black text-stone-900 leading-snug flex-1">
+            <h1 className="text-2xl sm:text-3xl font-black text-stone-900 leading-snug flex-1">
               {property.name || 'عقار بدون اسم'}
             </h1>
             {property.price && (
@@ -449,39 +449,60 @@ export const PropertyDetails = memo(function PropertyDetails({
         )}
 
         {/* 6. Employee Info */}
-        <div className="rounded-xl border border-stone-100 bg-white p-4">
-          <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-            <User size={11} />
-            موظف الإدخال
-          </p>
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <button onClick={() => onUserClick?.(property.assigned_employee_id || '')}
-                className="text-sm font-black text-stone-900 hover:text-emerald-600 transition-colors block">
-                {property.assigned_employee_name || '—'}
-              </button>
-              {employeePhone ? (
-                <p className="text-[11px] text-stone-500 mt-0.5 font-mono" dir="ltr">{employeePhone}</p>
-              ) : (
-                <p className="text-[11px] text-stone-300 mt-0.5">بدون هاتف</p>
-              )}
-              {property.created_at && (
-                <p className="text-[10px] text-stone-400 mt-1" dir="ltr">{formatDateTime(property.created_at)}</p>
-              )}
+        {(() => {
+          const code = getPropertyCode(property);
+          const base = window.location.origin + window.location.pathname;
+          const shareUrl = `${base}?p=${code}`;
+          const waMsg = encodeURIComponent(
+            `🏠 ${property.name || 'عقار'}\n` +
+            (property.details ? `📋 ${property.details}\n` : '') +
+            `🔑 كود العقار: #${code}\n` +
+            `🔗 ${shareUrl}`
+          );
+          const employeeWaUrl = employeePhone
+            ? `https://wa.me/${employeePhone.replace(/[^0-9]/g, '')}?text=${waMsg}`
+            : undefined;
+          return (
+            <div className="rounded-xl border border-stone-100 bg-white p-4">
+              <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                <User size={11} />
+                موظف الإدخال
+              </p>
+              <div className="flex items-center gap-3">
+                {/* Avatar */}
+                <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                  <User size={18} className="text-emerald-600" />
+                </div>
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <button onClick={() => onUserClick?.(property.assigned_employee_id || '')}
+                    className="text-sm font-black text-stone-900 hover:text-emerald-600 transition-colors block truncate">
+                    {property.assigned_employee_name || '—'}
+                  </button>
+                  <p className={`text-xs mt-0.5 font-mono ${employeePhone ? 'text-stone-500' : 'text-stone-300'}`} dir="ltr">
+                    {employeePhone || 'بدون هاتف'}
+                  </p>
+                  {property.created_at && (
+                    <p className="text-[10px] text-stone-400 mt-0.5" dir="ltr">{formatDateTime(property.created_at)}</p>
+                  )}
+                </div>
+                {/* Actions */}
+                <div className="flex flex-col gap-1.5 flex-shrink-0">
+                  <a href={employeeWaUrl} target="_blank" rel="noopener noreferrer"
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${employeePhone ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50' : 'border-stone-100 text-stone-200 pointer-events-none'}`}>
+                    <MessageCircle size={13} />
+                    واتساب
+                  </a>
+                  <a href={employeePhone ? `tel:${employeePhone}` : undefined}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${employeePhone ? 'border-stone-200 text-stone-600 hover:bg-stone-50' : 'border-stone-100 text-stone-200 pointer-events-none'}`}>
+                    <Phone size={13} />
+                    اتصال
+                  </a>
+                </div>
+              </div>
             </div>
-            <div className="flex gap-2 flex-shrink-0">
-              <a href={employeePhone ? `https://wa.me/${employeePhone.replace(/[^0-9]/g, '')}` : undefined}
-                target="_blank" rel="noopener noreferrer"
-                className={`p-2 border border-stone-100 rounded-lg transition-colors ${employeePhone ? 'text-emerald-600 hover:bg-emerald-50' : 'text-stone-200 pointer-events-none'}`}>
-                <MessageCircle size={16} />
-              </a>
-              <a href={employeePhone ? `tel:${employeePhone}` : undefined}
-                className={`p-2 border border-stone-100 rounded-lg transition-colors ${employeePhone ? 'text-stone-500 hover:bg-stone-50' : 'text-stone-200 pointer-events-none'}`}>
-                <Phone size={16} />
-              </a>
-            </div>
-          </div>
-        </div>
+          );
+        })()}
 
       </div>
     </motion.div>
