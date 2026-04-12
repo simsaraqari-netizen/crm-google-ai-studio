@@ -922,7 +922,7 @@ export default function App() {
     };
 
     fetchPropertiesBatch();
-  }, [user, isAdmin, isSuperAdmin, selectedCompanyId, appliedFilters, propertiesOffset, view, favorites]);
+  }, [user, isAdmin, isSuperAdmin, selectedCompanyId, appliedFilters, propertiesOffset, view]);
 
   // Handle Loading More
   const loadMoreProperties = () => {

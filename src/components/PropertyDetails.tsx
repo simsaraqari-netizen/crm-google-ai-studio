@@ -187,7 +187,7 @@ export const PropertyDetails = memo(function PropertyDetails({
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="max-w-7xl mx-auto px-3 sm:px-6 py-2"
+      className="w-full px-2 sm:px-4 py-2"
       dir="rtl"
     >
       {showViewer && (
@@ -200,7 +200,7 @@ export const PropertyDetails = memo(function PropertyDetails({
       )}
 
       {/* ── Top Bar ── */}
-      <div className="flex items-center justify-between gap-3 mb-3">
+      <div className="flex items-center justify-between gap-3 mb-2">
         <button
           onClick={onBack}
           className="flex items-center gap-1.5 text-stone-500 hover:text-emerald-700 transition-colors text-sm font-bold"
@@ -231,10 +231,10 @@ export const PropertyDetails = memo(function PropertyDetails({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
 
         {/* ── Left: Media + Info ── */}
-        <div className="lg:col-span-2 space-y-3">
+        <div className="lg:col-span-2 space-y-2">
 
           {/* Media */}
           <div className="rounded-xl overflow-hidden border border-stone-100">
@@ -400,7 +400,7 @@ export const PropertyDetails = memo(function PropertyDetails({
         </div>
 
         {/* ── Right: Contact + Employee + Comments ── */}
-        <div className="space-y-3">
+        <div className="space-y-2">
 
           {/* Contact */}
           <div className="rounded-xl border border-stone-100 bg-white p-4 space-y-2">
