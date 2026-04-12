@@ -331,7 +331,8 @@ export default function App() {
   const isAdmin = useMemo(() => user?.role === 'admin' || isSuperAdmin, [user?.role, isSuperAdmin]);
   const isEmployee = useMemo(() => user?.role === 'employee' || isAdmin, [user?.role, isAdmin]);
   const isPending = useMemo(() => user?.role === 'pending', [user?.role]);
-  const [loading, setLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -560,9 +561,9 @@ export default function App() {
   // Auth Listener
   useEffect(() => {
     const setupAuth = async () => {
-      // Force loading to end after 5 seconds regardless of what happens
+      // Force auth loading to end after 3 seconds regardless of what happens
       const timeoutId = setTimeout(() => {
-        setLoading(false);
+        setAuthLoading(false);
       }, 3000);
 
       try {
@@ -589,7 +590,7 @@ export default function App() {
               setAuthError('تم تسجيل خروجك من قبل المسؤول.');
               await supabase.auth.signOut();
               setUser(null);
-              setLoading(false);
+              setAuthLoading(false);
               clearTimeout(timeoutId);
               return;
             }
@@ -599,7 +600,7 @@ export default function App() {
               setAuthError('تم رفض حسابك من قبل الإدارة.');
               await supabase.auth.signOut();
               setUser(null);
-              setLoading(false);
+              setAuthLoading(false);
               clearTimeout(timeoutId);
               return;
             }
@@ -609,7 +610,7 @@ export default function App() {
               setAuthError('هذا الحساب تم حذفه من قبل الإدارة.');
               await supabase.auth.signOut();
               setUser(null);
-              setLoading(false);
+              setAuthLoading(false);
               clearTimeout(timeoutId);
               return;
             }
@@ -686,7 +687,7 @@ export default function App() {
         setAuthError(`خطأ في الوصول لقاعدة البيانات: ${error.message}`);
         setUser(null);
       } finally {
-        setLoading(false);
+        setAuthLoading(false);
         clearTimeout(timeoutId);
       }
     };
@@ -1577,7 +1578,7 @@ export default function App() {
     }
   };
 
-  if (loading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-stone-50">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-600"></div>
