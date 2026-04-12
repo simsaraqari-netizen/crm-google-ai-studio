@@ -242,303 +242,247 @@ export const PropertyDetails = memo(function PropertyDetails({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+      <div className="space-y-2 max-w-3xl mx-auto">
 
-        {/* ── Left: Media + Info ── */}
-        <div className="lg:col-span-2 space-y-2">
-
-          {/* Media */}
-          <div className="rounded-xl overflow-hidden border border-stone-100">
-            {images.length > 0 ? (
-              <div className="relative aspect-[16/10] bg-stone-900 group">
-                {images[activeImageIndex].type === 'video' ? (
-                  <video src={images[activeImageIndex].url} controls className={`w-full h-full object-contain ${property.is_sold ? 'grayscale opacity-60' : ''}`} />
-                ) : (
-                  <img
-                    src={images[activeImageIndex].url}
-                    alt={property.name}
-                    className={`w-full h-full object-contain cursor-zoom-in ${property.is_sold ? 'grayscale opacity-60' : ''}`}
-                    onClick={() => { setViewerImages(images.map(img => img.url)); setViewerIndex(activeImageIndex); setShowViewer(true); }}
-                  />
-                )}
-                {property.is_sold && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-stone-900/40 pointer-events-none z-10">
-                    <span className="text-white font-black text-4xl sm:text-6xl tracking-wider transform -rotate-12 border-4 border-white px-8 py-3 rounded-xl">مباع</span>
-                  </div>
-                )}
-                {images.length > 1 && (
-                  <>
-                    <div className="absolute inset-y-0 right-0 p-3 flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => setActiveImageIndex(prev => prev === 0 ? images.length - 1 : prev - 1)} className="p-2.5 bg-black/30 rounded-full text-white hover:bg-black/50">
-                        <ChevronRight size={20} />
-                      </button>
-                    </div>
-                    <div className="absolute inset-y-0 left-0 p-3 flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => setActiveImageIndex(prev => prev === images.length - 1 ? 0 : prev + 1)} className="p-2.5 bg-black/30 rounded-full text-white hover:bg-black/50">
-                        <ChevronLeft size={20} />
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            ) : (
-              <div className="aspect-[16/10] bg-stone-50 flex flex-col items-center justify-center text-stone-300 gap-3">
-                <ImageIcon size={48} strokeWidth={1} />
-                <p className="text-xs font-bold">لا توجد صور</p>
-              </div>
-            )}
-            {images.length > 1 && (
-              <div className="p-3 border-t border-stone-100 overflow-x-auto bg-white">
-                <div className="flex gap-2">
-                  {images.map((img, i) => (
-                    <button key={i} onClick={() => setActiveImageIndex(i)} className={`relative w-16 h-16 rounded-lg overflow-hidden border-2 flex-shrink-0 transition-all ${i === activeImageIndex ? 'border-emerald-500' : 'border-stone-100'}`}>
-                      {img.type === 'video' ? (
-                        <div className="w-full h-full bg-stone-800 flex items-center justify-center"><Plus size={14} className="text-white" /></div>
-                      ) : (
-                        <img src={img.url} className="w-full h-full object-cover" alt="" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Title & Main Info */}
-          <div className="rounded-xl border border-stone-100 bg-white p-4 space-y-3">
-            <div className="flex items-start justify-between gap-3">
-              <h1 className="text-xl sm:text-2xl font-black text-stone-900 leading-snug flex-1">
-                {property.name || 'عقار بدون اسم'}
-              </h1>
-              {property.price && (
-                <span className="text-xl font-black text-emerald-600 whitespace-nowrap">{property.price}</span>
-              )}
-            </div>
-
-            {/* Location & date */}
-            <div className="flex flex-wrap items-center gap-3 text-xs text-stone-500">
-              {(property.governorate || property.area) && (
-                <span className="flex items-center gap-1 font-bold">
-                  <MapPin size={12} className="text-emerald-500" />
-                  {property.governorate}{property.area ? ` — ${cleanAreaName(property.area)}` : ''}
-                </span>
-              )}
-              {property.created_at && (
-                <span className="flex items-center gap-1">
-                  <Clock size={12} />
-                  {formatRelativeDate(property.created_at)}
-                </span>
-              )}
-            </div>
-
-            {/* Chips */}
-            <div className="flex flex-wrap gap-2 pt-1">
-              {property.type && (
-                <span className="border border-sky-200 text-sky-700 text-xs font-bold px-2.5 py-1 rounded-md">{property.type}</span>
-              )}
-              {property.purpose && (
-                <span className="border border-emerald-200 text-emerald-700 text-xs font-bold px-2.5 py-1 rounded-md">{property.purpose}</span>
-              )}
-              {property.location && (
-                <span className="border border-stone-200 text-stone-600 text-xs font-bold px-2.5 py-1 rounded-md">{property.location}</span>
-              )}
-              {property.status_label && (
-                <span className="border border-amber-200 text-amber-700 text-xs font-bold px-2.5 py-1 rounded-md flex items-center gap-1">
-                  <Tag size={11} />{property.status_label}
-                </span>
+        {/* 1. Media */}
+        <div className="rounded-xl overflow-hidden border border-stone-100">
+          {images.length > 0 ? (
+            <div className="relative aspect-[16/10] bg-stone-900 group">
+              {images[activeImageIndex].type === 'video' ? (
+                <video src={images[activeImageIndex].url} controls className={`w-full h-full object-contain ${property.is_sold ? 'grayscale opacity-60' : ''}`} />
+              ) : (
+                <img
+                  src={images[activeImageIndex].url}
+                  alt={property.name}
+                  className={`w-full h-full object-contain cursor-zoom-in ${property.is_sold ? 'grayscale opacity-60' : ''}`}
+                  onClick={() => { setViewerImages(images.map(img => img.url)); setViewerIndex(activeImageIndex); setShowViewer(true); }}
+                />
               )}
               {property.is_sold && (
-                <span className="border border-stone-300 text-stone-500 text-xs font-bold px-2.5 py-1 rounded-md">مباع</span>
+                <div className="absolute inset-0 flex items-center justify-center bg-stone-900/40 pointer-events-none z-10">
+                  <span className="text-white font-black text-4xl sm:text-6xl tracking-wider transform -rotate-12 border-4 border-white px-8 py-3 rounded-xl">مباع</span>
+                </div>
+              )}
+              {images.length > 1 && (
+                <>
+                  <div className="absolute inset-y-0 right-0 p-3 flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => setActiveImageIndex(prev => prev === 0 ? images.length - 1 : prev - 1)} className="p-2.5 bg-black/30 rounded-full text-white hover:bg-black/50">
+                      <ChevronRight size={20} />
+                    </button>
+                  </div>
+                  <div className="absolute inset-y-0 left-0 p-3 flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => setActiveImageIndex(prev => prev === images.length - 1 ? 0 : prev + 1)} className="p-2.5 bg-black/30 rounded-full text-white hover:bg-black/50">
+                      <ChevronLeft size={20} />
+                    </button>
+                  </div>
+                </>
               )}
             </div>
-
-            {/* Details text */}
-            {property.details && (
-              <div className="border-t border-stone-100 pt-3">
-                <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">التفاصيل</p>
-                <p className="text-sm text-stone-700 leading-relaxed whitespace-pre-wrap">{property.details}</p>
-              </div>
-            )}
-
-            {(property.comments_2 || property.comments_3) && (
-              <div className="space-y-1.5 border-t border-stone-100 pt-3">
-                {property.comments_2 && (
-                  <div>
-                    <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-0.5">ملاحظة 2</p>
-                    <p className="text-sm text-stone-600">{property.comments_2}</p>
-                  </div>
-                )}
-                {property.comments_3 && (
-                  <div>
-                    <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-0.5">ملاحظة 3</p>
-                    <p className="text-sm text-stone-600">{property.comments_3}</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Location Specs — always show if any field exists */}
-          {hasLocationSpecs && (
-            <div className="rounded-xl border border-stone-100 bg-white p-4">
-              <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                <MapPin size={12} className="text-emerald-500" />
-                تفاصيل الموقع والمواصفات
-              </p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {locationSpecs.map((spec, idx) => (
-                  <div key={idx}>
-                    <span className="text-[10px] text-stone-400 block">{spec.label}</span>
-                    <span className={`text-sm font-black ${spec.value ? 'text-stone-800' : 'text-stone-300'}`}>
-                      {spec.value || '—'}
-                    </span>
-                  </div>
+          ) : (
+            <div className="aspect-[16/10] bg-stone-50 flex flex-col items-center justify-center text-stone-300 gap-3">
+              <ImageIcon size={48} strokeWidth={1} />
+              <p className="text-xs font-bold">لا توجد صور</p>
+            </div>
+          )}
+          {images.length > 1 && (
+            <div className="p-3 border-t border-stone-100 overflow-x-auto bg-white">
+              <div className="flex gap-2">
+                {images.map((img, i) => (
+                  <button key={i} onClick={() => setActiveImageIndex(i)} className={`relative w-16 h-16 rounded-lg overflow-hidden border-2 flex-shrink-0 transition-all ${i === activeImageIndex ? 'border-emerald-500' : 'border-stone-100'}`}>
+                    {img.type === 'video' ? (
+                      <div className="w-full h-full bg-stone-800 flex items-center justify-center"><Plus size={14} className="text-white" /></div>
+                    ) : (
+                      <img src={img.url} className="w-full h-full object-cover" alt="" />
+                    )}
+                  </button>
                 ))}
               </div>
-              {property.location_link && (
-                <a
-                  href={property.location_link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-3 flex items-center justify-center gap-2 border border-emerald-200 text-emerald-700 py-2 rounded-lg font-bold text-sm hover:bg-emerald-50 transition-colors"
-                >
-                  <ExternalLink size={16} />
-                  عرض على الخرائط
-                </a>
-              )}
             </div>
           )}
         </div>
 
-        {/* ── Right: Contact + Employee + Comments ── */}
-        <div className="space-y-2">
+        {/* 2. Title & Details */}
+        <div className="rounded-xl border border-stone-100 bg-white p-4 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="text-xl sm:text-2xl font-black text-stone-900 leading-snug flex-1">
+              {property.name || 'عقار بدون اسم'}
+            </h1>
+            {property.price && (
+              <span className="text-xl font-black text-emerald-600 whitespace-nowrap">{property.price}</span>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-xs text-stone-500">
+            {(property.governorate || property.area) && (
+              <span className="flex items-center gap-1 font-bold">
+                <MapPin size={12} className="text-emerald-500" />
+                {property.governorate}{property.area ? ` — ${cleanAreaName(property.area)}` : ''}
+              </span>
+            )}
+            {property.created_at && (
+              <span className="flex items-center gap-1">
+                <Clock size={12} />
+                {formatRelativeDate(property.created_at)}
+              </span>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {property.type && <span className="border border-sky-200 text-sky-700 text-xs font-bold px-2.5 py-1 rounded-md">{property.type}</span>}
+            {property.purpose && <span className="border border-emerald-200 text-emerald-700 text-xs font-bold px-2.5 py-1 rounded-md">{property.purpose}</span>}
+            {property.location && <span className="border border-stone-200 text-stone-600 text-xs font-bold px-2.5 py-1 rounded-md">{property.location}</span>}
+            {property.status_label && <span className="border border-amber-200 text-amber-700 text-xs font-bold px-2.5 py-1 rounded-md flex items-center gap-1"><Tag size={11} />{property.status_label}</span>}
+            {property.is_sold && <span className="border border-stone-300 text-stone-500 text-xs font-bold px-2.5 py-1 rounded-md">مباع</span>}
+          </div>
+          {property.details && (
+            <div className="border-t border-stone-100 pt-3">
+              <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">التفاصيل</p>
+              <p className="text-sm text-stone-700 leading-relaxed whitespace-pre-wrap">{property.details}</p>
+            </div>
+          )}
+          {(property.comments_2 || property.comments_3) && (
+            <div className="space-y-1.5 border-t border-stone-100 pt-3">
+              {property.comments_2 && <div><p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-0.5">ملاحظة 2</p><p className="text-sm text-stone-600">{property.comments_2}</p></div>}
+              {property.comments_3 && <div><p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-0.5">ملاحظة 3</p><p className="text-sm text-stone-600">{property.comments_3}</p></div>}
+            </div>
+          )}
+        </div>
 
-          {/* Contact */}
-          <div className="rounded-xl border border-stone-100 bg-white p-4 space-y-2">
-            <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">هاتف العقار المسجل</p>
-            {property.phone ? (
-              <>
-                <a href={`tel:${property.phone}`} className="w-full flex items-center justify-between border border-stone-200 p-2.5 rounded-lg hover:border-stone-300 transition-colors">
-                  <span className="text-base font-black text-stone-800 font-mono" dir="ltr">{property.phone}</span>
-                  <Phone size={16} className="text-emerald-600" />
+        {/* 3. Phone & WhatsApp */}
+        <div className="rounded-xl border border-stone-100 bg-white p-4 space-y-2">
+          <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">هاتف العقار</p>
+          {property.phone ? (
+            <>
+              <a href={`tel:${property.phone}`} className="w-full flex items-center justify-between border border-stone-200 p-2.5 rounded-lg hover:border-stone-300 transition-colors">
+                <span className="text-base font-black text-stone-800 font-mono" dir="ltr">{property.phone}</span>
+                <Phone size={16} className="text-emerald-600" />
+              </a>
+              {property.phone_2 && (
+                <a href={`tel:${property.phone_2}`} className="w-full flex items-center justify-between border border-stone-200 p-2.5 rounded-lg hover:border-stone-300 transition-colors">
+                  <span className="text-base font-black text-stone-800 font-mono" dir="ltr">{property.phone_2}</span>
+                  <Phone size={16} className="text-stone-400" />
                 </a>
-                {property.phone_2 && (
-                  <a href={`tel:${property.phone_2}`} className="w-full flex items-center justify-between border border-stone-200 p-2.5 rounded-lg hover:border-stone-300 transition-colors">
-                    <span className="text-base font-black text-stone-800 font-mono" dir="ltr">{property.phone_2}</span>
-                    <Phone size={16} className="text-stone-400" />
-                  </a>
-                )}
-                <a
-                  href={propertyWhatsappUrl || '#'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full flex items-center justify-center gap-2 border border-emerald-200 text-emerald-700 p-2.5 rounded-lg font-bold hover:bg-emerald-50 transition-colors"
-                >
-                  <MessageCircle size={18} />
-                  واتساب العقار
-                </a>
-              </>
-            ) : (
-              <p className="text-center py-2 text-xs text-stone-300">لا توجد أرقام هواتف</p>
+              )}
+              <a href={propertyWhatsappUrl || '#'} target="_blank" rel="noopener noreferrer"
+                className="w-full flex items-center justify-center gap-2 border border-emerald-200 text-emerald-700 p-2.5 rounded-lg font-bold hover:bg-emerald-50 transition-colors">
+                <MessageCircle size={18} />واتساب العقار
+              </a>
+            </>
+          ) : (
+            <p className="text-center py-2 text-xs text-stone-300">لا توجد أرقام هواتف</p>
+          )}
+        </div>
+
+        {/* 4. Comments */}
+        <div className="rounded-xl border border-stone-100 bg-white p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-black text-stone-800 flex items-center gap-2">
+              <MessageSquare size={16} className="text-emerald-600" />
+              التعليقات والملاحظات
+            </h3>
+            {comments.length > 0 && (
+              <span className="text-[10px] font-black text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">{comments.length}</span>
             )}
           </div>
 
-          {/* Assigned Employee */}
-          <div className="rounded-xl border border-stone-100 bg-white p-4">
-            <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-              <User size={11} />
-              موظف الإدخال
-            </p>
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex-1 min-w-0">
-                <button
-                  onClick={() => onUserClick?.(property.assigned_employee_id || '')}
-                  className="text-sm font-black text-stone-900 hover:text-emerald-600 transition-colors block"
-                >
-                  {property.assigned_employee_name || '—'}
-                </button>
-                {employeePhone ? (
-                  <p className="text-[11px] text-stone-500 mt-0.5 font-mono" dir="ltr">{employeePhone}</p>
-                ) : (
-                  <p className="text-[11px] text-stone-300 mt-0.5">بدون هاتف</p>
-                )}
-                {property.created_at && (
-                  <p className="text-[10px] text-stone-400 mt-1" dir="ltr">{formatDateTime(property.created_at)}</p>
-                )}
-              </div>
-              <div className="flex gap-2 flex-shrink-0">
-                <a
-                  href={employeePhone ? `https://wa.me/${employeePhone.replace(/[^0-9]/g, '')}` : undefined}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`p-2 border border-stone-100 rounded-lg transition-colors ${employeePhone ? 'text-emerald-600 hover:bg-emerald-50' : 'text-stone-200 pointer-events-none'}`}
-                >
-                  <MessageCircle size={16} />
-                </a>
-                <a
-                  href={employeePhone ? `tel:${employeePhone}` : undefined}
-                  className={`p-2 border border-stone-100 rounded-lg transition-colors ${employeePhone ? 'text-stone-500 hover:bg-stone-50' : 'text-stone-200 pointer-events-none'}`}
-                >
-                  <Phone size={16} />
-                </a>
-              </div>
+          {comments.length === 0 ? (
+            <p className="text-center py-4 text-xs text-stone-300">لا توجد تعليقات بعد</p>
+          ) : (
+            <div className="space-y-3">
+              {comments.map((c) => (
+                <div key={c.id} className="group">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="text-[11px] font-black text-stone-700">{c.user_name}</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] text-stone-400" dir="ltr">{formatDateTime(c.created_at)}</span>
+                      {(isAdmin || (user && c.user_id === user.uid)) && (
+                        <button onClick={() => onDeleteComment?.(c.id)} className="p-1 text-stone-300 hover:text-red-500 rounded transition-all opacity-0 group-hover:opacity-100">
+                          <X size={12} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-sm text-stone-700 leading-relaxed whitespace-pre-wrap border-r-2 border-stone-200 pr-2.5">{c.text}</p>
+                </div>
+              ))}
             </div>
-          </div>
+          )}
 
-          {/* Comments */}
-          <div className="rounded-xl border border-stone-100 bg-white p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-black text-stone-800 flex items-center gap-2">
-                <MessageSquare size={16} className="text-emerald-600" />
-                التعليقات والملاحظات
-              </h3>
-              {comments.length > 0 && (
-                <span className="text-[10px] font-black text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">{comments.length}</span>
+          <form onSubmit={handleAddComment} className="space-y-2 border-t border-stone-100 pt-3">
+            <textarea
+              placeholder="أضف تعليقاً أو ملاحظة..."
+              rows={2}
+              className="w-full p-2.5 border border-stone-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all resize-none"
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+            />
+            <button
+              type="submit"
+              disabled={isUploading || !newComment.trim()}
+              className="w-full bg-emerald-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-emerald-700 transition-colors disabled:opacity-40"
+            >
+              {isUploading ? <LoadingSpinner size={16} className="border-white mx-auto" /> : 'إرسال'}
+            </button>
+          </form>
+        </div>
+
+        {/* 5. Location Specs & Hashtags */}
+        {hasLocationSpecs && (
+          <div className="rounded-xl border border-stone-100 bg-white p-4">
+            <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+              <MapPin size={12} className="text-emerald-500" />
+              تفاصيل الموقع
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {locationSpecs.map((spec, idx) => (
+                <div key={idx}>
+                  <span className="text-[10px] text-stone-400 block">{spec.label}</span>
+                  <span className={`text-sm font-black ${spec.value ? 'text-stone-800' : 'text-stone-300'}`}>{spec.value || '—'}</span>
+                </div>
+              ))}
+            </div>
+            {property.location_link && (
+              <a href={property.location_link} target="_blank" rel="noopener noreferrer"
+                className="mt-3 flex items-center justify-center gap-2 border border-emerald-200 text-emerald-700 py-2 rounded-lg font-bold text-sm hover:bg-emerald-50 transition-colors">
+                <ExternalLink size={16} />عرض على الخرائط
+              </a>
+            )}
+          </div>
+        )}
+
+        {/* 6. Employee Info */}
+        <div className="rounded-xl border border-stone-100 bg-white p-4">
+          <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+            <User size={11} />
+            موظف الإدخال
+          </p>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <button onClick={() => onUserClick?.(property.assigned_employee_id || '')}
+                className="text-sm font-black text-stone-900 hover:text-emerald-600 transition-colors block">
+                {property.assigned_employee_name || '—'}
+              </button>
+              {employeePhone ? (
+                <p className="text-[11px] text-stone-500 mt-0.5 font-mono" dir="ltr">{employeePhone}</p>
+              ) : (
+                <p className="text-[11px] text-stone-300 mt-0.5">بدون هاتف</p>
+              )}
+              {property.created_at && (
+                <p className="text-[10px] text-stone-400 mt-1" dir="ltr">{formatDateTime(property.created_at)}</p>
               )}
             </div>
-
-            {comments.length === 0 ? (
-              <p className="text-center py-4 text-xs text-stone-300">لا توجد تعليقات بعد</p>
-            ) : (
-              <div className="space-y-3 max-h-80 overflow-y-auto">
-                {comments.map((c) => (
-                  <div key={c.id} className="group">
-                    <div className="flex items-center justify-between mb-0.5">
-                      <span className="text-[11px] font-black text-stone-700">{c.user_name}</span>
-                      <div className="flex items-center gap-1">
-                        <span className="text-[9px] text-stone-400" dir="ltr">{formatDateTime(c.created_at)}</span>
-                        {(isAdmin || (user && c.user_id === user.uid)) && (
-                          <button onClick={() => onDeleteComment?.(c.id)} className="p-1 text-stone-300 hover:text-red-500 rounded transition-all opacity-0 group-hover:opacity-100">
-                            <X size={12} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    <p className="text-sm text-stone-700 leading-relaxed whitespace-pre-wrap border-r-2 border-stone-200 pr-2.5">{c.text}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <form onSubmit={handleAddComment} className="space-y-2 border-t border-stone-100 pt-3">
-              <textarea
-                placeholder="أضف تعليقاً أو ملاحظة..."
-                rows={2}
-                className="w-full p-2.5 border border-stone-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all resize-none"
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-              />
-              <button
-                type="submit"
-                disabled={isUploading || !newComment.trim()}
-                className="w-full bg-emerald-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-emerald-700 transition-colors disabled:opacity-40"
-              >
-                {isUploading ? <LoadingSpinner size={16} className="border-white mx-auto" /> : 'إرسال'}
-              </button>
-            </form>
+            <div className="flex gap-2 flex-shrink-0">
+              <a href={employeePhone ? `https://wa.me/${employeePhone.replace(/[^0-9]/g, '')}` : undefined}
+                target="_blank" rel="noopener noreferrer"
+                className={`p-2 border border-stone-100 rounded-lg transition-colors ${employeePhone ? 'text-emerald-600 hover:bg-emerald-50' : 'text-stone-200 pointer-events-none'}`}>
+                <MessageCircle size={16} />
+              </a>
+              <a href={employeePhone ? `tel:${employeePhone}` : undefined}
+                className={`p-2 border border-stone-100 rounded-lg transition-colors ${employeePhone ? 'text-stone-500 hover:bg-stone-50' : 'text-stone-200 pointer-events-none'}`}>
+                <Phone size={16} />
+              </a>
+            </div>
           </div>
-
         </div>
+
       </div>
     </motion.div>
   );
