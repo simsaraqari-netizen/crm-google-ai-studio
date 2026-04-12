@@ -3533,7 +3533,7 @@ export default function App() {
           )}
 
           {view === 'details' && selectedProperty && (
-            <div className="px-4 py-8">
+            <div className="px-2 py-3">
               <PropertyDetails 
                 property={selectedProperty}
                 user={user}
