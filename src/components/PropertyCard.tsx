@@ -96,7 +96,7 @@ export const PropertyCard = memo(function PropertyCard({
       <div className="px-3 pt-3 pb-2 flex-1 flex flex-col gap-2" dir="rtl">
         {/* Title & Price Row */}
         <div className="space-y-0.5">
-          <h3 className="text-sm font-black text-stone-900 leading-tight group-hover:text-emerald-700 transition-colors line-clamp-1">
+          <h3 className="text-sm font-black text-stone-900 leading-tight group-hover:text-emerald-700 transition-colors line-clamp-4">
             {property.name || 'عقار بدون اسم'}
           </h3>
           {property.price && (
