@@ -215,7 +215,12 @@ async function handleSupabaseError(error: unknown, operationType: OperationType,
       emailVerified: !!session?.user?.email_confirmed_at,
       isAnonymous: session?.user?.is_anonymous,
       tenantId: null,
-      providerInfo: session?.user?.app_metadata?.provider || []
+      providerInfo: session?.user?.app_metadata?.provider ? [{
+        providerId: session.user.app_metadata.provider as string,
+        name: null,
+        email: session.user.email || null,
+        photoUrl: null
+      }] : []
     },
     operationType,
     path
@@ -322,6 +327,9 @@ export default function App() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
+
+  // Diagnostic check for environment variables
+  const isEnvConfigured = !!import.meta.env.VITE_SUPABASE_URL && !!import.meta.env.VITE_SUPABASE_ANON_KEY;
 
   // Memoize derived role values to prevent unnecessary listener re-registration
   const isSuperAdmin = useMemo(() =>
@@ -965,7 +973,7 @@ export default function App() {
               setDeletedProperties(prev => [newProp, ...prev]);
             } else if (newProp.status === 'pending' && view === 'pending-properties') {
               setProperties(prev => [newProp, ...prev]);
-            } else if (newProp.status !== 'deleted' && view !== 'pending-properties' && view !== 'trash') {
+            } else if ((view as string) !== 'pending-properties' && (view as string) !== 'trash') {
               if (propertiesOffset === 0) {
                 setProperties(prev => [newProp, ...prev]);
               }
@@ -1486,11 +1494,51 @@ export default function App() {
 
       return matchesSearch && matchesGov && matchesArea && matchesType && matchesPurpose && matchesLocation && matchesMarketer && matchesStatus;
     }).sort((a, b) => {
-      const dateA = a.createdAt?.seconds || 0;
-      const dateB = b.createdAt?.seconds || 0;
+      const dateA = new Date(a.created_at || 0).getTime();
+      const dateB = new Date(b.created_at || 0).getTime();
       return dateB - dateA;
     });
   }, [properties, deletedProperties, appliedFilters, searchTerms, favorites, user, view, selectedMarketerId]);
+
+  if (!isEnvConfigured) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-stone-50 p-4" dir="rtl">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-amber-100">
+          <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertTriangle className="w-8 h-8 text-amber-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-stone-900 mb-4 text-center">تنبيه: إعدادات النظام غير مكتملة</h2>
+          <div className="space-y-4 text-stone-600 text-sm leading-relaxed">
+            <p>يبدو أن بعض إعدادات البيئة (Environment Variables) مفقودة في هذا التوزيع.</p>
+            <div className="bg-stone-50 p-4 rounded-xl border border-stone-200 font-mono text-[11px] space-y-2">
+              <div className="flex items-center justify-between">
+                <span>VITE_SUPABASE_URL</span>
+                {import.meta.env.VITE_SUPABASE_URL ? <span className="text-emerald-600">✅ متوفر</span> : <span className="text-red-600">❌ مفقود</span>}
+              </div>
+              <div className="flex items-center justify-between">
+                <span>VITE_SUPABASE_ANON_KEY</span>
+                {import.meta.env.VITE_SUPABASE_ANON_KEY ? <span className="text-emerald-600">✅ متوفر</span> : <span className="text-red-600">❌ مفقود</span>}
+              </div>
+            </div>
+            <p className="font-bold text-stone-800 pt-2">كيفية الإصلاح:</p>
+            <ol className="list-decimal list-inside space-y-2 mr-2">
+              <li>افتح لوحة تحكم <b>Vercel</b> الخاصة بالمشروع.</li>
+              <li>انتقل إلى <b>Settings</b> ثم <b>Environment Variables</b>.</li>
+              <li>أضف المتغيرات المذكورة أعلاه مع قيمها الصحيحة.</li>
+              <li>قم بإعادة بناء المشروع (Redeploy).</li>
+            </ol>
+          </div>
+          <button 
+            onClick={() => window.location.reload()}
+            className="w-full mt-8 bg-stone-900 text-white py-3.5 rounded-xl font-bold hover:bg-stone-800 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+          >
+            <RefreshCw size={18} />
+            إعادة محاولة الاتصال
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // ── Code Uniqueness Monitoring & Repair ──
   const [duplicateCodesCount, setDuplicateCodesCount] = useState(0);
