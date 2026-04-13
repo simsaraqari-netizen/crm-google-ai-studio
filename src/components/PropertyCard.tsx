@@ -10,7 +10,7 @@ import {
   MessageSquare,
   UserPlus,
 } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import { cleanAreaName, formatRelativeDate, getPropertyCode, formatDateTime, exportToVCard } from '../utils';
 
 export const PropertyCard = memo(function PropertyCard({
