@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ChevronRight, Building2, UserPlus, Plus, List, Eye, Edit, Trash2, X, 
   User, Mail, Lock, EyeOff, ShieldCheck, UserCheck, UserX, AlertCircle 

@@ -20,7 +20,7 @@ import {
   Home,
   Clock
 } from 'lucide-react';
-import { motion } from 'motion';
+import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabaseClient';
 import { toast } from 'react-hot-toast';
 import {

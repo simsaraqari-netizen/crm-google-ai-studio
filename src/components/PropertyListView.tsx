@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { RefreshCw, Search, X } from 'lucide-react';
 import { PropertyCard } from './PropertyCard';
 import { LoadingSpinner } from './LoadingSpinner';

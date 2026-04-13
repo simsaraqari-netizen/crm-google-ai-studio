@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'motion';
+import { motion } from 'framer-motion';
 
 export function ConfirmModal({ isOpen, onConfirm, onCancel, title, message, confirmText = "تأكيد الحذف", confirmColor = "bg-red-600 hover:bg-red-700" }: any) {
   if (!isOpen) return null;

@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { motion } from 'motion';
+import { motion } from 'framer-motion';
 import {
   Heart,
   Image as ImageIcon,

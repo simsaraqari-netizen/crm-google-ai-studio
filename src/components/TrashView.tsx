@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Trash2, RefreshCw, Building2, Users, MessageSquare, Home } from 'lucide-react';
 import { Property, Company, UserProfile, Comment } from '../types';
 import { PropertyCard } from './PropertyCard';
