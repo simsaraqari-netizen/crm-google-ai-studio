@@ -16,11 +16,6 @@ console.log('Application rendering to DOM...');
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ErrorBoundary>
-      <div id="root">
-        <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontFamily: 'sans-serif'}}>
-          Bootstrapping CRM Application...
-        </div>
-      </div>
       <QueryClientProvider client={queryClient}>
         <App />
       </QueryClientProvider>
