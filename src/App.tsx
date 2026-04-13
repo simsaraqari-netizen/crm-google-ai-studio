@@ -45,7 +45,7 @@ import {
   Maximize,
   Play
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion';
 import { formatDistanceToNow } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { supabase } from './lib/supabaseClient';
@@ -67,131 +67,17 @@ import { ConfirmModal } from './components/ConfirmModal';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ExportModal } from './components/ExportModal';
+import { 
+  Property, 
+  Company, 
+  Comment as PropertyComment, 
+  UserProfile, 
+  Notification, 
+  OperationType, 
+  SupabaseErrorInfo 
+} from './types';
 
-// --- Types ---
 
-interface Property {
-  id: string;
-  name: string;
-  governorate: string;
-  area: string;
-  type: string;
-  purpose: string;
-  phone: string;
-  phone_2?: string;
-  company_id: string;
-  assigned_employee_id?: string;
-  assigned_employee_name?: string;
-  images: any[];
-  location_link?: string;
-  is_sold?: boolean;
-  sector?: string;
-  distribution?: string;
-  block?: string;
-  street?: string;
-  avenue?: string;
-  plot_number?: string;
-  house_number?: string;
-  location: string;
-  price?: string;
-  details?: string;
-  last_comment?: string;
-  comments_2?: string;
-  comments_3?: string;
-  status_label?: string;
-  status: 'pending' | 'approved' | 'rejected' | 'deleted';
-  is_deleted?: boolean;
-  deleted_at?: any;
-  created_by: string;
-  created_by_name?: string;
-  assignedEmployeeName?: string;
-  created_at: any;
-  property_code?: string;
-  last_comment_at?: string | any;
-}
-
-interface Company {
-  id: string;
-  name: string;
-  phone?: string;
-  address?: string;
-  createdAt: any;
-}
-
-interface PropertyComment {
-  id: string;
-  property_id?: string;
-  propertyId?: string;
-  user_id?: string;
-  userId?: string;
-  user_name?: string;
-  userName?: string;
-  text: string;
-  images?: any[];
-  image_url?: string;
-  imageUrl?: string;
-  user_phone?: string;
-  userPhone?: string;
-  created_at?: any;
-  createdAt?: any;
-  is_deleted?: boolean;
-  isDeleted?: boolean;
-}
-
-interface UserProfile {
-  uid: string;
-  id?: string;
-  email: string;
-  name: string;
-  full_name?: string;
-  role: 'super_admin' | 'admin' | 'employee' | 'pending' | 'rejected';
-  companyId?: string;
-  company_id?: string;
-  createdAt?: string;
-  created_at?: string;
-  forceSignOut?: boolean;
-  phone?: string;
-}
-
-interface Notification {
-  id: string;
-  type: 'new-user' | 'property-update' | 'price-change' | 'status-change' | 'new-comment';
-  title: string;
-  message: string;
-  userId?: string; // Triggering user
-  recipientId?: string; // Target user (if null, it's for admins)
-  propertyId?: string;
-  read: boolean;
-  createdAt: any;
-}
-
-enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
-
-interface SupabaseErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: {
-    userId: string | undefined;
-    email: string | null | undefined;
-    emailVerified: boolean | undefined;
-    isAnonymous: boolean | undefined;
-    tenantId: string | null | undefined;
-    providerInfo: {
-      providerId: string;
-      name: string | null;
-      email: string | null;
-      photoUrl: string | null;
-    }[];
-  }
-}
 
 async function handleSupabaseError(error: unknown, operationType: OperationType, path: string | null) {
   console.error(`[DIAGNOSTIC] Supabase Error (${operationType} on ${path}):`, error);
@@ -639,7 +525,7 @@ export default function App() {
               name: profileData.name || 'User',
               role: profileData.role,
               companyId: profileData.company_id,
-              createdAt: profileData.created_at,
+              created_at: profileData.created_at,
               forceSignOut: profileData.force_sign_out,
               phone: profileData.phone
             };
@@ -672,7 +558,7 @@ export default function App() {
               email: newProfile.email,
               name: newProfile.name,
               role: newProfile.role as UserProfile['role'],
-              createdAt: newProfile.created_at
+              created_at: newProfile.created_at
             };
 
             if (role === 'pending') {
@@ -754,7 +640,7 @@ export default function App() {
               name: profileData.name || 'User',
               role: profileData.role,
               companyId: profileData.company_id,
-              createdAt: profileData.created_at,
+              created_at: profileData.created_at,
               forceSignOut: profileData.force_sign_out,
               phone: profileData.phone
             };
@@ -1191,7 +1077,7 @@ export default function App() {
             email: generatedEmail,
             name: username,
             role: role,
-            createdAt: new Date().toISOString()
+            created_at: new Date().toISOString()
           };
           setUser(userData);
         }
@@ -1247,7 +1133,7 @@ export default function App() {
               name: profileData.name || 'User',
               role: profileData.role,
               companyId: profileData.company_id,
-              createdAt: profileData.created_at,
+              created_at: profileData.created_at,
               forceSignOut: profileData.force_sign_out,
               phone: profileData.phone
             };
@@ -2878,7 +2764,7 @@ export default function App() {
                           <div className="flex-1 min-w-0">
                             <p className="font-bold text-stone-900">{n.title}</p>
                             <p className="text-sm text-stone-500 mt-1">{n.message}</p>
-                            <p className="text-xs text-stone-500 mt-2">{formatRelativeDate(n.createdAt)}</p>
+                            <p className="text-xs text-stone-500 mt-2">{formatRelativeDate(n.created_at)}</p>
                           </div>
                         </div>
                       </div>
@@ -3576,7 +3462,7 @@ export default function App() {
                                 )}
                               </div>
                               <p className={`text-stone-500 truncate mt-0.5 ${emp.email?.endsWith('@simsaraqari.com') ? 'text-[7px] leading-tight tracking-tighter' : 'text-[11px]'}`}>
-                                {emp.phone || 'بدون هاتف'} • {emp.email} • {formatRelativeDate(emp.createdAt)}
+                                {emp.phone || 'بدون هاتف'} • {emp.email} • {formatRelativeDate(emp.created_at)}
                               </p>
                             </div>
                           )}
