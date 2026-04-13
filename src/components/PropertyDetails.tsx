@@ -15,10 +15,13 @@ import {
   MapPin,
   X,
   ExternalLink,
-  User,
-  Tag,
-  Home,
-  Clock
+  Bell,
+  Building2,
+  Download,
+  Clock,
+  Maximize,
+  Play,
+  UserPlus
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabaseClient';
@@ -27,7 +30,8 @@ import {
   formatRelativeDate,
   cleanAreaName,
   formatDateTime,
-  getPropertyCode
+  getPropertyCode,
+  exportToVCard
 } from '../utils';
 import { Comment, Property } from '../types';
 import { ImageViewer } from './ImageViewer';
@@ -380,6 +384,16 @@ export const PropertyDetails = memo(function PropertyDetails({
                 className="w-full flex items-center justify-center gap-2 border border-emerald-200 text-emerald-700 p-2.5 rounded-lg font-bold hover:bg-emerald-50 transition-colors">
                 <MessageCircle size={18} />واتساب العقار
               </a>
+              <button 
+                onClick={() => exportToVCard(
+                  `عقار ${property.name || 'جديد'} - ${getPropertyCode(property)}`,
+                  [property.phone, property.phone_2].filter(Boolean) as string[],
+                  property.details
+                )}
+                className="w-full flex items-center justify-center gap-2 border border-stone-200 text-stone-600 p-2.5 rounded-lg font-bold hover:bg-stone-50 transition-colors"
+              >
+                <UserPlus size={18} />حفظ في قائمة الأسماء
+              </button>
             </>
           ) : (
             <p className="text-center py-2 text-xs text-stone-300">لا توجد أرقام هواتف</p>

@@ -337,3 +337,33 @@ export const formatPropertyDate = (date: any) => {
     return '';
   }
 };
+
+/**
+ * Generates and triggers download of a vCard (.vcf) file for a contact.
+ * This works on both desktop and mobile (iOS/Android) browsers.
+ */
+export function exportToVCard(name: string, phones: string[], notes: string = '') {
+  const vcfContent = [
+    'BEGIN:VCARD',
+    'VERSION:3.0',
+    `FN:${name}`,
+    ...phones.filter(Boolean).map(phone => `TEL;TYPE=CELL:${phone.replace(/\s+/g, '')}`),
+    `NOTE:${notes.replace(/\n/g, '\\n')}`,
+    'PRODID:-//Musadaqa Real Estate CRM//EN',
+    'END:VCARD'
+  ].join('\n');
+
+  const blob = new Blob([vcfContent], { type: 'text/vcard;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  
+  // Clean filename: replace spaces with underscores and remove special characters
+  const safeName = name.replace(/[^\u0600-\u06FFa-zA-Z0-9]/g, '_');
+  link.download = `${safeName}.vcf`;
+  
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
