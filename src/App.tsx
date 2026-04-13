@@ -45,7 +45,7 @@ import {
   Maximize,
   Play
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { supabase } from './lib/supabaseClient';
