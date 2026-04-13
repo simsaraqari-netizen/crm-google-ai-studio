@@ -21,11 +21,13 @@ import {
   Clock,
   Maximize,
   Play,
-  UserPlus
+  UserPlus,
+  User,
+  Tag
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabaseClient';
-import { toast } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import {
   formatRelativeDate,
   cleanAreaName,
