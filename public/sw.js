@@ -1,5 +1,5 @@
 // Simple Service Worker for PWA installation
-const CACHE_NAME = 'simsar-v1';
+const CACHE_NAME = 'simsar-v2';
 const ASSETS = [
   './',
   'index.html',

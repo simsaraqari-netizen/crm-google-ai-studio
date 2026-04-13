@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect } from 'react';
+import * as React from 'react';
+import { createContext, useContext, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from './AuthContext';
