@@ -8,9 +8,10 @@ import {
   Share2,
   Tag,
   MessageSquare,
+  UserPlus,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { cleanAreaName, formatRelativeDate, getPropertyCode, formatDateTime } from '../utils';
+import { cleanAreaName, formatRelativeDate, getPropertyCode, formatDateTime, exportToVCard } from '../utils';
 
 export const PropertyCard = memo(function PropertyCard({
   property,
@@ -214,6 +215,20 @@ export const PropertyCard = memo(function PropertyCard({
                 title="مشاركة"
               >
                 <Share2 size={17} />
+              </button>
+              <button
+                onClick={(e) => { 
+                  e.stopPropagation();
+                  exportToVCard(
+                    `عقار ${property.name || 'جديد'} - ${getPropertyCode(property)}`,
+                    [property.phone, property.phone_2].filter(Boolean) as string[],
+                    property.details
+                  );
+                }}
+                className="p-1.5 text-stone-400 hover:text-blue-600 rounded-lg transition-all"
+                title="حفظ في الأسماء"
+              >
+                <UserPlus size={17} />
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); onFavorite?.(property.id); }}
