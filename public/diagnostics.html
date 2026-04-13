@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Diagnostics</title>
+</head>
+<body>
+    <h1>Diagnostics Page</h1>
+    <p>If you can see this, the static hosting is working.</p>
+    <div id="env-status">Checking environment variables...</div>
+    <script>
+        document.getElementById('env-status').innerText = 'Environment variables are not accessible in static HTML files directly, but the JS bundle should have them if built correctly.';
+        console.log('Diagnostics loaded');
+    </script>
+</body>
+</html>

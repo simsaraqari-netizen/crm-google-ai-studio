@@ -5,13 +5,22 @@ import App from './App';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import './index.css';
 
+console.log('Main.tsx is booting...');
+
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 1000 * 60 * 5, retry: 1 } }
 });
 
+console.log('Application rendering to DOM...');
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ErrorBoundary>
+      <div id="root">
+        <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontFamily: 'sans-serif'}}>
+          Bootstrapping CRM Application...
+        </div>
+      </div>
       <QueryClientProvider client={queryClient}>
         <App />
       </QueryClientProvider>
