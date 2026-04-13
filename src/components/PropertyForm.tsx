@@ -11,7 +11,7 @@ import {
   X, 
   Info 
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabaseClient';
 import { compressImage, unifyAbuName } from '../utils';

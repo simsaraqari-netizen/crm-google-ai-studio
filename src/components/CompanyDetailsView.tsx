@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion';
 import { ChevronRight, Users, Shield, User as UserIcon } from 'lucide-react';
 import { Company, UserProfile } from '../types';
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion';
 import { ChevronRight, Bell, UserPlus, Tag, LayoutList, MessageSquare } from 'lucide-react';
 import { formatRelativeDate } from '../utils';
 import { Notification, Property } from '../types';

@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo, useRef, memo } from 'react';
+import * as React from 'react';
+import { useState, useEffect, useMemo, useRef, memo } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import { 
   Search, 
