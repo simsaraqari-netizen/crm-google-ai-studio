@@ -226,7 +226,7 @@ export const PropertyCard = memo(function PropertyCard({
                   );
                 }}
                 className="p-1.5 text-stone-400 hover:text-blue-600 rounded-lg transition-all"
-                title="حفظ في الأسماء"
+                title="حفظ جهة الاتصال"
               >
                 <UserPlus size={17} />
               </button>
