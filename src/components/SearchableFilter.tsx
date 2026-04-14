@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Filter } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { normalizeArabic } from '../utils';
+import { normalizeArabic, cleanAreaName } from '../utils';
 
 export function SearchableFilter({ 
   label, 
@@ -28,9 +28,11 @@ export function SearchableFilter({
     setSearch(value || '');
   }, [value]);
 
-  const filteredOptions = options.filter(opt => 
-    normalizeArabic(opt).includes(normalizeArabic(search))
-  );
+  const filteredOptions = options.filter(opt => {
+    const cleanOpt = normalizeArabic(cleanAreaName(opt));
+    const cleanSearch = normalizeArabic(cleanAreaName(search));
+    return cleanOpt.includes(cleanSearch);
+  });
 
   const showCreateOption = creatable && search && !options.some(opt => normalizeArabic(opt) === normalizeArabic(search));
 

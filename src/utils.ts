@@ -63,7 +63,8 @@ export function unifyAbuName(name: string): string {
 
 export function cleanAreaName(name: string): string {
   if (!name) return "";
-  return name.replace(/مدينة\s+/g, "").trim();
+  // Remove prefixes like "مدينة", "المدينة", "ضاحية", "منطقة" and any following spaces
+  return name.replace(/^(مدينة|المدينة|ضاحية|منطقة)\s+/g, "").trim();
 }
 
 export function splitMultiValue(value: any): string[] {

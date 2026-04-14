@@ -1358,7 +1358,7 @@ export default function App() {
         (searchTerms.length === 0 || searchTerms.every(t => matchesSingle(t)));
       
       const matchesGov = !governorate || p.governorate === governorate;
-      const matchesArea = !area || p.area === area;
+      const matchesArea = !area || cleanAreaName(p.area || '') === cleanAreaName(area || '');
       const matchesType = !type || p.type === type;
       const matchesPurpose = !purpose || p.purpose === purpose;
       const matchesLocation = !location || p.location === location;
@@ -1888,11 +1888,6 @@ export default function App() {
     return `${p.type || ''} - ${p.area || ''} ${p.block ? `ق${p.block}` : ''}`.trim();
   }
 
-  // Helper for area names
-  function cleanAreaName(name: string) {
-    if (!name) return '';
-    return name.replace('منطقة ', '').trim();
-  }
 
   return (
     <div className="min-h-screen bg-[#f5f5f0] text-stone-900 font-sans" dir="rtl">
