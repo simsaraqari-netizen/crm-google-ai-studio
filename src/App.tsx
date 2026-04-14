@@ -267,21 +267,8 @@ export default function App() {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
   
-  // Auto-trigger search when filters change to make them responsive
-  useEffect(() => {
-    const hasAnyFilter = searchQuery.trim() !== '' || 
-                         filters.governorate !== '' || 
-                         filters.area !== '' || 
-                         filters.type !== '' || 
-                         filters.purpose !== '' || 
-                         filters.location !== '' || 
-                         filters.marketer !== '' || 
-                         filters.status !== '';
-    if (hasAnyFilter && !hasSearched) {
-      setHasSearched(true);
-    }
-  }, [filters, searchQuery, hasSearched]);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
   const [editUserName, setEditUserName] = useState('');
   const [editUserPhone, setEditUserPhone] = useState('');
@@ -306,6 +293,21 @@ export default function App() {
     marketer: '',
     status: ''
   });
+
+  // Auto-trigger search when filters change to make them responsive
+  useEffect(() => {
+    const hasAnyFilter = searchQuery.trim() !== '' || 
+                         filters.governorate !== '' || 
+                         filters.area !== '' || 
+                         filters.type !== '' || 
+                         filters.purpose !== '' || 
+                         filters.location !== '' || 
+                         filters.marketer !== '' || 
+                         filters.status !== '';
+    if (hasAnyFilter && !hasSearched) {
+      setHasSearched(true);
+    }
+  }, [filters, searchQuery, hasSearched]);
 
 
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -1300,7 +1302,6 @@ export default function App() {
     }
 
     const marketers = new Set<string>();
-    // Marketers still rely on loaded employees and property data
     employees.forEach(emp => {
       if (emp.name) marketers.add(unifyAbuName(emp.name));
     });
@@ -1319,9 +1320,41 @@ export default function App() {
       purposes: purposes.sort(),
       locations: locations.sort(),
       marketers: Array.from(marketers).sort(),
-      statuses: ['متاح', 'مباع']
+      statuses: ['متاح', 'مباع', 'تحت الاجراء']
     };
-  }, [properties, filters.governorate, employees, user]);
+  }, [filters.governorate, employees, user, properties]);
+
+  const allSuggestions = useMemo(() => {
+    const suggestions = new Set<string>();
+    availableFilterOptions.governorates.forEach(g => suggestions.add(g));
+    availableFilterOptions.areas.forEach(a => suggestions.add(a));
+    availableFilterOptions.types.forEach(t => suggestions.add(t));
+    availableFilterOptions.purposes.forEach(p => suggestions.add(p));
+    return Array.from(suggestions).filter(Boolean).sort();
+  }, [availableFilterOptions]);
+
+  const mainSearchSuggestions = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const cleanSearch = normalizeArabic(cleanAreaName(searchQuery)).toLowerCase();
+    const tokens = cleanSearch.split(/\s+/).filter(Boolean);
+    if (tokens.length === 0) return [];
+    
+    return allSuggestions
+      .filter(s => {
+        const cleanS = normalizeArabic(cleanAreaName(s)).toLowerCase();
+        return tokens.every(t => cleanS.includes(t)) && !searchTerms.includes(s);
+      })
+      .sort((a, b) => {
+        const cleanA = normalizeArabic(cleanAreaName(a)).toLowerCase();
+        const cleanB = normalizeArabic(cleanAreaName(b)).toLowerCase();
+        const aStarts = cleanA.startsWith(cleanSearch);
+        const bStarts = cleanB.startsWith(cleanSearch);
+        if (aStarts && !bStarts) return -1;
+        if (!aStarts && bStarts) return 1;
+        return a.localeCompare(b, 'ar');
+      })
+      .slice(0, 8);
+  }, [searchQuery, allSuggestions, searchTerms]);
 
   const filteredProperties = useMemo(() => {
     const sourceProperties = view === 'trash' ? deletedProperties : properties;
@@ -2372,7 +2405,11 @@ export default function App() {
                           placeholder={searchTerms.length === 0 && !searchQuery && Object.values(filters).every(v => !v) ? "ابحث بالاسم، الرقم، أو المنطقة..." : ""}
                           className="flex-1 min-w-[80px] bg-transparent border-none outline-none text-sm py-1.5 text-stone-700"
                           value={searchQuery}
-                          onChange={(e) => setSearchQuery(normalizeDigits(e.target.value))}
+                          onChange={(e) => {
+                            setSearchQuery(normalizeDigits(e.target.value));
+                            setIsSuggestionsOpen(true);
+                          }}
+                          onFocus={() => setIsSuggestionsOpen(true)}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               if (searchQuery.trim()) {
@@ -2408,6 +2445,51 @@ export default function App() {
                           </button>
                         )}
                       </div>
+
+                      <AnimatePresence>
+                        {isSuggestionsOpen && mainSearchSuggestions.length > 0 && (
+                          <>
+                            <div 
+                              className="fixed inset-0 z-[60]" 
+                              onClick={() => setIsSuggestionsOpen(false)} 
+                            />
+                            <motion.div
+                              initial={{ opacity: 0, y: 5 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: 5 }}
+                              className="absolute top-full left-0 right-0 mt-2 bg-white/95 backdrop-blur-xl border border-stone-200 rounded-xl shadow-2xl z-[70] overflow-hidden max-h-60 overflow-y-auto"
+                            >
+                              <div className="p-1.5 space-y-0.5">
+                                <div className="px-3 py-2 text-[10px] font-bold text-stone-400 uppercase tracking-wider text-right">
+                                  اقتراحات البحث
+                                </div>
+                                {mainSearchSuggestions.map((suggestion, idx) => (
+                                  <button
+                                    key={idx}
+                                    type="button"
+                                    onClick={() => {
+                                      if (searchTerms.length >= 10) {
+                                        toast.error("الحد الأقصى للبحث هو 10 خيارات فقط");
+                                        return;
+                                      }
+                                      setSearchTerms(prev => [...prev, suggestion]);
+                                      setSearchQuery('');
+                                      setIsSuggestionsOpen(false);
+                                      setHasSearched(true);
+                                    }}
+                                    className="w-full text-right px-3 py-2.5 text-sm hover:bg-emerald-50 rounded-lg transition-colors flex items-center justify-between group"
+                                  >
+                                    <span className="text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <Search size={14} />
+                                    </span>
+                                    <span className="text-stone-700 font-medium">{suggestion}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </motion.div>
+                          </>
+                        )}
+                      </AnimatePresence>
                     </div>
                   </div>
 

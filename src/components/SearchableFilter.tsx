@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Filter } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { normalizeArabic, cleanAreaName } from '../utils';
@@ -28,11 +28,30 @@ export function SearchableFilter({
     setSearch(value || '');
   }, [value]);
 
-  const filteredOptions = options.filter(opt => {
-    const cleanOpt = normalizeArabic(cleanAreaName(opt));
-    const cleanSearch = normalizeArabic(cleanAreaName(search));
-    return cleanOpt.includes(cleanSearch);
-  });
+  const filteredOptions = useMemo(() => {
+    if (!search) return options;
+    const cleanSearch = normalizeArabic(cleanAreaName(search)).toLowerCase();
+    const searchTokens = cleanSearch.split(/\s+/).filter(Boolean);
+    
+    return options
+      .filter(opt => {
+        const cleanOpt = normalizeArabic(cleanAreaName(opt)).toLowerCase();
+        // Smart matching: all search tokens must be present in the option
+        return searchTokens.every(token => cleanOpt.includes(token));
+      })
+      .sort((a, b) => {
+        const cleanA = normalizeArabic(cleanAreaName(a)).toLowerCase();
+        const cleanB = normalizeArabic(cleanAreaName(b)).toLowerCase();
+        
+        // Prioritize results that start with the search query
+        const aStarts = cleanA.startsWith(cleanSearch);
+        const bStarts = cleanB.startsWith(cleanSearch);
+        
+        if (aStarts && !bStarts) return -1;
+        if (!aStarts && bStarts) return 1;
+        return a.localeCompare(b, 'ar');
+      });
+  }, [options, search]);
 
   const showCreateOption = creatable && search && !options.some(opt => normalizeArabic(opt) === normalizeArabic(search));
 
