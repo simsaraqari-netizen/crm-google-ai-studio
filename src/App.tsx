@@ -1361,8 +1361,8 @@ export default function App() {
       const matchesLocation = !location || p.location === location;
       const matchesMarketer = !marketer || unifyAbuName(p.assigned_employee_name || '') === unifyAbuName(marketer);
       const matchesStatus = !status || 
-                           (status === 'sold' && p.is_sold) || 
-                           (status === 'available' && !p.is_sold);
+                           ((status === 'sold' || status === 'مباع') && p.is_sold) || 
+                           ((status === 'available' || status === 'متاح' || status === 'متوفر') && !p.is_sold);
 
       // Only show results if search has been performed, unless in specific management views
       const isManagementView = view === 'pending-properties' || view === 'trash' || view === 'my-favorites';
@@ -2501,20 +2501,12 @@ export default function App() {
                           onChange={(val) => setFilters({...filters, marketer: val})}
                         />
 
-                        <div className="bg-white/70 backdrop-blur-md border border-stone-200 rounded-lg p-2 h-[46px] flex flex-col justify-center focus-within:border-emerald-500 focus-within:ring-4 focus-within:ring-emerald-500/10 transition-all shadow-sm hover:border-stone-300">
-                          <div className="relative flex items-center">
-                            <select 
-                              className="w-full bg-transparent border-none p-0 text-sm text-right outline-none focus:ring-0 appearance-none"
-                              value={filters.status}
-                              onChange={(e) => setFilters({...filters, status: e.target.value})}
-                            >
-                              <option value="">ابحث بالحالة (الكل)</option>
-                              <option value="available">متاح</option>
-                              <option value="sold">مباع</option>
-                            </select>
-                            <ChevronDown size={14} className="mr-2 text-stone-300 pointer-events-none shrink-0" />
-                          </div>
-                        </div>
+                        <SearchableFilter 
+                          placeholder="الحالة..."
+                          options={availableFilterOptions.statuses || []}
+                          value={filters.status}
+                          onChange={(val) => setFilters({...filters, status: val})}
+                        />
                       </div>
                       
                       <div className="mt-4 flex flex-col sm:flex-row gap-2">
