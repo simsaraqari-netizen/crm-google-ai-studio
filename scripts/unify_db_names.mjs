@@ -115,11 +115,21 @@ async function runMigration() {
     if (Object.keys(updates).length > 0) {
       const { error } = await supabase.from('comments').update(updates).eq('id', c.id);
       if (!error) commentUpdates++;
+      else console.error(`Error updating comment ${c.id}:`, error.message);
     }
   }
-  console.log(`✅ Comments updated: ${commentUpdates}`);
+  console.log(`✅ Comments normalized: ${commentUpdates}`);
 
-  console.log("🎉 Migration Finished Successfully!");
+  console.log("\n--- Migration Summary ---");
+  console.log(`Profiles updated:   ${profileUpdates}`);
+  console.log(`Properties updated: ${propertyUpdates}`);
+  console.log(`Comments updated:   ${commentUpdates}`);
+  console.log("-------------------------\n");
+  console.log("🎉 All existing names have been standardized!");
+  console.log("Future entries will be normalized automatically by the application.");
 }
 
-runMigration().catch(console.error);
+runMigration().catch(err => {
+  console.error("❌ Migration failed:", err);
+  process.exit(1);
+});

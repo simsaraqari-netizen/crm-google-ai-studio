@@ -152,7 +152,7 @@ export const PropertyDetails = memo(function PropertyDetails({
       const commentData = {
         property_id: property.id,
         user_id: user.uid,
-        user_name: user.name || user.full_name || user.email || 'مستخدم',
+        user_name: unifyAbuName(user.name || user.full_name || user.email || 'مستخدم'),
         user_phone: user.phone || '',
         text: newComment,
         images: [],

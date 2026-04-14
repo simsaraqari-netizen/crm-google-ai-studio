@@ -1326,7 +1326,7 @@ export default function App() {
         const myName = user?.name || user?.full_name || '';
         const byId = p.assigned_employee_id === myId || p.created_by === myId;
         const byName = myName && p.assigned_employee_name &&
-          p.assigned_employee_name.trim() === myName.trim();
+          unifyAbuName(p.assigned_employee_name) === unifyAbuName(myName);
         if (!byId && !byName) return false;
       }
       if (view === 'my-favorites' && !favorites.includes(p.id)) return false;
@@ -1335,7 +1335,7 @@ export default function App() {
         const emp = employees.find(e => e.uid === selectedMarketerId);
         const byId = p.assigned_employee_id === selectedMarketerId;
         const byName = emp?.name && p.assigned_employee_name &&
-          p.assigned_employee_name.trim() === emp.name.trim();
+          unifyAbuName(p.assigned_employee_name) === unifyAbuName(emp.name);
         if (!byId && !byName) return false;
       }
       if (view === 'pending-properties' && p.status !== 'pending') return false;
@@ -1370,7 +1370,7 @@ export default function App() {
       const matchesType = !type || p.type === type;
       const matchesPurpose = !purpose || p.purpose === purpose;
       const matchesLocation = !location || p.location === location;
-      const matchesMarketer = !marketer || p.assigned_employee_name === marketer;
+      const matchesMarketer = !marketer || unifyAbuName(p.assigned_employee_name || '') === unifyAbuName(marketer);
       const matchesStatus = !status || 
                            (status === 'sold' && p.is_sold) || 
                            (status === 'available' && !p.is_sold);
