@@ -1374,8 +1374,9 @@ export default function App() {
       
       const matchesGov = !governorate || p.governorate === governorate;
       const matchesArea = !area || (() => {
-        const pAreas = (p.area || '').split(/[,\n،;|/]+/).map(a => cleanAreaName(a.trim()));
-        return pAreas.includes(cleanAreaName(area));
+        const pAreas = (p.area || '').split(/[,\n،;|/]+/).map(a => normalizeArabic(cleanAreaName(a.trim())));
+        const cleanFilterArea = normalizeArabic(cleanAreaName(area));
+        return pAreas.includes(cleanFilterArea);
       })();
       const matchesType = !type || p.type === type;
       const matchesPurpose = !purpose || p.purpose === purpose;
