@@ -93,16 +93,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           // Special handling for the main admin account
           if (sbUser.email === 'admin@musadaqa.com') {
-            updates.full_name = 'أبو آدم';
-            updates.name = 'أبو آدم';
+            updates.full_name = 'ابو ادم';
+            updates.name = 'ابو ادم';
             updates.phone = '65814909';
           }
           
           await supabase.from('profiles').update(updates).eq('id', sbUser.id);
           Object.assign(userData, updates);
-        } else if (sbUser.email === 'admin@musadaqa.com' && (userData.full_name !== 'أبو آدم' || userData.phone !== '65814909')) {
           // Ensure details are up to date for this specific user even if already super_admin
-          const updates = { full_name: 'أبو آدم', name: 'أبو آدم', phone: '65814909' };
+          const updates = { full_name: 'ابو ادم', name: 'ابو ادم', phone: '65814909' };
           await supabase.from('profiles').update(updates).eq('id', sbUser.id);
           Object.assign(userData, updates);
         }
@@ -115,8 +114,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const newProfile = {
           id: sbUser.id,
           email: sbUser.email || '',
-          full_name: isAdminAccount ? 'أبو آدم' : unifyAbuName(sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'User'),
-          name: isAdminAccount ? 'أبو آدم' : unifyAbuName(sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'User'),
+          full_name: isAdminAccount ? 'ابو ادم' : unifyAbuName(sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'User'),
+          name: isAdminAccount ? 'ابو ادم' : unifyAbuName(sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'User'),
           phone: isAdminAccount ? '65814909' : '',
           role: isSuper ? 'super_admin' : 'pending',
           created_at: new Date().toISOString()
