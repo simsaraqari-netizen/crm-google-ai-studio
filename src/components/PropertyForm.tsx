@@ -72,7 +72,6 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
     comments_2: '',
     comments_3: '',
     status_label: property?.status_label || '',
-    property_code: property?.property_code || '',
     company_id: property?.company_id || (isSuperAdmin ? selectedCompanyId : (user?.company_id || user?.companyId))
   });
 
@@ -104,15 +103,9 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
     fetchEmployees();
   }, [isSuperAdmin, selectedCompanyId, user?.companyId, user?.company_id, formData.company_id]);
 
-  // Generate unique property code from DB (atomic, no race conditions)
+  // Removed: automatic property code generation via RPC as it is now calculated on the fly
   useEffect(() => {
-    if (!property && !formData.property_code) {
-      supabase.rpc('next_property_code').then(({ data, error }) => {
-        if (!error && data) {
-          setFormData(prev => ({ ...prev, property_code: String(data) }));
-        }
-      });
-    }
+    // No longer needed
   }, [property]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -261,41 +254,18 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
         savedProperty = updated;
         await notifyFavoriteUsers(property.id, property, data);
       } else {
-        // Insert with automatic retry on duplicate code (unique constraint violation)
-        let insertError: any = null;
-        let currentCode = formData.property_code;
+        const { data: inserted, error } = await supabase
+          .from('properties')
+          .insert({
+            ...data,
+            created_at: new Date().toISOString(),
+            created_by: user?.uid || user?.id,
+          })
+          .select()
+          .single();
 
-        for (let attempt = 0; attempt < 5; attempt++) {
-          const { data: inserted, error } = await supabase
-            .from('properties')
-            .insert({
-              ...data,
-              property_code: currentCode,
-              created_at: new Date().toISOString(),
-              created_by: user?.uid || user?.id,
-            })
-            .select()
-            .single();
-
-          if (!error) {
-            savedProperty = inserted;
-            insertError = null;
-            break;
-          }
-
-          // 23505 = unique_violation in PostgreSQL
-          if (error.code === '23505') {
-            const { data: nextCode } = await supabase.rpc('next_property_code');
-            currentCode = nextCode ? String(nextCode) : String(Date.now()).slice(-5);
-            insertError = error;
-            continue;
-          }
-
-          // Any other error — throw immediately
-          throw error;
-        }
-
-        if (insertError) throw insertError;
+        if (error) throw error;
+        savedProperty = inserted;
       }
 
       toast.success(property ? 'تم تحديث العقار بنجاح' : 'تمت إضافة العقار بنجاح');
@@ -353,7 +323,7 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
             <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest px-1">كود العقار (تلقائي)</label>
             <div className="px-4 py-2 bg-white rounded-lg border border-emerald-200 shadow-sm">
               <p className="text-sm font-black text-emerald-700">
-                #{formData.property_code || '....'}
+                #{property ? getPropertyCode(property) : '....'}
               </p>
             </div>
           </div>

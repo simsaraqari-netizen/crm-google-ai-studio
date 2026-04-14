@@ -755,8 +755,8 @@ export default function App() {
           const q = appliedFilters.query.trim();
           const isDigitOnly = /^\d+$/.test(q);
           
-          // Base terms: name, code, area, details
-          let orTerms = `name.ilike.%${q}%,property_code.ilike.%${q}%,area.ilike.%${q}%,details.ilike.%${q}%`;
+          // Base terms: name, area, details (removed property_code)
+          let orTerms = `name.ilike.%${q}%,area.ilike.%${q}%,details.ilike.%${q}%`;
           
           // Strict phone match: only if query is 8 digits
           if (isDigitOnly && q.length === 8) {
