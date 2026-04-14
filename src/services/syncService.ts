@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { readSheet, writeToSheet } from './googleSheetsService.ts';
-import { cleanAreaName, inferGovernorate, inferPurpose, inferType, cleanNameText, cleanNameWithContext, normalizeDigits, normalizeHamza, splitMultiValue, unifyAbuName, normalizeArabic, toArabicDigits } from '../utils.ts';
+import { cleanAreaName, inferGovernorate, inferPurpose, inferType, cleanNameText, cleanNameWithContext, normalizeDigits, normalizeHamza, splitMultiValue, unifyAbuName, normalizeArabic, toArabicDigits, getPropertyCode } from '../utils.ts';
 
 const supabaseAdmin = createClient(
   process.env.VITE_SUPABASE_URL!,
@@ -28,8 +28,6 @@ const KNOWN_EMPLOYEE_ALIASES = [
   'ابو احمد',
   'ام احمد',
 ];
-
-}
 
 function parseIssueDate(value: any): Date | null {
   const raw = String(value || '').trim();
@@ -216,7 +214,7 @@ function buildSheetHeader() {
     "الاسم", "الغرض", "الهاتف", "الهاتف ٢", "المنطقة", "نوع العقار",
     "المحافظة", "القطاع", "التوزيعة", "القطعة", "الشارع", "الجادة",
     "رقم القسيمة", "المنزل", "الموقع", "رابط الموقع", "حالة العقار",
-    "موظف الادخال", "الصور", "تعليقات", "تعليقات ٢", "تعليقات ٣", "ID", "تاريخ الادخال"
+    "موظف الادخال", "الصور", "تعليقات", "تعليقات ٢", "تعليقات ٣", "ID", "كود العقار", "تاريخ الادخال"
   ];
 }
 
@@ -270,6 +268,7 @@ async function buildSupabaseSheetPayload(): Promise<any[][]> {
     '',
     '',
     p.id,
+    getPropertyCode(p),
     p.created_at ? new Date(p.created_at).toLocaleString('ar-KW') : '',
   ]);
 

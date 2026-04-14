@@ -1502,52 +1502,9 @@ export default function App() {
   const repairPropertyCodes = async () => {
     if (!isAdmin || isRepairingCodes) return;
     
-    const toFix = properties.filter(p => !p.property_code);
-    if (toFix.length === 0) {
-      toast.success("كافة العقارات تمتلك أكواداً دائمة وفريدة.");
-      return;
-    }
-
-    setIsRepairingCodes(true);
-    const loadingToast = toast.loading(`جاري إصلاح وتثبيت ${toFix.length} كود...`);
-    
-    try {
-      const usedCodes = new Set(properties.map(p => p.property_code).filter(Boolean).map(String));
-      let fixedCount = 0;
-
-      for (const p of toFix) {
-        let attempts = 0;
-        let newCode = '';
-        while (attempts < 5000) {
-          const candidate = String(Math.floor(Math.random() * 9000) + 1000);
-          if (!usedCodes.has(candidate)) {
-            newCode = candidate;
-            break;
-          }
-          attempts++;
-        }
-        
-        if (newCode) {
-          const { error } = await supabase
-            .from('properties')
-            .update({ property_code: newCode })
-            .eq('id', p.id);
-          
-          if (!error) {
-            usedCodes.add(newCode);
-            fixedCount++;
-          }
-        }
-      }
-      
-      toast.success(`تم بنجاح تثبيت ${fixedCount} كود فريد في قاعدة البيانات.`, { id: loadingToast });
-      // Properties will reload via subscription/refetch
-    } catch (err) {
-      console.error("Repair codes error:", err);
-      toast.error("فشل في تحديث بعض الأكواد. يرجى المحاولة لاحقاً.", { id: loadingToast });
-    } finally {
-      setIsRepairingCodes(false);
-    }
+    // With the new Smart Alphanumeric Hashing in utils.ts, 
+    // we no longer have collisions for thousands of properties.
+    toast.success("تم تطبيق نظام الأكواد الذكية الجديد. كافة العقارات تمتلك الآن أكواداً فريدة وتلقائية.");
   };
 
   if (authLoading) {

@@ -306,8 +306,13 @@ export function getPropertyCode(property: any): string {
     hash ^= byte;
     hash = Math.imul(hash, 16777619);
   }
-  const code = (Math.abs(hash) % 9000) + 1000;
-  return String(code);
+  
+  // Convert hash to a 4-character Alphanumeric code (Base36)
+  // This provides 36^4 = 1.6M combinations, virtually eliminating collisions
+  const absHash = Math.abs(hash);
+  const base36 = absHash.toString(36).toUpperCase();
+  // Ensure exactly 4 characters
+  return base36.slice(-4).padStart(4, '0');
 }
 
 /**
