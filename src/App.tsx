@@ -323,7 +323,7 @@ export default function App() {
             uid: doc.id,
             ...doc
           })) as UserProfile[];
-          setEmployees(mappedUsers.filter(u => u.uid !== user?.uid));
+          setEmployees(mappedUsers);
 
           // Subscribe to changes
           channel = supabase.channel('users-changes');
@@ -1301,7 +1301,7 @@ export default function App() {
       purposes: purposes.sort(),
       locations: locations.sort(),
       marketers: Array.from(marketers).sort(),
-      statuses: ['متوفر', 'مباع']
+      statuses: ['متاح', 'مباع']
     };
   }, [properties, filters.governorate, employees, user]);
 
