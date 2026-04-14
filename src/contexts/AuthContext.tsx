@@ -89,18 +89,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (SUPER_ADMIN_EMAILS.includes(sbUser.email || '') && userData.role !== 'super_admin') {
-          await supabase.from('profiles').update({ role: 'super_admin' }).eq('id', sbUser.id);
-          userData.role = 'super_admin';
+          const updates: any = { role: 'super_admin' };
+          
+          // Special handling for the main admin account
+          if (sbUser.email === 'admin@musadaqa.com') {
+            updates.full_name = 'أبو آدم';
+            updates.name = 'أبو آدم';
+            updates.phone = '65814909';
+          }
+          
+          await supabase.from('profiles').update(updates).eq('id', sbUser.id);
+          Object.assign(userData, updates);
+        } else if (sbUser.email === 'admin@musadaqa.com' && (userData.full_name !== 'أبو آدم' || userData.phone !== '65814909')) {
+          // Ensure details are up to date for this specific user even if already super_admin
+          const updates = { full_name: 'أبو آدم', name: 'أبو آدم', phone: '65814909' };
+          await supabase.from('profiles').update(updates).eq('id', sbUser.id);
+          Object.assign(userData, updates);
         }
         setUser(userData as UserProfile);
         if (userData.company_id) setSelectedCompanyId(userData.company_id);
       } else {
         const isSuper = SUPER_ADMIN_EMAILS.includes(sbUser.email || '');
+        const isAdminAccount = sbUser.email === 'admin@musadaqa.com';
+        
         const newProfile = {
           id: sbUser.id,
           email: sbUser.email || '',
-          full_name: unifyAbuName(sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'User'),
-          name: unifyAbuName(sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'User'),
+          full_name: isAdminAccount ? 'أبو آدم' : unifyAbuName(sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'User'),
+          name: isAdminAccount ? 'أبو آدم' : unifyAbuName(sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'User'),
+          phone: isAdminAccount ? '65814909' : '',
           role: isSuper ? 'super_admin' : 'pending',
           created_at: new Date().toISOString()
         };

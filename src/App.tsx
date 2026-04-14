@@ -1267,35 +1267,27 @@ export default function App() {
 
 
   const availableFilterOptions = useMemo(() => {
-    const governorates = new Set<string>();
-    const areas = new Set<string>();
-    const types = new Set<string>();
-    const purposes = new Set<string>();
-    const locations = new Set<string>();
+    const governorates = [...GOVERNORATES];
+    const types = [...PROPERTY_TYPES];
+    const purposes = [...PURPOSES];
+    const locations = [...LOCATIONS];
+    
+    // Areas based on selected governorate
+    let areas: string[] = [];
+    if (filters.governorate && AREAS[filters.governorate]) {
+      areas = [...AREAS[filters.governorate]].sort();
+    } else {
+      // All areas if no specific governorate
+      areas = Array.from(new Set(Object.values(AREAS).flat())).sort();
+    }
+
     const marketers = new Set<string>();
-
-    properties.forEach(p => {
-      if (p.governorate) governorates.add(p.governorate);
-      
-      if (p.area) {
-        if (!filters.governorate || p.governorate === filters.governorate) {
-          areas.add(p.area);
-        }
-      }
-      
-      if (p.type) types.add(p.type);
-      if (p.purpose) purposes.add(p.purpose);
-      if (p.location) locations.add(p.location);
-    });
-
-    // Add all active employees to the filter list for "Search by Entry Employee"
+    // Marketers still rely on loaded employees and property data
     employees.forEach(emp => {
       if (emp.name) marketers.add(unifyAbuName(emp.name));
     });
-    // Add current user too
     if (user?.name) marketers.add(unifyAbuName(user.name));
     
-    // Also add names found in existing properties that might not be in the current employee list
     properties.forEach(p => {
       if (p.assignedEmployeeName) marketers.add(unifyAbuName(p.assignedEmployeeName));
       if (p.assigned_employee_name) marketers.add(unifyAbuName(p.assigned_employee_name));
@@ -1303,14 +1295,14 @@ export default function App() {
     });
 
     return {
-      governorates: Array.from(governorates).sort(),
-      areas: Array.from(areas).sort(),
-      types: Array.from(types).sort(),
-      purposes: Array.from(purposes).sort(),
-      locations: Array.from(locations).sort(),
+      governorates: governorates.sort(),
+      areas,
+      types: types.sort(),
+      purposes: purposes.sort(),
+      locations: locations.sort(),
       marketers: Array.from(marketers).sort()
     };
-  }, [properties, filters.governorate]);
+  }, [properties, filters.governorate, employees, user]);
 
   const filteredProperties = useMemo(() => {
     const sourceProperties = view === 'trash' ? deletedProperties : properties;

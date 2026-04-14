@@ -62,5 +62,5 @@ export const LOCATIONS = [
   "راس ٣ شوارع"
 ];
 
-export const SUPER_ADMIN_EMAILS = ["simsaraqari@gmail.com", "mostafasoliman550@gmail.com", "65814909@realestate.com", "66155981@realestate.com"];
+export const SUPER_ADMIN_EMAILS = ["simsaraqari@gmail.com", "mostafasoliman550@gmail.com", "65814909@realestate.com", "66155981@realestate.com", "admin@musadaqa.com"];
 export const SUPER_ADMIN_PHONES = ["65814909", "66155981"];
