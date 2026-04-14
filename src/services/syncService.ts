@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { readSheet, writeToSheet } from './googleSheetsService.ts';
-import { cleanAreaName, inferGovernorate, inferPurpose, inferType, cleanNameText, cleanNameWithContext, normalizeDigits, normalizeHamza, splitMultiValue } from '../utils.ts';
+import { cleanAreaName, inferGovernorate, inferPurpose, inferType, cleanNameText, cleanNameWithContext, normalizeDigits, normalizeHamza, splitMultiValue, unifyAbuName } from '../utils.ts';
 
 const supabaseAdmin = createClient(
   process.env.VITE_SUPABASE_URL!,
@@ -169,12 +169,13 @@ async function syncSheetCommentsForProperty(
       ? matchedUsers.map((u: any) => u.full_name || u.name).filter(Boolean)
       : uniqueAliases;
     const userName = userNames.length > 0 ? Array.from(new Set(userNames)).join('، ') : 'مزامنة الشيت';
+    const normalizedCommentName = unifyAbuName(userName);
     const userId = matchedUsers.length === 1 ? matchedUsers[0].id : null;
 
     const payload: any = {
       property_id: propertyId,
       user_id: userId,
-      user_name: userName,
+      user_name: normalizedCommentName,
       text: parsed.finalText,
       images: [],
       created_at: parsed.createdAt || new Date().toISOString(),
@@ -468,7 +469,7 @@ export const syncSupabaseWithSheets = async () => {
         let finalEmployeeName = existing?.assigned_employee_name || '';
         if (rawEmployeeName) {
           const names = splitMultiValue(rawEmployeeName);
-          finalEmployeeName = Array.from(new Set(names)).join(', ');
+          finalEmployeeName = Array.from(new Set(names.map(n => unifyAbuName(n)))).join(', ');
         }
 
         const cName = getVal(name, 'name');
@@ -486,7 +487,7 @@ export const syncSupabaseWithSheets = async () => {
         }
 
         const propertyData: any = {
-          name: normalizeHamza(cleanNameText(cName)),
+          name: unifyAbuName(cName),
           governorate: finalGov,
           area: finalArea,
           type: newType || cType,
