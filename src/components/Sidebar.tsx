@@ -71,9 +71,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-200 shrink-0">
               <Building2 className="text-white" size={24} />
             </div>
-            <span className={`font-black text-xl tracking-tight text-stone-900 whitespace-nowrap transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 lg:hidden'}`}>
-              {company?.name || 'عقاراتي'}
-            </span>
+            <div className="flex flex-col min-w-0">
+              <span className={`font-black text-xl tracking-tight text-stone-900 whitespace-nowrap transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 lg:hidden'}`}>
+                {company?.name || 'عقاراتي'}
+              </span>
+              {user && isSidebarOpen && (
+                <div className="flex flex-col mt-1 transition-opacity duration-500 delay-100 italic">
+                  <span className="text-xs font-bold text-emerald-700 truncate">{user.name}</span>
+                  <span className="text-[10px] text-stone-400 truncate font-medium">{user.email}</span>
+                </div>
+              )}
+            </div>
           </div>
           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 hover:bg-stone-100 rounded-lg transition-colors">
             <X size={20} />
