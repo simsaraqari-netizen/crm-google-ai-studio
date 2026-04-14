@@ -261,8 +261,8 @@ export const compressImage = (file: File): Promise<Blob> => {
         };
       };
     }),
-    // Fallback: if compression hangs for 8 seconds, use original file
-    new Promise<Blob>((resolve) => setTimeout(() => resolve(file), 8000))
+    // Fallback: if compression hangs for 30 seconds, use original file
+    new Promise<Blob>((resolve) => setTimeout(() => resolve(file), 30000))
   ]);
 };
 

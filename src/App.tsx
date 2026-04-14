@@ -306,8 +306,13 @@ export default function App() {
             if (selectedCompanyId) {
               query = query.eq('company_id', selectedCompanyId);
             }
+            // If no selectedCompanyId, we fetch all users across all companies for Super Admin
+          } else if (user?.companyId) {
+            query = query.eq('company_id', user.companyId);
           } else {
-            query = query.eq('company_id', user?.companyId);
+            // Non-admin/employees with no company see no others
+            setEmployees([]);
+            return;
           }
 
           const { data: usersData, error } = await query;
@@ -425,16 +430,6 @@ export default function App() {
     }
   }, [properties, window.location.hash]);
 
-  useEffect(() => {
-    if (view === 'details' && selectedProperty && properties.length > 0) {
-      const exists = properties.find(p => p.id === selectedProperty.id);
-      if (!exists) {
-        setSelectedProperty(null);
-        setView('list');
-        toast.error('هذا العقار لم يعد متاحاً');
-      }
-    }
-  }, [properties, view, selectedProperty]);
 
   // Sync state changes to history
   useEffect(() => {
@@ -1438,19 +1433,23 @@ export default function App() {
     const codes = new Map<string, number>();
     properties.forEach(p => {
       const code = getPropertyCode(p);
-      codes.set(code, (codes.get(code) || 0) + 1);
+      // Skip placeholders ('----') and only track unique codes if they are more than 4 chars or explicitly saved
+      if (code !== '----') {
+        codes.set(code, (codes.get(code) || 0) + 1);
+      }
     });
     
     const dups = Array.from(codes.values()).filter(count => count > 1).length;
     setDuplicateCodesCount(dups);
     
-    if (dups > 0) {
+    // Lower frequency of this alert or only show in specific admin views to avoid spamming the user
+    if (dups > 0 && view === 'manage-companies') {
       toast.error(`تنبيه: تم اكتشاف ${dups} أكواد مكررة. يرجى استخدام أداة الإصلاح في لوحة الإدارة.`, {
         id: 'code-collision-alert',
         duration: 5000
       });
     }
-  }, [properties, isAdmin]);
+  }, [properties, isAdmin, view]);
 
   const repairPropertyCodes = async () => {
     if (!isAdmin || isRepairingCodes) return;

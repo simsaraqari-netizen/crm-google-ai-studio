@@ -142,7 +142,7 @@ export const PropertyForm = memo(function PropertyForm({ property, isAdmin, user
         const uploadWithTimeout = Promise.race([
           supabase.storage.from('properties_media').upload(filePath, fileToUpload, { contentType }),
           new Promise<{ error: Error }>(resolve =>
-            setTimeout(() => resolve({ error: new Error('انتهت مهلة الرفع') }), 30000)
+            setTimeout(() => resolve({ error: new Error('انتهت مهلة الرفع') }), 120000)
           )
         ]);
 
