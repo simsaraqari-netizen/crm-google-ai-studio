@@ -1300,7 +1300,8 @@ export default function App() {
       types: types.sort(),
       purposes: purposes.sort(),
       locations: locations.sort(),
-      marketers: Array.from(marketers).sort()
+      marketers: Array.from(marketers).sort(),
+      statuses: ['متوفر', 'مباع']
     };
   }, [properties, filters.governorate, employees, user]);
 
