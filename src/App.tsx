@@ -1303,6 +1303,7 @@ export default function App() {
     // Also add names found in existing properties that might not be in the current employee list
     properties.forEach(p => {
       if (p.assignedEmployeeName) marketers.add(unifyAbuName(p.assignedEmployeeName));
+      if (p.assigned_employee_name) marketers.add(unifyAbuName(p.assigned_employee_name));
       if (p.created_by_name) marketers.add(unifyAbuName(p.created_by_name));
     });
 
