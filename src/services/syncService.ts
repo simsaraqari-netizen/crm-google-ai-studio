@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { readSheet, writeToSheet } from './googleSheetsService.ts';
-import { cleanAreaName, inferGovernorate, inferPurpose, inferType, cleanNameText, cleanNameWithContext, normalizeDigits, normalizeHamza, splitMultiValue, unifyAbuName } from '../utils.ts';
+import { cleanAreaName, inferGovernorate, inferPurpose, inferType, cleanNameText, cleanNameWithContext, normalizeDigits, normalizeHamza, splitMultiValue, unifyAbuName, normalizeArabic, toArabicDigits } from '../utils.ts';
 
 const supabaseAdmin = createClient(
   process.env.VITE_SUPABASE_URL!,
@@ -127,18 +127,18 @@ async function syncSheetCommentsForProperty(
     const parsed = extractSheetComment(cell.raw, cell.date, cell.interviewer);
     if (!parsed) continue;
 
-    const textNorm = normalizeLoose(parsed.finalText);
-    const duplicate = (existingComments || []).some((c: any) => normalizeLoose(c.text || '') === textNorm);
+    const textNorm = normalizeArabic(parsed.finalText);
+    const duplicate = (existingComments || []).some((c: any) => normalizeArabic(c.text || '') === textNorm);
     if (duplicate) continue;
 
     const aliases = KNOWN_EMPLOYEE_ALIASES.filter(alias =>
-      normalizeLoose(parsed.rawText).includes(normalizeLoose(alias))
+      normalizeArabic(parsed.rawText).includes(normalizeArabic(alias))
     );
     const uniqueAliases = Array.from(new Set(aliases));
 
     const matchedUsers = userPool.filter((u: any) => {
-      const name = normalizeLoose(u.full_name || u.name || '');
-      return uniqueAliases.some(alias => name.includes(normalizeLoose(alias)));
+      const name = normalizeArabic(u.full_name || u.name || '');
+      return uniqueAliases.some(alias => name.includes(normalizeArabic(alias)));
     });
 
     const userNames = matchedUsers.length > 0
