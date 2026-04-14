@@ -267,6 +267,21 @@ export default function App() {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  
+  // Auto-trigger search when filters change to make them responsive
+  useEffect(() => {
+    const hasAnyFilter = searchQuery.trim() !== '' || 
+                         filters.governorate !== '' || 
+                         filters.area !== '' || 
+                         filters.type !== '' || 
+                         filters.purpose !== '' || 
+                         filters.location !== '' || 
+                         filters.marketer !== '' || 
+                         filters.status !== '';
+    if (hasAnyFilter && !hasSearched) {
+      setHasSearched(true);
+    }
+  }, [filters, searchQuery, hasSearched]);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
   const [editUserName, setEditUserName] = useState('');
   const [editUserPhone, setEditUserPhone] = useState('');
@@ -1358,7 +1373,10 @@ export default function App() {
         (searchTerms.length === 0 || searchTerms.every(t => matchesSingle(t)));
       
       const matchesGov = !governorate || p.governorate === governorate;
-      const matchesArea = !area || cleanAreaName(p.area || '') === cleanAreaName(area || '');
+      const matchesArea = !area || (() => {
+        const pAreas = (p.area || '').split(/[,\n،;|/]+/).map(a => cleanAreaName(a.trim()));
+        return pAreas.includes(cleanAreaName(area));
+      })();
       const matchesType = !type || p.type === type;
       const matchesPurpose = !purpose || p.purpose === purpose;
       const matchesLocation = !location || p.location === location;

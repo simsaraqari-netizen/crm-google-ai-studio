@@ -63,8 +63,10 @@ export function unifyAbuName(name: string): string {
 
 export function cleanAreaName(name: string): string {
   if (!name) return "";
-  // Remove prefixes like "مدينة", "المدينة", "ضاحية", "منطقة" and any following spaces
-  return name.replace(/^(مدينة|المدينة|ضاحية|منطقة)\s+/g, "").trim();
+  // Remove keywords like "مدينة", "ضاحية", etc. and normalize spaces
+  return name.replace(/(مدينة|المدينة|ضاحية|منطقة)\s+/g, " ")
+             .replace(/\s+/g, " ")
+             .trim();
 }
 
 export function splitMultiValue(value: any): string[] {
@@ -131,7 +133,7 @@ export function cleanNameWithContext(name: any, purpose?: string, type?: string)
 export function searchMatch(source: string, query: string, property?: any): boolean {
   if (!query) return true;
   
-  const normalizedQuery = normalizeArabic(query.toLowerCase().replace(/#/g, ''));
+  const normalizedQuery = normalizeArabic(cleanAreaName(query).toLowerCase().replace(/#/g, ''));
   const queryTokens = normalizedQuery.split(/[\s,،;؛|]+/).filter(Boolean);
   if (queryTokens.length === 0) return true;
 
