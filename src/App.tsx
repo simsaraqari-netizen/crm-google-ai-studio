@@ -240,7 +240,7 @@ export default function App() {
   const [hasMoreProperties, setHasMoreProperties] = useState(true);
   const [totalPropertiesCount, setTotalPropertiesCount] = useState<number | null>(null);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
-  const PAGE_SIZE = 50;
+  const PAGE_SIZE = 24;
 
   const [deletedProperties, setDeletedProperties] = useState<Property[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -366,7 +366,7 @@ export default function App() {
     return () => { if (channel) channel.unsubscribe(); };
   }, [isAdmin, isSuperAdmin, selectedCompanyId, user?.companyId, user?.uid]);
 
-  const [visibleCount, setVisibleCount] = useState(50);
+  const [visibleCount, setVisibleCount] = useState(24);
   const [previewImages, setPreviewImages] = useState<string[]>([]);
   const [previewIndex, setPreviewIndex] = useState<number>(0);
   const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; propertyId: string | null }>({
@@ -2568,6 +2568,7 @@ export default function App() {
                           options={availableFilterOptions.areas}
                           value={filters.area}
                           onChange={(val) => setFilters({...filters, area: val})}
+                          creatable={true}
                         />
 
                         <SearchableFilter 
@@ -2590,6 +2591,7 @@ export default function App() {
                             options={availableFilterOptions.locations}
                             value={filters.location}
                             onChange={(val) => setFilters({...filters, location: val})}
+                            creatable={true}
                           />
                         )}
 
@@ -2598,6 +2600,7 @@ export default function App() {
                           options={availableFilterOptions.marketers}
                           value={filters.marketer}
                           onChange={(val) => setFilters({...filters, marketer: val})}
+                          creatable={true}
                         />
 
                         <SearchableFilter 
@@ -2630,10 +2633,10 @@ export default function App() {
               <div className="flex justify-center items-center">
                 <h2 className="text-2xl font-bold serif text-center">
                   {view === 'pending-properties' ? `عقارات قيد المراجعة (${filteredProperties.length})` :
-                   view === 'trash' ? `سلة المحذوفات (${filteredProperties.length})` :
+                   view === 'trash' ? `سلة المحذوفات (${totalPropertiesCount !== null ? totalPropertiesCount : filteredProperties.length})` :
                    !hasSearched ? 'ابحث عن عقار...' :
                    (appliedFilters.query || appliedFilters.governorate || appliedFilters.area || appliedFilters.type || appliedFilters.purpose || appliedFilters.location || appliedFilters.marketer || appliedFilters.status
-                    ? `نتائج البحث (${filteredProperties.length}${totalPropertiesCount !== null && totalPropertiesCount > filteredProperties.length ? ` من ${totalPropertiesCount}` : ''})`
+                    ? `نتائج البحث (${totalPropertiesCount !== null ? totalPropertiesCount : filteredProperties.length})`
                     : `${view === 'list' ? 'كل العقارات' : view === 'my-listings' ? 'عقاراتي' : view === 'my-favorites' ? 'عقاراتي المفضلة' : `عقارات ${employees.find(emp => emp.uid === selectedMarketerId)?.name || 'المستخدم'}`} (${totalPropertiesCount !== null ? totalPropertiesCount : filteredProperties.length})`)}
                 </h2>
               </div>
