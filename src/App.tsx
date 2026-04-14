@@ -1178,7 +1178,10 @@ export default function App() {
         const newName = unifyAbuName(p.name);
         const newFullName = p.full_name ? unifyAbuName(p.full_name) : null;
         if (newName !== p.name || (newFullName && newFullName !== p.full_name)) {
-          await supabase.from('profiles').update({ name: newName, full_name: newFullName }).eq('id', p.id);
+          await supabase.from('profiles').update({ 
+            name: unifyAbuName(newName), 
+            full_name: unifyAbuName(newFullName) 
+          }).eq('id', p.id);
         }
       }
 

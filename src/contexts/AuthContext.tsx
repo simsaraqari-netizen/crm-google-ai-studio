@@ -93,17 +93,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           // Special handling for the main admin account
           if (sbUser.email === 'admin@musadaqa.com') {
-            updates.full_name = 'ابو ادم';
-            updates.name = 'ابو ادم';
+            updates.full_name = unifyAbuName('ابو ادم');
+            updates.name = unifyAbuName('ابو ادم');
             updates.phone = '65814909';
           }
           
           await supabase.from('profiles').update(updates).eq('id', sbUser.id);
           Object.assign(userData, updates);
           // Ensure details are up to date for this specific user even if already super_admin
-          const updates = { full_name: 'ابو ادم', name: 'ابو ادم', phone: '65814909' };
-          await supabase.from('profiles').update(updates).eq('id', sbUser.id);
-          Object.assign(userData, updates);
+          const profileUpdates = { full_name: unifyAbuName('ابو ادم'), name: unifyAbuName('ابو ادم'), phone: '65814909' };
+          await supabase.from('profiles').update(profileUpdates).eq('id', sbUser.id);
+          Object.assign(userData, profileUpdates);
         }
         setUser(userData as UserProfile);
         if (userData.company_id) setSelectedCompanyId(userData.company_id);
@@ -114,8 +114,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const newProfile = {
           id: sbUser.id,
           email: sbUser.email || '',
-          full_name: isAdminAccount ? 'ابو ادم' : unifyAbuName(sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'User'),
-          name: isAdminAccount ? 'ابو ادم' : unifyAbuName(sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'User'),
+          full_name: isAdminAccount ? unifyAbuName('ابو ادم') : unifyAbuName(sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'User'),
+          name: isAdminAccount ? unifyAbuName('ابو ادم') : unifyAbuName(sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'User'),
           phone: isAdminAccount ? '65814909' : '',
           role: isSuper ? 'super_admin' : 'pending',
           created_at: new Date().toISOString()

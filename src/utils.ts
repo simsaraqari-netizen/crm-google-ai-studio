@@ -57,8 +57,8 @@ export function unifyAbuName(name: string): string {
   // 1. Basic Arabic normalization (normalize digits, hamzas, etc.)
   const normalized = normalizeArabic(name.trim());
   // 2. Targeted "Abu" normalization:
-  // If it starts with "ابو " (normalized from "أبو " or "ابو "), remove the space.
-  return normalized.replace(/^ابو\s+/g, "ابو");
+  // Replace all occurrences of "ابو " with "ابو" (removing the space)
+  return normalized.replace(/ابو\s+/g, "ابو");
 }
 
 export function cleanAreaName(name: string): string {

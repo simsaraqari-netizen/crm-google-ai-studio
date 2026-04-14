@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient';
 import { UserProfile } from '../types';
+import { unifyAbuName } from '../utils';
 
 export const userService = {
   async getUsers(isSuperAdmin: boolean, selectedCompanyId: string | null, userCompanyId: string | undefined): Promise<UserProfile[]> {
@@ -17,7 +18,11 @@ export const userService = {
   },
 
   async updateUser(uid: string, updates: Partial<UserProfile>): Promise<void> {
-    const { error } = await supabase.from('profiles').update(updates).eq('id', uid);
+    const unifiedUpdates = { ...updates };
+    if (unifiedUpdates.name) unifiedUpdates.name = unifyAbuName(unifiedUpdates.name);
+    if (unifiedUpdates.full_name) unifiedUpdates.full_name = unifyAbuName(unifiedUpdates.full_name);
+    
+    const { error } = await supabase.from('profiles').update(unifiedUpdates).eq('id', uid);
     if (error) throw error;
   },
 
@@ -31,8 +36,13 @@ export const userService = {
     if (error) throw error;
   },
 
-  async restoreUser(uid: string): Promise<void> {
-    const { error } = await supabase.from('profiles').update({ is_deleted: false, deleted_at: null }).eq('id', uid);
+  async restoreUser(uid: string, newName: string, newFullName: string): Promise<void> {
+    const { error } = await supabase.from('profiles').update({ 
+      is_deleted: false, 
+      deleted_at: null,
+      name: unifyAbuName(newName), 
+      full_name: unifyAbuName(newFullName) 
+    }).eq('id', uid);
     if (error) throw error;
   }
 };
