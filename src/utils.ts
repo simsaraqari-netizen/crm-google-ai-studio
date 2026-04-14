@@ -347,7 +347,8 @@ export function exportToVCard(name: string, phones: string[], notes: string = ''
     'BEGIN:VCARD',
     'VERSION:3.0',
     `FN:${name}`,
-    ...phones.filter(Boolean).map(phone => `TEL;TYPE=CELL:${phone.replace(/\s+/g, '')}`),
+    'ORG:شركة مصادقة العقارية',
+    ...phones.filter(Boolean).map(phone => `TEL;TYPE=CELL:${normalizeDigits(phone).replace(/\s+/g, '')}`),
     `NOTE:${notes.replace(/\n/g, '\\n')}`,
     'PRODID:-//Musadaqa Real Estate CRM//EN',
     'END:VCARD'
