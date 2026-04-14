@@ -14,9 +14,7 @@ import {
   X,
   RefreshCw
 } from 'lucide-react';
-import { UserProfile, Company } from '../types';
-
-type ViewType = 'list' | 'search-results' | 'my-listings' | 'my-favorites' | 'manage-marketers' | 'user-listings' | 'pending-properties' | 'manage-companies' | 'notifications' | 'details' | 'add' | 'edit' | 'company-details' | 'general-notifications' | 'trash';
+import { UserProfile, Company, ViewType } from '../types';
 
 interface SidebarProps {
   view: ViewType;
@@ -44,15 +42,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
   handleLogout
 }) => {
   const menuItems: { id: ViewType; label: string; icon: any; show: boolean; badge?: number }[] = [
+    { id: 'admin-dashboard', label: 'لوحة التحكم', icon: LayoutGrid, show: isAdmin },
     { id: 'list', label: 'كل العقارات', icon: LayoutGrid, show: true },
     { id: 'add', label: 'إضافة عقار', icon: PlusCircle, show: user?.role !== 'pending' },
     { id: 'my-listings', label: 'عقاراتي', icon: LayoutGrid, show: user?.role !== 'pending' },
     { id: 'my-favorites', label: 'المفضلة', icon: Heart, show: true },
     { id: 'notifications', label: 'التنبيهات', icon: Bell, show: true, badge: unreadCount },
-    { id: 'pending-properties', label: 'طلبات المراجعة', icon: ShieldCheck, show: isAdmin },
-    { id: 'manage-companies', label: 'إدارة الشركات', icon: Building2, show: isSuperAdmin },
-    { id: 'manage-marketers', label: 'إدارة المستخدمين', icon: Users, show: isAdmin },
-    { id: 'trash', label: 'سلة المحذوفات', icon: Trash2, show: isAdmin },
+    { id: 'pending-properties', label: 'طلبات المراجعة', icon: ShieldCheck, show: false }, // Hidden by default, accessible via dashboard
+    { id: 'manage-companies', label: 'إدارة الشركات', icon: Building2, show: false }, // Hidden by default, accessible via dashboard
+    { id: 'manage-marketers', label: 'إدارة المستخدمين', icon: Users, show: false }, // Hidden by default, accessible via dashboard
+    { id: 'trash', label: 'سلة المحذوفات', icon: Trash2, show: false }, // Hidden by default, accessible via dashboard
   ];
 
   return (

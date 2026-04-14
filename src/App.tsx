@@ -67,14 +67,12 @@ import { ConfirmModal } from './components/ConfirmModal';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ExportModal } from './components/ExportModal';
+import { AdminDashboard } from './components/AdminDashboard';
 import { 
-  Property, 
-  Company, 
-  Comment as PropertyComment, 
-  UserProfile, 
   Notification, 
   OperationType, 
-  SupabaseErrorInfo 
+  SupabaseErrorInfo,
+  ViewType
 } from './types';
 
 
@@ -245,12 +243,12 @@ export default function App() {
   const [deletedProperties, setDeletedProperties] = useState<Property[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [employees, setEmployees] = useState<UserProfile[]>([]);
-  const [view, setView] = useState<'list' | 'add' | 'edit' | 'details' | 'my-listings' | 'my-favorites' | 'search-results' | 'manage-marketers' | 'user-listings' | 'pending-properties' | 'manage-companies' | 'notifications' | 'trash'>('list');
+  const [view, setView] = useState<ViewType>('list');
   const [isAddingUserToCompany, setIsAddingUserToCompany] = useState(false);
   const [targetCompanyForUser, setTargetCompanyForUser] = useState<any>(null);
   const [isEditingCompany, setIsEditingCompany] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
-  const [prevView, setPrevView] = useState<'list' | 'search-results' | 'my-listings' | 'my-favorites' | 'manage-marketers' | 'user-listings' | 'pending-properties' | 'manage-companies' | 'notifications'>('list');
+  const [prevView, setPrevView] = useState<ViewType>('list');
   const [selectedMarketerId, setSelectedMarketerId] = useState<string>('');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isSyncManagementOpen, setIsSyncManagementOpen] = useState(false);
@@ -3195,6 +3193,23 @@ export default function App() {
                 )}
               </AnimatePresence>
             </motion.div>
+          )}
+
+          {view === 'admin-dashboard' && isAdmin && (
+            <AdminDashboard 
+              isAdmin={isAdmin}
+              isSuperAdmin={isSuperAdmin}
+              stats={{
+                pendingCount: properties.filter(p => p.status === 'pending').length,
+                employeeCount: employees.length,
+                companyCount: companies.length,
+                duplicateCount: duplicateCodesCount
+              }}
+              setView={setView}
+              onRepairCodes={repairPropertyCodes}
+              onNormalizeNames={handleNormalizeAllNames}
+              onSyncNow={() => setIsSyncModalOpen(true)}
+            />
           )}
 
           {view === 'manage-marketers' && isAdmin && (

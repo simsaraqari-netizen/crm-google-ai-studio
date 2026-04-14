@@ -153,3 +153,5 @@ export interface SupabaseErrorInfo {
     }[];
   }
 }
+
+export type ViewType = 'list' | 'search-results' | 'my-listings' | 'my-favorites' | 'manage-marketers' | 'user-listings' | 'pending-properties' | 'manage-companies' | 'notifications' | 'details' | 'add' | 'edit' | 'company-details' | 'general-notifications' | 'trash' | 'admin-dashboard';
