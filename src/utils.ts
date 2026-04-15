@@ -64,9 +64,17 @@ export function unifyAbuName(name: string): string {
 export function cleanAreaName(name: string): string {
   if (!name) return "";
   // Remove keywords like "مدينة", "ضاحية", etc. and normalize spaces
-  return name.replace(/(مدينة|المدينة|ضاحية|منطقة)\s+/g, " ")
+  let cleaned = name.replace(/(مدينة|المدينة|ضاحية|منطقة)\s+/g, " ")
              .replace(/\s+/g, " ")
              .trim();
+
+  // Merge "توسعة الوفرة" into "الوفرة" as per user request
+  const normalized = normalizeArabic(cleaned);
+  if (normalized.includes("توسعه الوفره") || normalized === "توسعه الوفره") {
+    return "الوفرة";
+  }
+
+  return cleaned;
 }
 
 export function splitMultiValue(value: any): string[] {
