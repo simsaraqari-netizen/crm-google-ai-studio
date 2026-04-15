@@ -57,6 +57,16 @@ import { normalizeArabic, unifyAbuName, cleanAreaName, searchMatch, normalizeDig
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+import { 
+  Property, 
+  Company, 
+  UserProfile, 
+  ViewType, 
+  Notification,
+  OperationType, 
+  SupabaseErrorInfo 
+} from './types';
+
 import { PropertyCard } from './components/PropertyCard';
 import { PropertyForm } from './components/PropertyForm';
 import { PropertyDetails } from './components/PropertyDetails';
@@ -68,12 +78,10 @@ import { LoadingSpinner } from './components/LoadingSpinner';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ExportModal } from './components/ExportModal';
 import { AdminDashboard } from './components/AdminDashboard';
-import { 
-  Notification, 
-  OperationType, 
-  SupabaseErrorInfo,
-  ViewType
-} from './types';
+import { Sidebar } from './components/Sidebar';
+import { UserManagement } from './components/UserManagement';
+import { ManageCompaniesView } from './components/ManageCompaniesView';
+import { Header } from './components/Header';
 
 
 
@@ -530,6 +538,7 @@ export default function App() {
 
             // Map Supabase snake_case to app camelCase
             const mappedUser: UserProfile = {
+              id: profileData.id,
               uid: profileData.id,
               email: sbUser.email || '',
               name: profileData.name || 'User',
@@ -564,6 +573,7 @@ export default function App() {
             if (insertError) throw insertError;
 
             const mappedUser: UserProfile = {
+              id: newProfile.id,
               uid: newProfile.id,
               email: newProfile.email,
               name: newProfile.name,
@@ -645,6 +655,7 @@ export default function App() {
             }
 
             const mappedUser: UserProfile = {
+              id: profileData.id,
               uid: profileData.id,
               email: sbUser.email || '',
               name: profileData.name || 'User',
@@ -751,8 +762,14 @@ export default function App() {
         }
 
         // 2. Dashboard Filters (Server-side)
-        if (appliedFilters.governorate) queryBuilder = queryBuilder.eq('governorate', appliedFilters.governorate);
-        if (appliedFilters.area) queryBuilder = queryBuilder.eq('area', appliedFilters.area);
+        if (appliedFilters.governorate) {
+          const gNorm = normalizeArabic(appliedFilters.governorate);
+          queryBuilder = queryBuilder.ilike('governorate', `%${gNorm}%`);
+        }
+        if (appliedFilters.area) {
+          const aNorm = normalizeArabic(cleanAreaName(appliedFilters.area));
+          queryBuilder = queryBuilder.ilike('area', `%${aNorm}%`);
+        }
         if (appliedFilters.type) queryBuilder = queryBuilder.eq('type', appliedFilters.type);
         if (appliedFilters.purpose) queryBuilder = queryBuilder.eq('purpose', appliedFilters.purpose);
         if (appliedFilters.location) queryBuilder = queryBuilder.eq('location', appliedFilters.location);
@@ -762,7 +779,7 @@ export default function App() {
 
         // 3. Search Query / Terms
         if (appliedFilters.query) {
-          const q = appliedFilters.query.trim();
+          const q = normalizeArabic(appliedFilters.query.trim());
           const isDigitOnly = /^\d+$/.test(q);
           
           // Base terms: name, area, details (removed property_code)
@@ -1083,6 +1100,7 @@ export default function App() {
           }
 
           const userData: UserProfile = {
+            id: userId,
             uid: userId,
             email: generatedEmail,
             name: username,
@@ -1138,6 +1156,7 @@ export default function App() {
             }
 
             const mappedUser: UserProfile = {
+              id: profileData.id,
               uid: profileData.id,
               email: sbUser.email || '',
               name: profileData.name || 'User',

@@ -431,13 +431,17 @@ export const syncSupabaseWithSheets = async () => {
         let finalGov = existing?.governorate || '';
 
         if (rawArea) {
-          // normalizeHamza: treat أ/إ/آ as ا when storing area values (e.g. أشبيلية → اشبيلية)
-          const areas = splitMultiValue(rawArea).map(a => normalizeHamza(cleanAreaName(a)));
+          // normalizeArabic: unifies Hamzas, ة/ه, etc.
+          const areas = splitMultiValue(rawArea).map(a => normalizeArabic(cleanAreaName(a)));
           finalArea = Array.from(new Set(areas)).join(', ');
           finalGov = inferGovernorate(finalArea, cleanStr(governorate));
         } else if (cleanStr(governorate)) {
           finalGov = cleanStr(governorate);
         }
+
+        // Final normalization to ensure consistency in DB
+        finalArea = normalizeArabic(finalArea);
+        finalGov = normalizeArabic(finalGov);
 
         // Multi-employee handling
         const rawEmployeeName = cleanStr(assigned_employee_name);

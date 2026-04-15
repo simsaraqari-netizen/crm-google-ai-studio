@@ -49,6 +49,8 @@ export interface Property {
   created_by_name?: string;
   createdAt?: any;
   created_at?: any;
+  property_code?: string | number;
+  propertyCode?: string | number;
 }
 
 export interface Company {
@@ -114,6 +116,7 @@ export interface Notification {
   propertyId?: string;
   read: boolean;
   createdAt: any;
+  created_at?: any;
 }
 
 export interface FilterOptions {
